@@ -274,7 +274,7 @@ function AssessmentCard({ assessment }) {
    communicates count, not fake progress (we don't track per-assessment
    completion, so every dot stays open/unfilled — same as LeetCode's own
    "0/35 Levels" untouched state). */
-function CategoryTile({ category, count, index, onSelect }) {
+function CategoryTile({ category, count, index, isGenerating, onSelect }) {
   const gradient = CATEGORY_GRADIENTS[index % CATEGORY_GRADIENTS.length];
   const iconStyle = CATEGORY_ICON_STYLES[index % CATEGORY_ICON_STYLES.length];
   const iconPath = CATEGORY_ICON_PATHS[index % CATEGORY_ICON_PATHS.length];
@@ -305,13 +305,24 @@ function CategoryTile({ category, count, index, onSelect }) {
         ))}
       </div>
 
-      <a
-        href="#explore"
+      <button
+        type="button"
+        disabled={isGenerating}
         onClick={() => onSelect(category)}
-        className={`mt-5 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r ${gradient} px-4 py-1.5 text-sm font-semibold text-white`}
+        className={`mt-5 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r ${gradient} px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-75`}
       >
-        Start
-      </a>
+        {isGenerating ? (
+          <>
+            <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+            </svg>
+            <span>Generating AI...</span>
+          </>
+        ) : (
+          <span>Start AI Practice</span>
+        )}
+      </button>
     </div>
   );
 }
@@ -324,25 +335,33 @@ function DayCell({ daily, onDailyClick }) {
   const isFuture = daily.isFuture;
   const isCompleted = daily.status === "Completed";
 
+  // Build YYYY-MM-DD for this day cell
+  const now = new Date();
+  const dateStr = daily.day
+    ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(daily.day).padStart(2, "0")}`
+    : null;
+
   const content = (
     <div className="flex flex-col items-center justify-center gap-0.5 py-0.5">
       <span
-        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors ${
-          daily.isToday
-            ? "bg-[var(--color-primary-600)] text-white"
-            : isCompleted
-              ? "bg-green-100 text-green-700"
-              : isFuture
-                ? "text-[var(--color-text-light)] opacity-40"
-                : "text-[var(--color-text-h)] hover:bg-[var(--color-primary-50)] hover:text-[var(--color-primary-600)] cursor-pointer"
+        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all duration-200 ${
+          daily.isToday && isCompleted
+            ? "bg-green-500 text-white ring-2 ring-green-400 ring-offset-1 shadow-md shadow-green-300/50"
+            : daily.isToday
+              ? "bg-[var(--color-primary-600)] text-white shadow-md"
+              : isCompleted
+                ? "bg-green-500 text-white shadow-sm shadow-green-300/60"
+                : isFuture
+                  ? "text-[var(--color-text-light)] opacity-35"
+                  : "text-[var(--color-text-h)] hover:bg-[var(--color-primary-50)] hover:text-[var(--color-primary-600)] cursor-pointer"
         }`}
       >
-        {daily.day}
+        {isCompleted ? "✓" : daily.day}
       </span>
       <span
-        className={`h-1 w-1 rounded-full ${
+        className={`h-1.5 w-1.5 rounded-full ${
           isCompleted
-            ? "bg-green-500"
+            ? "bg-green-400 shadow-sm shadow-green-400"
             : isFuture
               ? "bg-transparent"
               : "bg-[var(--color-primary-400)]"
@@ -356,10 +375,10 @@ function DayCell({ daily, onDailyClick }) {
     return <div title={`Day ${daily.day} — upcoming`}>{content}</div>;
   }
 
-  // Past and today: clicking generates a daily challenge
+  // Past and today: clicking generates a daily challenge for this specific date
   return (
     <div
-      onClick={() => onDailyClick && onDailyClick()}
+      onClick={() => onDailyClick && onDailyClick(dateStr)}
       className="block cursor-pointer"
       title={isCompleted ? `Day ${daily.day} — Completed ✓` : `Day ${daily.day} — Click to start a challenge`}
     >
@@ -513,6 +532,7 @@ export default function AssessmentPage() {
   const [aiCount, setAiCount] = useState(5);
   const [aiError, setAiError] = useState("");
   const [isGeneratingDaily, setIsGeneratingDaily] = useState(false);
+  const [generatingCategory, setGeneratingCategory] = useState(null);
 
   const [userStats, setUserStats] = useState({
     completedCount: 0,
@@ -608,7 +628,19 @@ export default function AssessmentPage() {
     };
   }, []);
 
-  const categories = useMemo(() => ["All", ...new Set(assessments.map((assessment) => assessment.category))], [assessments]);
+  const DEFAULT_TRACK_CATEGORIES = [
+    "Frontend Development",
+    "Data Structures & Algorithms",
+    "Backend Development",
+    "System Design",
+    "Database Systems"
+  ];
+
+  const categories = useMemo(() => {
+    const existingCats = assessments.map((assessment) => assessment.category).filter(Boolean);
+    const combined = Array.from(new Set([...DEFAULT_TRACK_CATEGORIES, ...existingCats]));
+    return ["All", ...combined];
+  }, [assessments]);
   
   // Removed static recommended logic since we fetch it from backend now
 
@@ -640,17 +672,32 @@ export default function AssessmentPage() {
     }
   };
 
-  const handleCategorySelect = (c) => {
-    setAiField(profile.field || "Software Development");
-    setAiTopic(c);
-    const el = document.getElementById("generate-ai");
-    if (el) el.scrollIntoView({ behavior: "smooth" });
+  const handleCategorySelect = async (categoryName) => {
+    setGeneratingCategory(categoryName);
+    try {
+      const userField = profile?.field || "Software Development";
+      const res = await assessmentApi.generateAI({
+        field: userField,
+        topic: categoryName,
+        difficulty: "Medium",
+        count: 5
+      });
+      if (res.success && res.assessmentId) {
+        window.location.href = `/assessment/${res.assessmentId}`;
+      } else {
+        alert(res.error || res.message || `Failed to generate AI assessment for ${categoryName}`);
+      }
+    } catch (err) {
+      alert(`An error occurred while generating AI assessment for ${categoryName}`);
+    } finally {
+      setGeneratingCategory(null);
+    }
   };
 
-  const handleGenerateDaily = async () => {
+  const handleGenerateDaily = async (targetDate) => {
     setIsGeneratingDaily(true);
     try {
-      const res = await assessmentApi.generateDailyAI();
+      const res = await assessmentApi.generateDailyAI(targetDate || undefined);
       if (res.success && res.assessmentId) {
         window.location.href = `/assessment/${res.assessmentId}`;
       } else {
@@ -733,7 +780,7 @@ export default function AssessmentPage() {
     }
 
     return calendar;
-  }, []);
+  }, [completedDailyDates]);
 
   const weekDays = monthlyCalendar;
 
@@ -878,6 +925,7 @@ export default function AssessmentPage() {
                     category={c}
                     count={count}
                     index={i}
+                    isGenerating={generatingCategory === c}
                     onSelect={() => handleCategorySelect(c)}
                   />
                 );
@@ -1042,29 +1090,37 @@ export default function AssessmentPage() {
                       <div
                         key={index}
                         className={`flex flex-col items-center gap-1 ${!d.isPadding && !d.isFuture ? "cursor-pointer group" : ""}`}
-                        onClick={() => !d.isPadding && !d.isFuture && handleGenerateDaily()}
+                        onClick={() => {
+                          if (!d.isPadding && !d.isFuture && d.day) {
+                            const n = new Date();
+                            const ds = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+                            handleGenerateDaily(ds);
+                          }
+                        }}
                         title={d.isPadding ? "" : d.isFuture ? "Future day" : d.status === "Completed" ? `Day ${d.day} — Completed` : `Day ${d.day} — Click to start challenge`}
                       >
                         <span
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all duration-200 ${
                             d.isPadding
                               ? "invisible"
-                              : d.isToday
-                                ? "bg-[var(--color-primary-600)] text-white"
-                                : d.status === "Completed"
-                                  ? "bg-green-100 text-green-700"
-                                  : d.isFuture
-                                    ? "text-[var(--color-text-light)] opacity-40"
-                                    : "text-[var(--color-text-h)] group-hover:bg-[var(--color-primary-50)] group-hover:text-[var(--color-primary-600)]"
+                              : d.isToday && d.status === "Completed"
+                                ? "bg-green-500 text-white ring-2 ring-green-400 ring-offset-1 shadow-md shadow-green-300/50"
+                                : d.isToday
+                                  ? "bg-[var(--color-primary-600)] text-white shadow-md"
+                                  : d.status === "Completed"
+                                    ? "bg-green-500 text-white shadow-sm shadow-green-300/60"
+                                    : d.isFuture
+                                      ? "text-[var(--color-text-light)] opacity-35"
+                                      : "text-[var(--color-text-h)] group-hover:bg-[var(--color-primary-50)] group-hover:text-[var(--color-primary-600)]"
                           }`}
                         >
-                          {d.day}
+                          {d.status === "Completed" ? "✓" : d.day}
                         </span>
                         {!d.isPadding && (
                           <span
-                            className={`h-1 w-1 rounded-full ${
+                            className={`h-1.5 w-1.5 rounded-full ${
                               d.status === "Completed"
-                                ? "bg-green-500"
+                                ? "bg-green-400 shadow-sm shadow-green-400"
                                 : d.isFuture
                                   ? "bg-transparent"
                                   : "bg-[var(--color-primary-400)]"

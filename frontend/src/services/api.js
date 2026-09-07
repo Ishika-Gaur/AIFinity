@@ -129,7 +129,7 @@ export const assessmentApi = {
   remove: (id) => request(`/assessments/admin/${id}`, { method: "DELETE" }),
   getPersonalized: () => request("/assessments/personalized"),
   generateAI: (payload) => request("/assessments/generate-ai", { method: "POST", body: JSON.stringify(payload) }),
-  generateDailyAI: () => request("/assessments/daily-generate", { method: "POST" }),
+  generateDailyAI: (targetDate) => request("/assessments/daily-generate", { method: "POST", body: JSON.stringify(targetDate ? { targetDate } : {}) }),
   getDailyStatus: () => request("/assessments/daily-status"),
 };
 

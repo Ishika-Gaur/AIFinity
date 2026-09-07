@@ -12,25 +12,33 @@ function DayCell({ daily, onDailyClick }) {
   const isFuture = daily.isFuture;
   const isCompleted = daily.status === "Completed";
 
+  // Build YYYY-MM-DD for this day cell
+  const now = new Date();
+  const dateStr = daily.day
+    ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(daily.day).padStart(2, "0")}`
+    : null;
+
   const content = (
     <div className="flex flex-col items-center justify-center gap-0.5 py-0.5">
       <span
-        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors ${
-          daily.isToday
-            ? "bg-[var(--color-primary-600)] text-white"
-            : isCompleted
-              ? "bg-green-100 text-green-700"
-              : isFuture
-                ? "text-[var(--color-text-light)] opacity-40"
-                : "text-[var(--color-text-h)] hover:bg-[var(--color-primary-50)] hover:text-[var(--color-primary-600)] cursor-pointer"
+        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all duration-200 ${
+          daily.isToday && isCompleted
+            ? "bg-green-500 text-white ring-2 ring-green-400 ring-offset-1 shadow-md shadow-green-300/50"
+            : daily.isToday
+              ? "bg-[var(--color-primary-600)] text-white shadow-md"
+              : isCompleted
+                ? "bg-green-500 text-white shadow-sm shadow-green-300/60"
+                : isFuture
+                  ? "text-[var(--color-text-light)] opacity-35"
+                  : "text-[var(--color-text-h)] hover:bg-[var(--color-primary-50)] hover:text-[var(--color-primary-600)] cursor-pointer"
         }`}
       >
-        {daily.day}
+        {isCompleted ? "✓" : daily.day}
       </span>
       <span
-        className={`h-1 w-1 rounded-full ${
+        className={`h-1.5 w-1.5 rounded-full ${
           isCompleted
-            ? "bg-green-500"
+            ? "bg-green-400 shadow-sm shadow-green-400"
             : isFuture
               ? "bg-transparent"
               : "bg-[var(--color-primary-400)]"
@@ -43,10 +51,10 @@ function DayCell({ daily, onDailyClick }) {
     return <div title={`Day ${daily.day} — upcoming`}>{content}</div>;
   }
 
-  // Past and today: clicking generates a daily challenge
+  // Past and today: clicking generates a daily challenge for this specific date
   return (
     <div
-      onClick={() => onDailyClick && onDailyClick()}
+      onClick={() => onDailyClick && onDailyClick(dateStr)}
       className="block cursor-pointer"
       title={isCompleted ? `Day ${daily.day} — Completed ✓` : `Day ${daily.day} — Click to start a challenge`}
     >

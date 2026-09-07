@@ -611,14 +611,46 @@ function validateAssessment(data) {
   if (!Array.isArray(data.questions) || data.questions.length === 0) {
     errors.push("At least one question is required.");
   } else {
+    const allowedTypes = ["mcq", "true-false", "short-answer", "long-answer", "coding", "scenario", "logical-reasoning", "data-interpretation", "problem-solving", "conceptual"]; // extend as needed
     data.questions.forEach((q, idx) => {
       if (!q.question || typeof q.question !== "string" || !q.question.trim()) {
         errors.push(`Question ${idx + 1}: text is required.`);
       }
-      if (Array.isArray(q.options) && q.options.length > 0) {
-        const hasValidAnswer = q.answer !== undefined && q.answer !== null;
-        if (!hasValidAnswer) {
-          errors.push(`Question ${idx + 1}: answer is required when options are provided.`);
+      // Type validation
+      if (!q.type || typeof q.type !== "string" || !allowedTypes.includes(q.type.toLowerCase())) {
+        errors.push(`Question ${idx + 1}: type is required and must be one of ${allowedTypes.join(", ")}.`);
+      }
+      const type = q.type ? q.type.toLowerCase() : "";
+      // MCQ specific checks
+      if (type === "mcq") {
+        if (!Array.isArray(q.options) || q.options.length < 2) {
+          errors.push(`Question ${idx + 1}: MCQ must have at least two options.`);
+        }
+      }
+      // True/False can have optional options but ensure answer is boolean or matches true/false string
+      if (type === "true-false") {
+        const validAnswers = [true, false, "true", "false", "True", "False", 0, 1, "0", "1"];
+        if (!validAnswers.includes(q.answer)) {
+          errors.push(`Question ${idx + 1}: answer must be a boolean value for true-false type.`);
+        }
+      }
+      // General answer validation for non-MCQ types (allow any non‑empty answer)
+      if (type !== "mcq" && type !== "true-false") {
+        if (q.answer === undefined || q.answer === null || (typeof q.answer === "string" && !q.answer.trim())) {
+          errors.push(`Question ${idx + 1}: answer is required.`);
+        }
+      }
+      // For MCQ, ensure answer matches an option
+      if (type === "mcq") {
+        if (q.answer === undefined || q.answer === null) {
+          errors.push(`Question ${idx + 1}: answer is required.`);
+        } else {
+          if (typeof q.answer === "number" && (q.answer < 0 || q.answer >= (q.options ? q.options.length : 0))) {
+            errors.push(`Question ${idx + 1}: answer index out of bounds.`);
+          }
+          if (typeof q.answer === "string" && (!Array.isArray(q.options) || !q.options.includes(q.answer))) {
+            errors.push(`Question ${idx + 1}: answer must match one of the provided options.`);
+          }
         }
       }
     });
@@ -830,9 +862,18 @@ export async function generateDailyAIAssessment(req, res) {
     const userId = req.user._id;
     const userField = req.user.selectedField || "Software Development";
     
-    // Calculate today's string
-    const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-    const dailyCategory = `DailyChallenge-${todayStr}`;
+    // Accept optional targetDate from body (for completing missed past days)
+    // Format: YYYY-MM-DD. Defaults to today if not provided.
+    const todayStr = new Date().toISOString().split("T")[0];
+    const requestedDate = req.body.targetDate || todayStr;
+    
+    // Validate that the date is not in the future
+    if (requestedDate > todayStr) {
+      return res.status(400).json({ success: false, message: "Cannot generate assessment for a future date." });
+    }
+    
+    const dailyCategory = `DailyChallenge-${requestedDate}`;
+
 
     // 1. Check if one already exists for today
     const existing = await Assessment.findOne({
@@ -886,7 +927,7 @@ export async function generateDailyAIAssessment(req, res) {
 
     // 4. Save
     const assessment = new Assessment({
-      title: `Daily Challenge - ${todayStr}`,
+      title: `Daily Challenge - ${requestedDate}`,
       description: `Your personalized daily challenge for ${targetTopic}.`,
       field: userField,
       category: dailyCategory,
