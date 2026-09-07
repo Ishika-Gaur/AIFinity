@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Assessment from "../models/Assessment.js";
 import AttemptResult from "../models/AttemptResult.js";
 import { generatePersonalizedRoadmap } from "./analyticsController.js";
-import { generateQuestions } from "../services/geminiService.js";
+import { generateQuestions, evaluateAssessmentWithAI } from "../services/geminiService.js";
 
 // Active in-memory attempt sessions cache for server-side evaluation
 const activeAttemptSessions = new Map();
@@ -523,7 +523,11 @@ export async function submitAttempt(req, res) {
     correctCount,
     incorrectCount,
     unansweredCount,
+    attemptedCount: totalQuestions - unansweredCount,
     answeredCount: totalQuestions - unansweredCount,
+    gradableCount: totalQuestions,
+    attemptedGradableCount: totalQuestions - unansweredCount,
+    unansweredTotalCount: unansweredCount,
     totalQuestions,
     questionResults,
     elapsedSeconds,
@@ -607,14 +611,46 @@ function validateAssessment(data) {
   if (!Array.isArray(data.questions) || data.questions.length === 0) {
     errors.push("At least one question is required.");
   } else {
+    const allowedTypes = ["mcq", "true-false", "short-answer", "long-answer", "coding", "scenario", "logical-reasoning", "data-interpretation", "problem-solving", "conceptual"]; // extend as needed
     data.questions.forEach((q, idx) => {
       if (!q.question || typeof q.question !== "string" || !q.question.trim()) {
         errors.push(`Question ${idx + 1}: text is required.`);
       }
-      if (Array.isArray(q.options) && q.options.length > 0) {
-        const hasValidAnswer = q.answer !== undefined && q.answer !== null;
-        if (!hasValidAnswer) {
-          errors.push(`Question ${idx + 1}: answer is required when options are provided.`);
+      // Type validation
+      if (!q.type || typeof q.type !== "string" || !allowedTypes.includes(q.type.toLowerCase())) {
+        errors.push(`Question ${idx + 1}: type is required and must be one of ${allowedTypes.join(", ")}.`);
+      }
+      const type = q.type ? q.type.toLowerCase() : "";
+      // MCQ specific checks
+      if (type === "mcq") {
+        if (!Array.isArray(q.options) || q.options.length < 2) {
+          errors.push(`Question ${idx + 1}: MCQ must have at least two options.`);
+        }
+      }
+      // True/False can have optional options but ensure answer is boolean or matches true/false string
+      if (type === "true-false") {
+        const validAnswers = [true, false, "true", "false", "True", "False", 0, 1, "0", "1"];
+        if (!validAnswers.includes(q.answer)) {
+          errors.push(`Question ${idx + 1}: answer must be a boolean value for true-false type.`);
+        }
+      }
+      // General answer validation for non-MCQ types (allow any non‑empty answer)
+      if (type !== "mcq" && type !== "true-false") {
+        if (q.answer === undefined || q.answer === null || (typeof q.answer === "string" && !q.answer.trim())) {
+          errors.push(`Question ${idx + 1}: answer is required.`);
+        }
+      }
+      // For MCQ, ensure answer matches an option
+      if (type === "mcq") {
+        if (q.answer === undefined || q.answer === null) {
+          errors.push(`Question ${idx + 1}: answer is required.`);
+        } else {
+          if (typeof q.answer === "number" && (q.answer < 0 || q.answer >= (q.options ? q.options.length : 0))) {
+            errors.push(`Question ${idx + 1}: answer index out of bounds.`);
+          }
+          if (typeof q.answer === "string" && (!Array.isArray(q.options) || !q.options.includes(q.answer))) {
+            errors.push(`Question ${idx + 1}: answer must match one of the provided options.`);
+          }
         }
       }
     });
@@ -695,13 +731,16 @@ export async function generateAIAssessment(req, res) {
       const qDifficulty = q.difficulty || difficulty;
       const qTopic = q.topic || topic;
       return {
-        type: "mcq",
+        type: q.type || "mcq",
         difficulty: ["Easy", "Medium", "Hard"].includes(qDifficulty) ? qDifficulty : "Medium",
         concept: qTopic,
         question: q.question,
-        options: q.options,
-        answer: q.correctAnswer,
+        options: Array.isArray(q.options) ? q.options : [],
+        answer: q.correctAnswer || (Array.isArray(q.options) ? q.options[0] : ""),
         context: q.explanation || "",
+        explanation: q.explanation || "",
+        hints: q.hints || [],
+        codeSnippet: q.codeSnippet || "",
       };
     });
 
@@ -823,9 +862,18 @@ export async function generateDailyAIAssessment(req, res) {
     const userId = req.user._id;
     const userField = req.user.selectedField || "Software Development";
     
-    // Calculate today's string
-    const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-    const dailyCategory = `DailyChallenge-${todayStr}`;
+    // Accept optional targetDate from body (for completing missed past days)
+    // Format: YYYY-MM-DD. Defaults to today if not provided.
+    const todayStr = new Date().toISOString().split("T")[0];
+    const requestedDate = req.body.targetDate || todayStr;
+    
+    // Validate that the date is not in the future
+    if (requestedDate > todayStr) {
+      return res.status(400).json({ success: false, message: "Cannot generate assessment for a future date." });
+    }
+    
+    const dailyCategory = `DailyChallenge-${requestedDate}`;
+
 
     // 1. Check if one already exists for today
     const existing = await Assessment.findOne({
@@ -864,19 +912,22 @@ export async function generateDailyAIAssessment(req, res) {
 
     const formattedQuestions = generatedData.questions.map((q) => {
       return {
-        type: "mcq",
+        type: q.type || "mcq",
         difficulty: ["Easy", "Medium", "Hard"].includes(q.difficulty) ? q.difficulty : "Medium",
         concept: q.topic || targetTopic,
         question: q.question,
-        options: q.options,
-        answer: q.correctAnswer,
+        options: Array.isArray(q.options) ? q.options : [],
+        answer: q.correctAnswer || (Array.isArray(q.options) ? q.options[0] : ""),
         context: q.explanation || "",
+        explanation: q.explanation || "",
+        hints: q.hints || [],
+        codeSnippet: q.codeSnippet || "",
       };
     });
 
     // 4. Save
     const assessment = new Assessment({
-      title: `Daily Challenge - ${todayStr}`,
+      title: `Daily Challenge - ${requestedDate}`,
       description: `Your personalized daily challenge for ${targetTopic}.`,
       field: userField,
       category: dailyCategory,
@@ -917,5 +968,219 @@ export async function getDailyAssessmentStatus(req, res) {
   } catch (error) {
     console.error("Daily Status Error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch daily status" });
+  }
+}
+
+/**
+ * AI ASSESSMENT EVALUATOR
+ * Submits the completed attempt to Gemini for intelligent grading.
+ * Merges AI feedback into the standard questionResults shape so the
+ * frontend requires zero changes.
+ *
+ * POST /assessments/:id/evaluate-ai
+ * Body: { attemptId, responses: { [questionId]: userAnswer }, elapsedSeconds, violations }
+ */
+export async function evaluateAttemptWithAI(req, res) {
+  try {
+    const {
+      attemptId,
+      responses = {},
+      elapsedSeconds = 0,
+      violations = [],
+      assessmentTitle: bodyTitle,
+      assessmentCategory: bodyCategory,
+      assessmentField: bodyField,
+    } = req.body;
+
+    const targetId = req.params.id;
+    let assessment = null;
+
+    if (mongoose.Types.ObjectId.isValid(targetId)) {
+      assessment = await Assessment.findById(targetId);
+    }
+    if (!assessment) {
+      assessment = await Assessment.findOne({
+        $or: [
+          { category: new RegExp(targetId, "i") },
+          { field: new RegExp(targetId, "i") },
+          { title: new RegExp(targetId, "i") },
+        ],
+      });
+    }
+
+    const session = activeAttemptSessions.get(attemptId);
+    const rawQuestions = assessment?.questions || [];
+
+    // -----------------------------------------------------------------------
+    // Step 1: Run deterministic evaluation (same logic as submitAttempt)
+    // -----------------------------------------------------------------------
+    const questionResults = [];
+    let totalScore = 0;
+    let maxScore = 0;
+    let correctCount = 0;
+    let incorrectCount = 0;
+    let unansweredCount = 0;
+
+    rawQuestions.forEach((q) => {
+      const qId = String(q._id || q.id);
+      const userResp = responses[qId];
+      const sessionQ = session?.answersMap?.get(qId) ?? null;
+
+      const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
+      evalResult.concept = q.concept || sessionQ?.concept || assessment?.category || bodyCategory || "General";
+      questionResults.push(evalResult);
+
+      totalScore += evalResult.marksAwarded;
+      maxScore += evalResult.maxMarks;
+
+      if (evalResult.status === "correct" || evalResult.marksAwarded >= 7) correctCount++;
+      else if (evalResult.status === "unanswered") unansweredCount++;
+      else incorrectCount++;
+    });
+
+    const totalQuestions = rawQuestions.length || 1;
+    if (maxScore === 0) maxScore = totalQuestions * 10;
+
+    // -----------------------------------------------------------------------
+    // Step 2: Call Gemini for AI evaluation — merge results
+    // -----------------------------------------------------------------------
+    let overallFeedback = null;
+    let overallRating = null;
+    let strengths = [];
+    let areasToImprove = [];
+    let aiEvalApplied = false;
+
+    try {
+      const aiResult = await evaluateAssessmentWithAI({
+        assessmentTitle: assessment?.title || bodyTitle || targetId,
+        assessmentCategory: assessment?.category || bodyCategory || "General",
+        questions: rawQuestions,
+        userAnswers: responses,
+      });
+
+      overallFeedback = aiResult.overallFeedback;
+      overallRating = aiResult.overallRating;
+      strengths = Array.isArray(aiResult.strengths) ? aiResult.strengths : [];
+      areasToImprove = Array.isArray(aiResult.areasToImprove) ? aiResult.areasToImprove : [];
+
+      // Build a lookup map from Gemini's per-question evaluations
+      const aiMap = new Map();
+      (aiResult.questionEvaluations || []).forEach((ev) => {
+        aiMap.set(String(ev.questionId), ev);
+      });
+
+      // Merge AI feedback into each question result
+      let aiTotalScore = 0;
+      let aiCorrectCount = 0;
+      let aiIncorrectCount = 0;
+
+      questionResults.forEach((qr) => {
+        const aiEval = aiMap.get(String(qr.questionId));
+        if (aiEval) {
+          qr.aiFeedback = aiEval.aiFeedback;
+          qr.keyPointsMissed = aiEval.keyPointsMissed || [];
+          qr.aiScore = aiEval.aiScore;
+
+          // For descriptive/conceptual question types, override marks with AI score
+          if (["long_answer", "short_answer", "code", "descriptive"].includes(qr.type)) {
+            qr.marksAwarded = Math.min(10, Math.max(0, Math.round(aiEval.aiScore)));
+            qr.status = aiEval.status;
+            qr.isCorrect = aiEval.status !== "incorrect";
+            qr.explanation = aiEval.aiFeedback;
+          }
+        }
+
+        aiTotalScore += qr.marksAwarded;
+        if (qr.status === "correct" || qr.marksAwarded >= 7) aiCorrectCount++;
+        else if (qr.status !== "unanswered") aiIncorrectCount++;
+      });
+
+      // Recalculate totals with AI-adjusted marks
+      totalScore = aiTotalScore;
+      correctCount = aiCorrectCount;
+      incorrectCount = aiIncorrectCount;
+      aiEvalApplied = true;
+    } catch (aiErr) {
+      console.error("[AI Evaluator] Gemini evaluation failed, falling back to deterministic scoring:", aiErr.message);
+      overallFeedback = "AI evaluation is temporarily unavailable. Scores shown are based on automated grading.";
+      overallRating = null;
+    }
+
+    const percentage = maxScore > 0 ? Math.min(100, Math.round((totalScore / maxScore) * 100)) : 0;
+    const attemptedCount = totalQuestions - unansweredCount;
+
+    // Clean up session
+    if (attemptId) activeAttemptSessions.delete(attemptId);
+
+    const title    = assessment?.title    || bodyTitle    || `Assessment (${targetId})`;
+    const category = assessment?.category || bodyCategory || "General";
+    const field    = assessment?.field    || bodyField    || "";
+
+    // -----------------------------------------------------------------------
+    // Step 3: Persist attempt result with full AI telemetry
+    // -----------------------------------------------------------------------
+    if (req.user) {
+      try {
+        await AttemptResult.create({
+          userId: req.user._id,
+          assessmentId: assessment?._id,
+          assessmentTitle: title,
+          assessmentCategory: category,
+          assessmentField: field,
+          scorePercent: percentage,
+          totalScore,
+          maxScore,
+          correctCount,
+          incorrectCount,
+          unansweredCount,
+          attemptedCount,
+          gradableCount: totalQuestions,
+          totalQuestions,
+          elapsedSeconds: elapsedSeconds || 0,
+          evaluatedByAI: aiEvalApplied,
+          overallFeedback: overallFeedback || "",
+          overallRating: overallRating || "",
+          strengths,
+          areasToImprove,
+          violations,
+          questionResults,
+          completedAt: new Date(),
+        });
+
+        await generatePersonalizedRoadmap(req.user._id);
+      } catch (saveErr) {
+        console.error("[AI Evaluator] Failed to persist attempt result:", saveErr.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      aiEvalApplied,
+      overallFeedback,
+      overallRating,
+      strengths,
+      areasToImprove,
+      scorePercent: percentage,
+      totalScore,
+      maxScore,
+      percentage,
+      correctCount,
+      incorrectCount,
+      unansweredCount,
+      attemptedCount,
+      answeredCount: attemptedCount,
+      gradableCount: totalQuestions,
+      attemptedGradableCount: attemptedCount,
+      unansweredTotalCount: unansweredCount,
+      totalQuestions,
+      questionResults,
+      elapsedSeconds,
+      violationsCount: violations.length,
+      violations,
+      autoSubmitted: violations.length >= 3,
+    });
+  } catch (error) {
+    console.error("[AI Evaluator] Unexpected error:", error);
+    res.status(500).json({ success: false, message: error.message || "Failed to evaluate assessment with AI" });
   }
 }

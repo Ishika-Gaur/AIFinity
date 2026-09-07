@@ -113,6 +113,11 @@ export const assessmentApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  evaluateAI: (id, payload) =>
+    request(`/assessments/${id}/evaluate-ai`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   syncAttempt: (payload) =>
     request("/assessments/sync-attempt", {
       method: "POST",
@@ -124,7 +129,7 @@ export const assessmentApi = {
   remove: (id) => request(`/assessments/admin/${id}`, { method: "DELETE" }),
   getPersonalized: () => request("/assessments/personalized"),
   generateAI: (payload) => request("/assessments/generate-ai", { method: "POST", body: JSON.stringify(payload) }),
-  generateDailyAI: () => request("/assessments/daily-generate", { method: "POST" }),
+  generateDailyAI: (targetDate) => request("/assessments/daily-generate", { method: "POST", body: JSON.stringify(targetDate ? { targetDate } : {}) }),
   getDailyStatus: () => request("/assessments/daily-status"),
 };
 
@@ -165,6 +170,16 @@ export const conceptRootApi = {
    * Returns fully personalized ConceptRoot analysis data.
    */
   get: () => request("/concept-root"),
+
+  /**
+   * POST /api/concept-root/analyze
+   * Live AI diagnostic analysis for ConceptRoot submission.
+   */
+  analyze: (payload) =>
+    request("/concept-root/analyze", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 export const mistakeMapApi = {
@@ -189,4 +204,57 @@ export const roadmapApi = {
    * Returns fully personalized learning roadmap data.
    */
   get: () => request("/roadmap"),
+};
+
+export const personalIntelligenceApi = {
+  /**
+   * POST /api/personal-intelligence/chat
+   * Interactive chat completion with personal AI within a session
+   */
+  chat: (messages, sessionId = null) =>
+    request("/personal-intelligence/chat", {
+      method: "POST",
+      body: JSON.stringify({ messages, sessionId }),
+    }),
+
+  /**
+   * GET /api/personal-intelligence/sessions
+   * List all conversation sessions for user
+   */
+  listSessions: () => request("/personal-intelligence/sessions"),
+
+  /**
+   * POST /api/personal-intelligence/sessions
+   * Create a new blank session
+   */
+  createSession: (title = "New Chat") =>
+    request("/personal-intelligence/sessions", {
+      method: "POST",
+      body: JSON.stringify({ title }),
+    }),
+
+  /**
+   * GET /api/personal-intelligence/sessions/:id/messages
+   * Load all messages for a specific session
+   */
+  getSessionMessages: (sessionId) =>
+    request(`/personal-intelligence/sessions/${sessionId}/messages`),
+
+  /**
+   * DELETE /api/personal-intelligence/sessions/:id
+   * Delete a specific chat session
+   */
+  deleteSession: (sessionId) =>
+    request(`/personal-intelligence/sessions/${sessionId}`, {
+      method: "DELETE",
+    }),
+
+  /**
+   * DELETE /api/personal-intelligence/sessions
+   * Clears all conversations
+   */
+  clearAllSessions: () =>
+    request("/personal-intelligence/sessions", {
+      method: "DELETE",
+    }),
 };

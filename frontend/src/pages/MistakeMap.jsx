@@ -17,6 +17,7 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import CtaBanner from "../components/CtaBanner";
 import HeroSection from "../components/HeroSection";
+import { analyticsApi } from "../services/api";
 
 const HOW_IT_WORKS = [
   {
@@ -57,66 +58,6 @@ const FEATURES = [
   },
 ];
 
-// Personalized progress — mistakes before vs now per topic.
-// Replace with real data from your API (per-concept mistake counts over attempts).
-const TOPIC_PROGRESS = [
-  {
-    concept: "Time & Work",
-    before: 9,
-    after: 2,
-    needsAttention: false,
-    mistakePattern: "Confusing combined work-rate with individual rates.",
-    whyItHappened:
-      "Formulas were memorized without understanding why rates add together.",
-    whatChanged:
-      "Now working out 'one day's work' first before combining — the concept finally clicked.",
-  },
-  {
-    concept: "Recursion",
-    before: 7,
-    after: 5,
-    needsAttention: true,
-    mistakePattern: "Base case is missing or set incorrectly.",
-    whyItHappened:
-      "Trying to mentally trace the function calls but forgetting to write the base case first — so the same mistake repeats.",
-    whatChanged:
-      "Only slight improvement. Still a weak spot because the root cause (defining the base case first) hasn't been fixed — the practice pattern hasn't changed.",
-  },
-  {
-    concept: "Probability",
-    before: 8,
-    after: 3,
-    needsAttention: false,
-    mistakePattern: "Mixing up independent and dependent events.",
-    whyItHappened:
-      "The 'and'/'or' rules were applied incorrectly — multiply vs. add wasn't clear.",
-    whatChanged:
-      "Now identifying whether events are independent or dependent first, then choosing the formula — accuracy improved a lot.",
-  },
-  {
-    concept: "SQL Joins",
-    before: 6,
-    after: 6,
-    needsAttention: true,
-    mistakePattern: "Wrongly predicting output rows for INNER vs. LEFT JOIN.",
-    whyItHappened:
-      "The join logic itself isn't clear — syntax is memorized rather than understood, so the resulting table comes out wrong.",
-    whatChanged:
-      "Zero improvement — this one concept keeps producing the same mistake every time. This is a real gap; it needs the concept re-learned, not just more practice.",
-  },
-  {
-    concept: "Verbal Analogies",
-    before: 5,
-    after: 1,
-    needsAttention: false,
-    mistakePattern: "Misidentifying the relationship type (cause-effect vs. part-whole).",
-    whyItHappened:
-      "Options were tried before defining the relationship in the first word-pair.",
-    whatChanged:
-      "Now defining the relationship first, then matching — improved very quickly.",
-  },
-];
-
 const COMPARISON = [
   {
     without: "Redo entire mock tests hoping the same mistakes don't repeat",
@@ -136,18 +77,15 @@ const COMPARISON = [
   },
 ];
 
-// Chart colors — hardcoded hex instead of CSS vars.
-// SVG fill attributes don't reliably resolve var(--...) in all render paths,
-// and recharts' <Legend> reads the Bar's own `fill` prop, not per-Cell fills.
-// Keep these in sync with --color-primary-600 and the amber accent used elsewhere.
-const CHART_COLOR_BEFORE = "#9CA3AF"; // matches --color-text-light
-const CHART_COLOR_PRIMARY = "#14776e"; // matches --color-primary-600
-const CHART_COLOR_ATTENTION = "#f59e0b"; // amber-500
+// Chart colors
+const CHART_COLOR_BEFORE = "#9CA3AF";
+const CHART_COLOR_PRIMARY = "#14776e";
+const CHART_COLOR_ATTENTION = "#f59e0b";
 
-// Custom tooltip so it matches the site's card styling instead of recharts' default box
-function ProgressTooltip({ active, payload, label }) {
+// Custom tooltip rendered based on the active topic entry
+function ProgressTooltip({ active, payload, label, data = [] }) {
   if (!active || !payload || !payload.length) return null;
-  const row = TOPIC_PROGRESS.find((t) => t.concept === label);
+  const row = data.find((t) => t.concept === label);
   return (
     <div className="rounded-lg border border-[var(--color-border)] bg-white px-3 py-2 shadow-[var(--shadow-card)]">
       <p className="mb-1 text-xs font-semibold text-[var(--color-text-h)]">
@@ -166,8 +104,6 @@ function ProgressTooltip({ active, payload, label }) {
 }
 
 // One row in the per-topic breakdown panel.
-// Collapsed by default — only the concept name + before→after badge shows.
-// "Read more" reveals the mistake pattern and reasoning; "Read less" collapses it again.
 function TopicRow({ topic }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -217,22 +153,33 @@ function TopicRow({ topic }) {
   );
 }
 
-import { analyticsApi } from "../services/api";
-
 export default function MistakeMapPage() {
-  const [topicProgress, setTopicProgress] = useState(TOPIC_PROGRESS);
+  const [topicProgress, setTopicProgress] = useState([]);
   const [hasHistory, setHasHistory] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    analyticsApi.getMistakeMap().then((res) => {
-      if (res && res.success && res.data && res.data.hasHistory) {
-        setHasHistory(true);
-        if (Array.isArray(res.data.topicProgress) && res.data.topicProgress.length > 0) {
-          setTopicProgress(res.data.topicProgress);
+    analyticsApi
+      .getMistakeMap()
+      .then((res) => {
+        if (res && res.success && res.data) {
+          if (res.data.hasHistory && Array.isArray(res.data.topicProgress) && res.data.topicProgress.length > 0) {
+            setHasHistory(true);
+            setTopicProgress(res.data.topicProgress);
+          } else {
+            setHasHistory(false);
+            setTopicProgress([]);
+          }
         }
-      }
-    }).catch(() => {});
+      })
+      .catch((err) => {
+        console.error("Failed to load Mistake Map analytics:", err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
+
   return (
     <div className="flex min-h-screen flex-col ">
       {/* Hero */}
@@ -303,84 +250,117 @@ export default function MistakeMapPage() {
           title="Your progress, topic by topic"
           subtitle="How many mistakes you made before vs. now — topics still flagged in amber need more work."
         />
-        <div className="mx-auto mt-10 grid max-w-6xl grid-cols-1 items-start gap-6 lg:grid-cols-[1.3fr_1fr]">
-          {/* Chart */}
-          <div className="rounded-2xl border border-[var(--color-border)] bg-white p-4 shadow-[var(--shadow-card)] sm:p-6">
-            <ResponsiveContainer width="100%" height={340}>
-              <BarChart
-                data={topicProgress}
-                margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
-                barGap={4}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                <XAxis
-                  dataKey="concept"
-                  tick={{ fill: "var(--color-text-muted)", fontSize: 12 }}
-                  axisLine={{ stroke: "var(--color-border)" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tick={{ fill: "var(--color-text-muted)", fontSize: 12 }}
-                  axisLine={false}
-                  tickLine={false}
-                  label={{
-                    value: "Mistakes",
-                    angle: -90,
-                    position: "insideLeft",
-                    fill: "var(--color-text-muted)",
-                    fontSize: 12,
-                  }}
-                />
-                <Tooltip content={<ProgressTooltip />} cursor={{ fill: "var(--color-surface-secondary)" }} />
-                <Legend
-                  wrapperStyle={{ fontSize: 12, color: "var(--color-text-muted)" }}
-                />
-                <Bar dataKey="before" name="Before" fill={CHART_COLOR_BEFORE} radius={[4, 4, 0, 0]} />
-                <Bar dataKey="after" name="Now" fill={CHART_COLOR_PRIMARY} radius={[4, 4, 0, 0]}>
-                  {topicProgress.map((entry) => (
-                    <Cell
-                      key={entry.concept}
-                      fill={entry.needsAttention ? CHART_COLOR_ATTENTION : CHART_COLOR_PRIMARY}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
 
-            {/* Legend for the attention flag, since recharts Cell colors aren't in the auto-legend */}
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-[var(--color-text-muted)]">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-primary-600)]" />
-                Improved / stable
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-                Needs attention
-              </span>
+        {loading ? (
+          <div className="mx-auto mt-10 flex h-64 max-w-xl items-center justify-center rounded-2xl border border-[var(--color-border)] bg-white shadow-[var(--shadow-card)]">
+            <div className="flex items-center gap-3 text-sm font-semibold text-[var(--color-text-muted)]">
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-primary-600)] border-t-transparent" />
+              Loading your Mistake Map telemetry...
             </div>
           </div>
+        ) : topicProgress.length > 0 ? (
+          <div className="mx-auto mt-10 grid max-w-6xl grid-cols-1 items-start gap-6 lg:grid-cols-[1.3fr_1fr]">
+            {/* Chart */}
+            <div className="rounded-2xl border border-[var(--color-border)] bg-white p-4 shadow-[var(--shadow-card)] sm:p-6">
+              <ResponsiveContainer width="100%" height={340}>
+                <BarChart
+                  data={topicProgress}
+                  margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+                  barGap={4}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                  <XAxis
+                    dataKey="concept"
+                    tick={{ fill: "var(--color-text-muted)", fontSize: 12 }}
+                    axisLine={{ stroke: "var(--color-border)" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fill: "var(--color-text-muted)", fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                    label={{
+                      value: "Mistakes",
+                      angle: -90,
+                      position: "insideLeft",
+                      fill: "var(--color-text-muted)",
+                      fontSize: 12,
+                    }}
+                  />
+                  <Tooltip
+                    content={<ProgressTooltip data={topicProgress} />}
+                    cursor={{ fill: "var(--color-surface-secondary)" }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: 12, color: "var(--color-text-muted)" }}
+                  />
+                  <Bar dataKey="before" name="Before" fill={CHART_COLOR_BEFORE} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="after" name="Now" fill={CHART_COLOR_PRIMARY} radius={[4, 4, 0, 0]}>
+                    {topicProgress.map((entry) => (
+                      <Cell
+                        key={entry.concept}
+                        fill={entry.needsAttention ? CHART_COLOR_ATTENTION : CHART_COLOR_PRIMARY}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
 
-          {/* Per-topic breakdown */}
-          <div className="flex flex-col gap-2 rounded-2xl border border-[var(--color-border)] bg-white p-4 shadow-[var(--shadow-card)] sm:p-6">
-            <h3 className="mb-1 text-sm font-semibold text-[var(--color-text-h)]">
-              Topic by topic — what's actually going on
-            </h3>
-            <div className="flex flex-col divide-y divide-[var(--color-border)]">
-              {topicProgress.map((topic) => (
-                <TopicRow key={topic.concept} topic={topic} />
-              ))}
+              {/* Legend for the attention flag */}
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-[var(--color-text-muted)]">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-primary-600)]" />
+                  Improved / stable
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                  Needs attention
+                </span>
+              </div>
+            </div>
+
+            {/* Per-topic breakdown */}
+            <div className="flex flex-col gap-2 rounded-2xl border border-[var(--color-border)] bg-white p-4 shadow-[var(--shadow-card)] sm:p-6">
+              <h3 className="mb-1 text-sm font-semibold text-[var(--color-text-h)]">
+                Topic by topic — what's actually going on
+              </h3>
+              <div className="flex flex-col divide-y divide-[var(--color-border)]">
+                {topicProgress.map((topic) => (
+                  <TopicRow key={topic.concept} topic={topic} />
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-        <div className="mt-10 flex justify-center">
-          <Button as="a" href="/assessment" size="lg">
-            Take Another Assessment
-          </Button>
-        </div>
+        ) : (
+          <div className="mx-auto mt-10 max-w-xl rounded-2xl border border-[var(--color-border)] bg-white p-8 text-center shadow-[var(--shadow-card)]">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary-50)] text-[var(--color-primary-600)]">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-[var(--color-text-h)]">No Mistake Patterns Detected Yet</h3>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-muted)]">
+              Complete practice assessments to allow our diagnostic engine to trace error patterns back to their root concepts and populate your personalized progress map.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <Button as="a" href="/assessment" size="md">
+                Take An Assessment
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {topicProgress.length > 0 && (
+          <div className="mt-10 flex justify-center">
+            <Button as="a" href="/assessment" size="lg">
+              Take Another Assessment
+            </Button>
+          </div>
+        )}
       </Section>
 
-      {/* Without vs With — comparison, replaces the earlier subject grid above the CTA */}
+      {/* Without vs With — comparison */}
       <Section>
         <SectionHeading
           title="What changes once you have a Mistake Map"
@@ -434,27 +414,6 @@ export default function MistakeMapPage() {
           href="/assessment"
         />
       </Section>
-    </div>
-  );
-}
-
-/* Small helper — a row in the Mistake Map preview card */
-function MistakeRow({ concept, count, tone }) {
-  const toneMap = {
-    high: "bg-[var(--color-primary-600)] text-white",
-    mid: "bg-[var(--color-primary-100)] text-[var(--color-primary-700)]",
-    low: "bg-[var(--color-primary-50)] text-[var(--color-primary-600)]",
-  };
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-[var(--color-border)] px-3 py-2.5">
-      <span className="text-sm font-medium text-[var(--color-text-h)]">
-        {concept}
-      </span>
-      <span
-        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${toneMap[tone]}`}
-      >
-        {count}×
-      </span>
     </div>
   );
 }

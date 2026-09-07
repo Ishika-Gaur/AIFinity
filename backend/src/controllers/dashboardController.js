@@ -16,6 +16,14 @@ function getGreeting() {
 }
 
 /**
+ * Returns date string YYYY-MM-DD in local time
+ */
+function getDateKey(value) {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/**
  * Computes how many consecutive calendar days (ending today/yesterday)
  * have at least one attempt.
  */
@@ -83,29 +91,21 @@ function buildProgressSeries(attempts) {
   }
 
   // ── 7D: one bucket per day of the week (Mon-Sun) using last 7 days
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(now.getDate() - 6);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
-
   const dayBuckets = {}; // "YYYY-MM-DD" -> { sum, count, dayLabel }
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(now.getDate() - i);
-    d.setHours(0, 0, 0, 0);
-    const key = d.toISOString().split("T")[0];
+    const key = getDateKey(d);
     dayBuckets[key] = { sum: 0, count: 0, dayLabel: dayNames[d.getDay()] };
   }
 
   attempts.forEach((a) => {
-    const d = new Date(a.completedAt);
-    if (d >= sevenDaysAgo) {
-      const key = d.toISOString().split("T")[0];
-      if (dayBuckets[key]) {
-        dayBuckets[key].sum += a.scorePercent;
-        dayBuckets[key].count++;
-      }
+    const key = getDateKey(a.completedAt);
+    if (dayBuckets[key]) {
+      dayBuckets[key].sum += (a.scorePercent || 0);
+      dayBuckets[key].count++;
     }
   });
 
@@ -188,11 +188,6 @@ function getCategoryStats(attempts) {
     avgScore: Math.round(sum / count),
     count,
   }));
-}
-
-function getDateKey(value) {
-  const date = new Date(value);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function computeLongestStreak(attempts) {

@@ -326,23 +326,33 @@ export async function submitAttemptSession(assessmentId, attemptId, responses, e
   const category = "General";
   const field = "";
 
-  // 1. Try backend API first if available
+  const payload = {
+    attemptId,
+    responses,
+    elapsedSeconds,
+    violations,
+    assessmentTitle: title,
+    assessmentCategory: category,
+    assessmentField: field,
+  };
+
+  // 1. Try AI evaluation first
   try {
-    const apiRes = await assessmentApi.submitAttempt(assessmentId, {
-      attemptId,
-      responses,
-      elapsedSeconds,
-      violations,
-      assessmentTitle: title,
-      assessmentCategory: category,
-      assessmentField: field,
-    });
+    const aiRes = await assessmentApi.evaluateAI(assessmentId, payload);
+    if (aiRes && aiRes.success) {
+      return aiRes;
+    }
+  } catch (_) {}
+
+  // 2. Fallback: Try standard backend submitAttempt
+  try {
+    const apiRes = await assessmentApi.submitAttempt(assessmentId, payload);
     if (apiRes && apiRes.success) {
       return apiRes;
     }
   } catch (_) {}
 
-  // 2. Fallback: Validate against private closure session cache
+  // 3. Fallback: Validate against private closure session cache
   const session = attemptSessionCache.get(attemptId);
   const questions = session ? session.questions : [];
   const answersMap = session ? session.answersMap : null;
@@ -375,6 +385,7 @@ export async function submitAttemptSession(assessmentId, attemptId, responses, e
   });
 
   const percentage = maxScore > 0 ? Math.min(100, Math.round((totalScore / maxScore) * 100)) : 0;
+  const attemptedCount = questions.length - unansweredCount;
 
   // Clean up session cache
   if (attemptId) {
@@ -390,7 +401,11 @@ export async function submitAttemptSession(assessmentId, attemptId, responses, e
     correctCount,
     incorrectCount,
     unansweredCount,
-    answeredCount: questions.length - unansweredCount,
+    attemptedCount,
+    answeredCount: attemptedCount,
+    gradableCount: questions.length,
+    attemptedGradableCount: attemptedCount,
+    unansweredTotalCount: unansweredCount,
     totalQuestions: questions.length,
     questionResults,
     elapsedSeconds,

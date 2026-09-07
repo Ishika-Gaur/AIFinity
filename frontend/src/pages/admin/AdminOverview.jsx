@@ -52,6 +52,19 @@ export default function AdminOverview() {
   const activeUsers = users.filter((u) => u.status === "active").length;
   const suspendedUsers = users.filter((u) => u.status === "suspended").length;
 
+  const trend = analytics.dailyUsageTrend || [];
+  const maxTrend = Math.max(...trend.map((t) => t.requests), 1);
+  const chartPoints = trend.map((t, idx) => {
+    const x = trend.length > 1 ? 30 + (idx / (trend.length - 1)) * 440 : 250;
+    const y = 160 - (t.requests / maxTrend) * 120;
+    return { ...t, x, y };
+  });
+  const polylinePoints = chartPoints.map((p) => `${p.x},${p.y}`).join(" ");
+  const polygonPoints = chartPoints.length > 0
+    ? `30,160 ${polylinePoints} 470,160`
+    : "";
+  const topFeature = analytics.usageByFeature?.slice().sort((a, b) => b.requests - a.requests)[0]?.name || "Concept Root";
+
   return (
     <div className="space-y-8">
       {/* Top Welcome Banner */}
@@ -178,19 +191,23 @@ export default function AdminOverview() {
               <line x1="0" y1="140" x2="500" y2="140" stroke="#f1f5f9" strokeWidth="1" />
 
               {/* Line path */}
-              <polyline
-                fill="none"
-                stroke="#6366f1"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                points="10,140 80,110 150,80 220,50 290,65 360,120 430,90 490,40"
-              />
+              {polylinePoints && (
+                <polyline
+                  fill="none"
+                  stroke="#6366f1"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  points={polylinePoints}
+                />
+              )}
               {/* Area gradient under line */}
-              <polygon
-                fill="url(#indigoGrad)"
-                opacity="0.15"
-                points="10,140 80,110 150,80 220,50 290,65 360,120 430,90 490,40 490,190 10,190"
-              />
+              {polygonPoints && (
+                <polygon
+                  fill="url(#indigoGrad)"
+                  opacity="0.15"
+                  points={polygonPoints}
+                />
+              )}
 
               <defs>
                 <linearGradient id="indigoGrad" x1="0" y1="0" x2="0" y2="1">
@@ -200,17 +217,12 @@ export default function AdminOverview() {
               </defs>
 
               {/* Data points */}
-              {[
-                { x: 10, y: 140, day: "Mon", val: "1.2k" },
-                { x: 80, y: 110, day: "Tue", val: "1.5k" },
-                { x: 150, y: 80, day: "Wed", val: "1.8k" },
-                { x: 220, y: 50, day: "Thu", val: "2.1k" },
-                { x: 290, y: 65, day: "Fri", val: "1.9k" },
-                { x: 360, y: 120, day: "Sat", val: "1.4k" },
-                { x: 430, y: 90, day: "Sun", val: "1.6k" },
-              ].map((pt) => (
+              {chartPoints.map((pt) => (
                 <g key={pt.day}>
                   <circle cx={pt.x} cy={pt.y} r="5" fill="#6366f1" stroke="#ffffff" strokeWidth="2" />
+                  <text x={pt.x} y={pt.y - 10} textAnchor="middle" fill="#6366f1" fontSize="10" fontWeight="bold">
+                    {pt.requests >= 1000 ? `${(pt.requests / 1000).toFixed(1)}k` : pt.requests}
+                  </text>
                   <text x={pt.x} y="185" textAnchor="middle" fill="#94a3b8" fontSize="11" fontWeight="600">
                     {pt.day}
                   </text>
@@ -246,7 +258,7 @@ export default function AdminOverview() {
 
           <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
             <p className="text-[11px] font-medium text-slate-500">
-              Most requested module: <strong className="text-indigo-600">Concept Root</strong>
+              Most requested module: <strong className="text-indigo-600">{topFeature}</strong>
             </p>
           </div>
         </div>

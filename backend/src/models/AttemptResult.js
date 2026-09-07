@@ -18,6 +18,9 @@ const questionResultSchema = new mongoose.Schema({
   maxMarks: { type: Number, default: 10 },
   explanation: { type: String, default: "" },
   concept: { type: String, default: "" },
+  aiScore: { type: Number, default: null },
+  aiFeedback: { type: String, default: "" },
+  keyPointsMissed: [{ type: String }],
 });
 
 const attemptResultSchema = new mongoose.Schema(
@@ -77,6 +80,10 @@ const attemptResultSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    attemptedCount: {
+      type: Number,
+      default: 0,
+    },
     gradableCount: {
       type: Number,
       default: 0,
@@ -90,6 +97,26 @@ const attemptResultSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    evaluatedByAI: {
+      type: Boolean,
+      default: false,
+    },
+    overallFeedback: {
+      type: String,
+      default: "",
+    },
+    overallRating: {
+      type: String,
+      default: "",
+    },
+    strengths: [{ type: String }],
+    areasToImprove: [{ type: String }],
+    violations: [
+      {
+        reason: { type: String },
+        timestamp: { type: String },
+      },
+    ],
     questionResults: [questionResultSchema],
     completedAt: {
       type: Date,

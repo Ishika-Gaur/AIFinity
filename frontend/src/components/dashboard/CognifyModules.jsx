@@ -42,19 +42,19 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             <div>
               <span className="block text-[10px] text-[#8B9690] uppercase font-semibold">Analyzed</span>
               <span className="text-base font-extrabold text-[#1B332C]">
-                {conceptRoot?.metrics?.analyzed || 24}
+                {conceptRoot?.metrics?.analyzed ?? 0}
               </span>
             </div>
             <div>
               <span className="block text-[10px] text-[#2E4F42] uppercase font-semibold">Strong</span>
               <span className="text-base font-extrabold text-[#2E4F42]">
-                {conceptRoot?.metrics?.strong || 16}
+                {conceptRoot?.metrics?.strong ?? 0}
               </span>
             </div>
             <div>
               <span className="block text-[10px] text-[#C1443C] uppercase font-semibold">Attention</span>
               <span className="text-base font-extrabold text-[#C1443C]">
-                {conceptRoot?.metrics?.needsAttention || 5}
+                {conceptRoot?.metrics?.needsAttention ?? 0}
               </span>
             </div>
           </div>
@@ -116,18 +116,18 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
               MOST COMMON MISTAKE
             </span>
             <span className="font-sans text-base font-bold text-[#C1443C]">
-              "{mistakeMap?.mostCommonMistake || "Off-by-one errors"}"
+              "{mistakeMap?.mostCommonMistake || "No recurring errors detected"}"
             </span>
 
             <div className="flex items-center justify-between text-xs pt-2 border-t border-[#2E4F42]/10 font-mono">
               <span className="text-[#5B6B5F]">
-                {mistakeMap?.occurrences || 8} occurrences
+                {mistakeMap?.occurrences ?? 0} occurrences
               </span>
               <span className="inline-flex items-center gap-1 font-bold text-[#2E4F42]">
                 <svg className="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18" />
                 </svg>
-                +{mistakeMap?.improvement || 24}% improvement
+                +{mistakeMap?.improvement ?? 0}% improvement
               </span>
             </div>
           </div>
@@ -170,7 +170,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
                 TARGET CAREER
               </span>
               <span className="font-sans text-sm font-bold text-[#FBF8F0] block mt-0.5">
-                {skillGap?.targetCareer || "Machine Learning Engineer"}
+                {skillGap?.targetCareer || "Set your career goal"}
               </span>
             </div>
             <div className="text-right">
@@ -178,7 +178,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
                 MATCH
               </span>
               <span className="font-sans text-2xl font-extrabold text-[#E8C547]">
-                {skillGap?.matchPercentage || 78}%
+                {skillGap?.matchPercentage ?? 0}%
               </span>
             </div>
           </div>

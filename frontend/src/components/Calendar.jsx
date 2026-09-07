@@ -1,5 +1,4 @@
 import React, { useMemo } from "react";
-import { Link } from "react-router-dom";
 
 const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 const MONTH_LABELS = [
@@ -8,48 +7,60 @@ const MONTH_LABELS = [
 ];
 
 /* Single day cell — number in a circle, tiny activity dot below.
-   Today gets a filled circle; locked days are dimmed and inert. */
-function DayCell({ daily }) {
-  const isLocked = daily.status === "Locked";
-  const hasActivity = !isLocked;
+   Today gets a filled circle; future days are dimmed; past days are all clickable. */
+function DayCell({ daily, onDailyClick }) {
+  const isFuture = daily.isFuture;
+  const isCompleted = daily.status === "Completed";
+
+  // Build YYYY-MM-DD for this day cell
+  const now = new Date();
+  const dateStr = daily.day
+    ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(daily.day).padStart(2, "0")}`
+    : null;
 
   const content = (
     <div className="flex flex-col items-center justify-center gap-0.5 py-0.5">
       <span
-        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors ${daily.isToday
-          ? "bg-[var(--color-primary-600)] text-white"
-          : isLocked
-            ? "text-[var(--color-text-light)]"
-            : "text-[var(--color-text-h)] hover:bg-[var(--color-surface-secondary)]"
-          }`}
+        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all duration-200 ${
+          daily.isToday && isCompleted
+            ? "bg-green-500 text-white ring-2 ring-green-400 ring-offset-1 shadow-md shadow-green-300/50"
+            : daily.isToday
+              ? "bg-[var(--color-primary-600)] text-white shadow-md"
+              : isCompleted
+                ? "bg-green-500 text-white shadow-sm shadow-green-300/60"
+                : isFuture
+                  ? "text-[var(--color-text-light)] opacity-35"
+                  : "text-[var(--color-text-h)] hover:bg-[var(--color-primary-50)] hover:text-[var(--color-primary-600)] cursor-pointer"
+        }`}
       >
-        {daily.day}
+        {isCompleted ? "✓" : daily.day}
       </span>
       <span
-        className={`h-1 w-1 rounded-full ${!hasActivity
-          ? "bg-transparent"
-          : daily.status === "Completed"
-            ? "bg-green-500"
-            : "bg-[var(--color-primary-600)]"
-          }`}
+        className={`h-1.5 w-1.5 rounded-full ${
+          isCompleted
+            ? "bg-green-400 shadow-sm shadow-green-400"
+            : isFuture
+              ? "bg-transparent"
+              : "bg-[var(--color-primary-400)]"
+        }`}
       />
     </div>
   );
 
-  if (isLocked) {
-    return content;
+  if (isFuture) {
+    return <div title={`Day ${daily.day} — upcoming`}>{content}</div>;
   }
 
-  // Only link if there's a real assessment slug (not a generic day-N id)
-  if (daily.slug) {
-    return (
-      <Link to={`/assessment/${daily.slug}`} className="block" title={daily.title}>
-        {content}
-      </Link>
-    );
-  }
-
-  return <div className="block" title={daily.title}>{content}</div>;
+  // Past and today: clicking generates a daily challenge for this specific date
+  return (
+    <div
+      onClick={() => onDailyClick && onDailyClick(dateStr)}
+      className="block cursor-pointer"
+      title={isCompleted ? `Day ${daily.day} — Completed ✓` : `Day ${daily.day} — Click to start a challenge`}
+    >
+      {content}
+    </div>
+  );
 }
 
 /* Streak flame icon — used in the calendar card. */
@@ -70,7 +81,8 @@ export default function Calendar({
   profile, 
   dailyAssessments, 
   completedDays,
-  showProgress = true 
+  showProgress = true,
+  onDailyClick,
 }) {
   const now = new Date();
   const monthLabel = `${MONTH_LABELS[now.getMonth()]} ${now.getFullYear()}`;
@@ -126,20 +138,20 @@ export default function Calendar({
             <div key={`pad-${i}`} />
           ))}
           {dailyAssessments.map((daily) => (
-            <DayCell key={daily.id} daily={daily} />
+            <DayCell key={daily.id} daily={daily} onDailyClick={onDailyClick} />
           ))}
         </div>
 
         {/* Legend */}
         <div className="mt-4 flex flex-wrap gap-4 border-t border-[var(--color-border)] pt-3 text-[11px] text-[var(--color-text-muted)]">
           <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary-600)]" /> Available
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary-400)]" /> Available
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Completed
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-light)]" /> Locked
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-light)] opacity-40" /> Upcoming
           </span>
         </div>
       </div>
