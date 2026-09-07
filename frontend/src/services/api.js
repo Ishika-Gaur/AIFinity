@@ -113,6 +113,11 @@ export const assessmentApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  evaluateAI: (id, payload) =>
+    request(`/assessments/${id}/evaluate-ai`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   syncAttempt: (payload) =>
     request("/assessments/sync-attempt", {
       method: "POST",

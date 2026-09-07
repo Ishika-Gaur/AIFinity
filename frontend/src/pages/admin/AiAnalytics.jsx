@@ -98,18 +98,23 @@ export default function AiAnalytics() {
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
           <h3 className="text-base font-bold text-slate-900">Daily Volume Distribution</h3>
           <div className="flex h-56 items-end justify-between gap-3 pt-6">
-            {analytics.dailyUsageTrend.map((d) => (
-              <div key={d.day} className="flex flex-1 flex-col items-center gap-2">
-                <span className="text-[10px] font-bold text-slate-500">{d.requests}</span>
-                <div className="w-full rounded-t-xl bg-indigo-500/20 overflow-hidden h-40 flex items-end">
-                  <div
-                    className="w-full rounded-t-xl bg-indigo-600 transition-all duration-500"
-                    style={{ height: `${(d.requests / 2200) * 100}%` }}
-                  />
+            {(() => {
+              const maxReq = Math.max(...(analytics.dailyUsageTrend || []).map((d) => d.requests), 1);
+              return (analytics.dailyUsageTrend || []).map((d) => (
+                <div key={d.day} className="flex flex-1 flex-col items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-500">
+                    {d.requests >= 1000 ? `${(d.requests / 1000).toFixed(1)}k` : d.requests}
+                  </span>
+                  <div className="w-full rounded-t-xl bg-indigo-500/20 overflow-hidden h-40 flex items-end">
+                    <div
+                      className="w-full rounded-t-xl bg-indigo-600 transition-all duration-500"
+                      style={{ height: `${Math.min(100, (d.requests / maxReq) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700">{d.day}</span>
                 </div>
-                <span className="text-xs font-bold text-slate-700">{d.day}</span>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
 

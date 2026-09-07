@@ -7,8 +7,12 @@ const questionSchema = new mongoose.Schema(
     concept: { type: String, trim: true, default: "" },
     question: { type: String, required: true, trim: true },
     context: { type: String, trim: true },
+    codeSnippet: { type: String, trim: true, default: "" },
     options: [{ type: String, trim: true }],
     answer: mongoose.Schema.Types.Mixed,
+    hints: [{ type: String, trim: true }],
+    explanation: { type: String, trim: true, default: "" },
+    rubric: { type: String, trim: true, default: "" },
   },
   { _id: true }
 );

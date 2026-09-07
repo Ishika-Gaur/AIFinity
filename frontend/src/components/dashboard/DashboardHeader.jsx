@@ -53,7 +53,7 @@ export default function DashboardHeader({ user, quotes = [] }) {
   const dynamicName = currentUser?.name?.trim() || (user?.name && user.name.trim() !== "Learner" ? user.name.trim() : "");
   const greeting = user?.greeting || "Good evening";
   const subtitle = user?.subtitle || "Here's where your learning journey stands today.";
-  const streak = user?.streak ?? 7;
+  const streak = user?.streak ?? 0;
 
   const defaultQuotes = [
     "Small progress is still progress.",
@@ -153,7 +153,7 @@ export default function DashboardHeader({ user, quotes = [] }) {
                 {streak} DAY STREAK
               </span>
               <span className="font-mono text-[10px] text-[#5B6B5F]">
-                Consistency Multiplier 1.4x
+                {streak > 0 ? `Consistency Multiplier ${(1 + Math.min(streak, 10) * 0.1).toFixed(1)}x` : "Start your streak!"}
               </span>
             </div>
           </div>

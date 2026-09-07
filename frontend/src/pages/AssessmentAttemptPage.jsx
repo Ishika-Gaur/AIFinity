@@ -465,18 +465,21 @@ export default function AssessmentAttemptPage() {
 
   /* ---------------- RESULTS VIEW ---------------- */
   if (completed && resultData) {
-    const {
-      scorePercent,
-      totalQuestions,
-      attemptedCount,
-      correctCount,
-      incorrectCount,
-      unansweredCount,
-      unansweredTotalCount,
-      gradableCount,
-      attemptedGradableCount,
-      autoSubmitted,
-    } = resultData;
+    const totalQuestions = resultData.totalQuestions || (assessment?.questions?.length || 1);
+    const attemptedCount =
+      resultData.attemptedCount ??
+      resultData.answeredCount ??
+      Math.max(0, totalQuestions - (resultData.unansweredCount || 0));
+    const correctCount = resultData.correctCount ?? 0;
+    const incorrectCount = resultData.incorrectCount ?? 0;
+    const unansweredCount = resultData.unansweredCount ?? Math.max(0, totalQuestions - attemptedCount);
+    const unansweredTotalCount = resultData.unansweredTotalCount ?? unansweredCount;
+    const scorePercent = resultData.scorePercent ?? resultData.percentage ?? 0;
+    const autoSubmitted = Boolean(resultData.autoSubmitted);
+    const overallFeedback = resultData.overallFeedback;
+    const overallRating = resultData.overallRating;
+    const strengths = Array.isArray(resultData.strengths) ? resultData.strengths : [];
+    const areasToImprove = Array.isArray(resultData.areasToImprove) ? resultData.areasToImprove : [];
 
     return (
       <Section className="py-16 bg-[#FBF8F0] min-h-screen">
@@ -506,9 +509,74 @@ export default function AssessmentAttemptPage() {
             <div className="mt-2 grid w-full grid-cols-2 gap-4 sm:grid-cols-4">
               <StatBlock label="Score" value={`${scorePercent}%`} />
               <StatBlock label="Attempted" value={`${attemptedCount}/${totalQuestions}`} />
-              <StatBlock label="Correct" value={`${correctCount}/${attemptedCount}`} />
+              <StatBlock label="Correct" value={`${correctCount}/${attemptedCount > 0 ? attemptedCount : totalQuestions}`} />
               <StatBlock label="Time Taken" value={formatTime(elapsedSeconds)} />
             </div>
+
+            {/* AI Evaluation Diagnostic Card */}
+            {overallFeedback && (
+              <div className="w-full text-left rounded-2xl border border-[var(--color-primary-200)] bg-[var(--color-primary-50)]/40 p-5 shadow-sm">
+                <div className="flex items-center justify-between border-b border-[var(--color-primary-100)] pb-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-primary-600)] text-white text-xs font-bold shadow-xs">
+                      AI
+                    </span>
+                    <h3 className="text-sm font-bold text-[var(--color-text-h)]">
+                      AI Diagnostic Evaluation
+                    </h3>
+                  </div>
+                  {overallRating && (
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-bold ${
+                        overallRating === "Excellent" || overallRating === "Good"
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                          : overallRating === "Average"
+                          ? "bg-amber-100 text-amber-800 border border-amber-200"
+                          : "bg-rose-100 text-rose-800 border border-rose-200"
+                      }`}
+                    >
+                      {overallRating}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs leading-relaxed text-[var(--color-text-body)] mb-4">
+                  {overallFeedback}
+                </p>
+
+                {strengths.length > 0 && (
+                  <div className="mb-3">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 block mb-1.5">
+                      ✓ Key Strengths
+                    </span>
+                    <ul className="space-y-1 text-xs text-emerald-900">
+                      {strengths.map((s, idx) => (
+                        <li key={idx} className="flex items-start gap-1.5">
+                          <span className="text-emerald-600 font-bold">•</span>
+                          <span>{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {areasToImprove.length > 0 && (
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 block mb-1.5">
+                      🎯 Recommended Focus
+                    </span>
+                    <ul className="space-y-1 text-xs text-amber-900">
+                      {areasToImprove.map((area, idx) => (
+                        <li key={idx} className="flex items-start gap-1.5">
+                          <span className="text-amber-600 font-bold">•</span>
+                          <span>{area}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Result Breakdown */}
             <div className="w-full text-left rounded-xl border border-[var(--color-border)] bg-white p-4">
@@ -557,6 +625,73 @@ export default function AssessmentAttemptPage() {
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {/* Question-by-Question Review with AI Feedback */}
+            {Array.isArray(resultData.questionResults) && resultData.questionResults.length > 0 && (
+              <div className="w-full text-left rounded-xl border border-[var(--color-border)] bg-white p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
+                  Question Review & AI Feedback
+                </p>
+                <div className="space-y-3">
+                  {resultData.questionResults.map((qr, idx) => (
+                    <div
+                      key={qr.questionId || idx}
+                      className={`p-3 rounded-lg border text-xs ${
+                        qr.status === "correct"
+                          ? "border-emerald-200 bg-emerald-50/40"
+                          : qr.status === "partial"
+                          ? "border-amber-200 bg-amber-50/40"
+                          : "border-rose-200 bg-rose-50/40"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-[var(--color-text-h)]">
+                          Q{idx + 1}. {qr.concept ? `[${qr.concept}]` : ""}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded font-bold uppercase text-[10px] ${
+                            qr.status === "correct"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : qr.status === "partial"
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-rose-100 text-rose-800"
+                          }`}
+                        >
+                          {qr.status} ({qr.marksAwarded ?? 0}/10)
+                        </span>
+                      </div>
+                      <p className="text-[var(--color-text-body)] mb-2 font-medium">
+                        {qr.questionText}
+                      </p>
+                      <div className="space-y-1 text-[11px]">
+                        <div>
+                          <span className="font-semibold text-[var(--color-text-muted)]">Your Answer: </span>
+                          <span className="font-mono text-[var(--color-text-h)]">{qr.userAnswer || "[Unanswered]"}</span>
+                        </div>
+                        {qr.correctAnswer && qr.correctAnswer !== "N/A" && qr.status !== "correct" && (
+                          <div>
+                            <span className="font-semibold text-emerald-700">Correct Answer: </span>
+                            <span className="font-mono text-emerald-900">{qr.correctAnswer}</span>
+                          </div>
+                        )}
+                        {(qr.aiFeedback || qr.explanation) && (
+                          <div className="mt-1 pt-1 border-t border-[var(--color-border)]/50 text-[var(--color-text-muted)]">
+                            <span className="font-semibold text-[var(--color-primary-700)]">AI Feedback: </span>
+                            {qr.aiFeedback || qr.explanation}
+                          </div>
+                        )}
+                        {Array.isArray(qr.keyPointsMissed) && qr.keyPointsMissed.length > 0 && (
+                          <div className="text-amber-800">
+                            <span className="font-semibold">Key Points Missed: </span>
+                            {qr.keyPointsMissed.join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

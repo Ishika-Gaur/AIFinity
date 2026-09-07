@@ -76,6 +76,14 @@ const EVALUATION_SCHEMA = {
       type: SchemaType.STRING,
       enum: ["Excellent", "Good", "Average", "Needs Improvement", "Poor"],
     },
+    strengths: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+    },
+    areasToImprove: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+    },
     questionEvaluations: {
       type: SchemaType.ARRAY,
       items: {
@@ -91,7 +99,7 @@ const EVALUATION_SCHEMA = {
       },
     },
   },
-  required: ["overallFeedback", "overallRating", "questionEvaluations"],
+  required: ["overallFeedback", "overallRating", "strengths", "areasToImprove", "questionEvaluations"],
 };
 
 /** Schema for ConceptRoot diagnostic output */
@@ -166,7 +174,7 @@ Requirements:
 - The "difficulty" field must be "${difficulty}" for every question.
 - The "topic" field must be "${topic}" for every question.`;
 
-    const result = await model.generateContent(prompt);
+    const result = await callWithRetry(() => model.generateContent(prompt));
     const response = await result.response;
     // With responseMimeType: "application/json", the output is guaranteed valid JSON
     const parsedJson = JSON.parse(response.text());
@@ -256,9 +264,11 @@ For each question:
 Overall:
 - Write a comprehensive overallFeedback paragraph (3-5 sentences) summarising performance, strengths, and areas to improve.
 - Assign an overallRating based on average score: Excellent (>=85%), Good (>=70%), Average (>=55%), Needs Improvement (>=40%), Poor (<40%).
+- Provide 2-4 concise, bulleted key strengths under strengths.
+- Provide 1-3 targeted concepts or skills under areasToImprove.
 - The questionEvaluations array must have exactly one entry per question, in the same order, using the exact questionId from each question.`;
 
-    const result = await model.generateContent(prompt);
+    const result = await callWithRetry(() => model.generateContent(prompt));
     const response = await result.response;
     const parsedJson = JSON.parse(response.text());
     return parsedJson;
@@ -307,7 +317,7 @@ export const chatCompletion = async (systemPrompt, messages) => {
 
     // The last message must always be from the user
     const lastMessage = messages[messages.length - 1];
-    const result = await chat.sendMessage(lastMessage.content);
+    const result = await callWithRetry(() => chat.sendMessage(lastMessage.content));
     const response = await result.response;
     return response.text().trim();
   } catch (error) {

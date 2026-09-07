@@ -523,7 +523,11 @@ export async function submitAttempt(req, res) {
     correctCount,
     incorrectCount,
     unansweredCount,
+    attemptedCount: totalQuestions - unansweredCount,
     answeredCount: totalQuestions - unansweredCount,
+    gradableCount: totalQuestions,
+    attemptedGradableCount: totalQuestions - unansweredCount,
+    unansweredTotalCount: unansweredCount,
     totalQuestions,
     questionResults,
     elapsedSeconds,
@@ -695,13 +699,16 @@ export async function generateAIAssessment(req, res) {
       const qDifficulty = q.difficulty || difficulty;
       const qTopic = q.topic || topic;
       return {
-        type: "mcq",
+        type: q.type || "mcq",
         difficulty: ["Easy", "Medium", "Hard"].includes(qDifficulty) ? qDifficulty : "Medium",
         concept: qTopic,
         question: q.question,
-        options: q.options,
-        answer: q.correctAnswer,
+        options: Array.isArray(q.options) ? q.options : [],
+        answer: q.correctAnswer || (Array.isArray(q.options) ? q.options[0] : ""),
         context: q.explanation || "",
+        explanation: q.explanation || "",
+        hints: q.hints || [],
+        codeSnippet: q.codeSnippet || "",
       };
     });
 
@@ -864,13 +871,16 @@ export async function generateDailyAIAssessment(req, res) {
 
     const formattedQuestions = generatedData.questions.map((q) => {
       return {
-        type: "mcq",
+        type: q.type || "mcq",
         difficulty: ["Easy", "Medium", "Hard"].includes(q.difficulty) ? q.difficulty : "Medium",
         concept: q.topic || targetTopic,
         question: q.question,
-        options: q.options,
-        answer: q.correctAnswer,
+        options: Array.isArray(q.options) ? q.options : [],
+        answer: q.correctAnswer || (Array.isArray(q.options) ? q.options[0] : ""),
         context: q.explanation || "",
+        explanation: q.explanation || "",
+        hints: q.hints || [],
+        codeSnippet: q.codeSnippet || "",
       };
     });
 
@@ -995,6 +1005,8 @@ export async function evaluateAttemptWithAI(req, res) {
     // -----------------------------------------------------------------------
     let overallFeedback = null;
     let overallRating = null;
+    let strengths = [];
+    let areasToImprove = [];
     let aiEvalApplied = false;
 
     try {
@@ -1007,6 +1019,8 @@ export async function evaluateAttemptWithAI(req, res) {
 
       overallFeedback = aiResult.overallFeedback;
       overallRating = aiResult.overallRating;
+      strengths = Array.isArray(aiResult.strengths) ? aiResult.strengths : [];
+      areasToImprove = Array.isArray(aiResult.areasToImprove) ? aiResult.areasToImprove : [];
 
       // Build a lookup map from Gemini's per-question evaluations
       const aiMap = new Map();
@@ -1024,9 +1038,10 @@ export async function evaluateAttemptWithAI(req, res) {
         if (aiEval) {
           qr.aiFeedback = aiEval.aiFeedback;
           qr.keyPointsMissed = aiEval.keyPointsMissed || [];
+          qr.aiScore = aiEval.aiScore;
 
-          // For descriptive question types, override marks with AI score
-          if (["long_answer", "short_answer"].includes(qr.type)) {
+          // For descriptive/conceptual question types, override marks with AI score
+          if (["long_answer", "short_answer", "code", "descriptive"].includes(qr.type)) {
             qr.marksAwarded = Math.min(10, Math.max(0, Math.round(aiEval.aiScore)));
             qr.status = aiEval.status;
             qr.isCorrect = aiEval.status !== "incorrect";
@@ -1051,6 +1066,7 @@ export async function evaluateAttemptWithAI(req, res) {
     }
 
     const percentage = maxScore > 0 ? Math.min(100, Math.round((totalScore / maxScore) * 100)) : 0;
+    const attemptedCount = totalQuestions - unansweredCount;
 
     // Clean up session
     if (attemptId) activeAttemptSessions.delete(attemptId);
@@ -1060,7 +1076,7 @@ export async function evaluateAttemptWithAI(req, res) {
     const field    = assessment?.field    || bodyField    || "";
 
     // -----------------------------------------------------------------------
-    // Step 3: Persist attempt result
+    // Step 3: Persist attempt result with full AI telemetry
     // -----------------------------------------------------------------------
     if (req.user) {
       try {
@@ -1076,9 +1092,16 @@ export async function evaluateAttemptWithAI(req, res) {
           correctCount,
           incorrectCount,
           unansweredCount,
+          attemptedCount,
           gradableCount: totalQuestions,
           totalQuestions,
           elapsedSeconds: elapsedSeconds || 0,
+          evaluatedByAI: aiEvalApplied,
+          overallFeedback: overallFeedback || "",
+          overallRating: overallRating || "",
+          strengths,
+          areasToImprove,
+          violations,
           questionResults,
           completedAt: new Date(),
         });
@@ -1094,6 +1117,8 @@ export async function evaluateAttemptWithAI(req, res) {
       aiEvalApplied,
       overallFeedback,
       overallRating,
+      strengths,
+      areasToImprove,
       scorePercent: percentage,
       totalScore,
       maxScore,
@@ -1101,7 +1126,11 @@ export async function evaluateAttemptWithAI(req, res) {
       correctCount,
       incorrectCount,
       unansweredCount,
-      answeredCount: totalQuestions - unansweredCount,
+      attemptedCount,
+      answeredCount: attemptedCount,
+      gradableCount: totalQuestions,
+      attemptedGradableCount: attemptedCount,
+      unansweredTotalCount: unansweredCount,
       totalQuestions,
       questionResults,
       elapsedSeconds,

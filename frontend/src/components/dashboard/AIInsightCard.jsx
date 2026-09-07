@@ -4,11 +4,11 @@ import { Link } from "react-router-dom";
 export default function AIInsightCard({ aiInsight }) {
   const {
     title = "✦ AI LEARNING INSIGHT",
-    observation = "You're improving in Binary Search, but your accuracy drops when questions require edge-case handling.",
+    observation = "Complete assessments to generate personalized AI insights based on your learning patterns.",
     recommendationTitle = "RECOMMENDED NEXT STEP",
-    recommendation = "Practice 5 edge-case problems before moving to the next topic.",
-    cta = "View Insight",
-    href = "/concept-root",
+    recommendation = "Take an assessment to pinpoint concepts needing practice.",
+    cta = "Take Assessment",
+    href = "/assessment",
   } = aiInsight || {};
 
   return (
