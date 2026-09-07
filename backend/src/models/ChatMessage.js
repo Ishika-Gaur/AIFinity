@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const ChatMessageSchema = new mongoose.Schema(
   {
+    sessionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ChatSession",
+      index: true,
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -26,7 +31,8 @@ const ChatMessageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Compound index for querying user messages ordered by creation time
+// Compound indexes for querying messages by session or user
+ChatMessageSchema.index({ sessionId: 1, createdAt: 1 });
 ChatMessageSchema.index({ userId: 1, createdAt: 1 });
 
 export default mongoose.model("ChatMessage", ChatMessageSchema);

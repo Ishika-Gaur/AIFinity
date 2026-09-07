@@ -209,26 +209,52 @@ export const roadmapApi = {
 export const personalIntelligenceApi = {
   /**
    * POST /api/personal-intelligence/chat
-   * Interactive chat completion with personal AI
+   * Interactive chat completion with personal AI within a session
    */
-  chat: (messages) =>
+  chat: (messages, sessionId = null) =>
     request("/personal-intelligence/chat", {
       method: "POST",
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, sessionId }),
     }),
 
   /**
-   * GET /api/personal-intelligence/history
-   * Fetches conversation history for authenticated user
+   * GET /api/personal-intelligence/sessions
+   * List all conversation sessions for user
    */
-  getHistory: () => request("/personal-intelligence/history"),
+  listSessions: () => request("/personal-intelligence/sessions"),
 
   /**
-   * DELETE /api/personal-intelligence/history
-   * Clears conversation history for authenticated user
+   * POST /api/personal-intelligence/sessions
+   * Create a new blank session
    */
-  clearHistory: () =>
-    request("/personal-intelligence/history", {
+  createSession: (title = "New Chat") =>
+    request("/personal-intelligence/sessions", {
+      method: "POST",
+      body: JSON.stringify({ title }),
+    }),
+
+  /**
+   * GET /api/personal-intelligence/sessions/:id/messages
+   * Load all messages for a specific session
+   */
+  getSessionMessages: (sessionId) =>
+    request(`/personal-intelligence/sessions/${sessionId}/messages`),
+
+  /**
+   * DELETE /api/personal-intelligence/sessions/:id
+   * Delete a specific chat session
+   */
+  deleteSession: (sessionId) =>
+    request(`/personal-intelligence/sessions/${sessionId}`, {
+      method: "DELETE",
+    }),
+
+  /**
+   * DELETE /api/personal-intelligence/sessions
+   * Clears all conversations
+   */
+  clearAllSessions: () =>
+    request("/personal-intelligence/sessions", {
       method: "DELETE",
     }),
 };
