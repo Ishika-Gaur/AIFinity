@@ -1,5 +1,6 @@
 import AttemptResult from "../models/AttemptResult.js";
 import User from "../models/User.js";
+import { analyzeConceptRootWithAI } from "../services/geminiService.js";
 
 /**
  * Maps an average score to a ConceptRoot status label.
@@ -185,6 +186,49 @@ export async function getConceptRoot(req, res) {
     return res.status(500).json({
       success: false,
       message: "Unable to load your ConceptRoot analysis. Please try again.",
+    });
+  }
+}
+
+/**
+ * POST /api/concept-root/analyze
+ * Real-time AI diagnostic analysis for interactive ConceptRoot demo or student submission.
+ */
+export async function analyzeConceptRoot(req, res) {
+  try {
+    const { mode, question, userAnswer, code } = req.body;
+
+    if (mode === "normal" && !userAnswer && !question) {
+      return res.status(400).json({
+        success: false,
+        message: "Question and student answer are required for conceptual analysis.",
+      });
+    }
+
+    if (mode === "code" && !code) {
+      return res.status(400).json({
+        success: false,
+        message: "Code submission is required for code diagnostic analysis.",
+      });
+    }
+
+    const diagnosis = await analyzeConceptRootWithAI({
+      mode: mode || "normal",
+      question,
+      userAnswer,
+      text: userAnswer,
+      code,
+    });
+
+    return res.json({
+      success: true,
+      data: diagnosis,
+    });
+  } catch (err) {
+    console.error("[ConceptRoot] Error running AI analysis:", err);
+    return res.status(500).json({
+      success: false,
+      message: "AI diagnostic analysis failed: " + (err.message || "Please try again."),
     });
   }
 }

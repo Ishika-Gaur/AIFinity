@@ -12,7 +12,8 @@ import {
   generateAIAssessment,
   getPersonalizedAssessments,
   generateDailyAIAssessment,
-  getDailyAssessmentStatus
+  getDailyAssessmentStatus,
+  evaluateAttemptWithAI,
 } from "../controllers/assessmentController.js";
 import { authenticate, isAdmin, optionalAuthenticate } from "../middleware/authMiddleware.js";
 
@@ -31,6 +32,7 @@ router.delete("/admin/:id", authenticate, isAdmin, removeAssessment);
 router.post("/sync-attempt", authenticate, syncAttemptResult);
 router.get("/:id/start", authenticate, startAttempt);
 router.post("/:id/submit", authenticate, submitAttempt);
+router.post("/:id/evaluate-ai", authenticate, evaluateAttemptWithAI);
 router.get("/:id", optionalAuthenticate, getPublished);
 
 export default router;

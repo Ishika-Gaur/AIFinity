@@ -1,106 +1,194 @@
 import React, { useState } from "react";
 import Button from "./Button";
-import {
-  NORMAL_ANSWER_PRESETS,
-  CODE_SUBMISSION_PRESETS,
-  analyzeSubmission,
-} from "../data/conceptRootMockData";
+import { conceptRootApi } from "../services/api";
+
+const SAMPLE_SCENARIOS_NORMAL = [
+  {
+    id: "binary-search",
+    title: "Binary Search Complexity",
+    category: "Algorithm Analysis",
+    question: "What is the time complexity of Binary Search on a sorted array of size n?",
+    userAnswer: "It is O(n) because it checks each element in the array one by one.",
+  },
+  {
+    id: "recursion-base-case",
+    title: "Recursion Base Case",
+    category: "Recursion Boundary",
+    question: "Why does recursive factorial(n) cause a stack overflow when given negative numbers like n = -5?",
+    userAnswer: "Because negative numbers don't have factorials in math and the recursion keeps calling itself.",
+  },
+  {
+    id: "quicksort-selection",
+    title: "QuickSort vs Selection Sort",
+    category: "Reasoning Depth",
+    question: "Which sorting algorithm is faster on average: Selection Sort or QuickSort?",
+    userAnswer: "QuickSort is faster because Selection Sort uses two loops and QuickSort uses only one loop.",
+  },
+  {
+    id: "hash-table-lookup",
+    title: "Hash Table Lookup",
+    category: "Direct Mapping",
+    question: "Why does a hash table achieve O(1) average time complexity for lookups?",
+    userAnswer: "The hash function converts the key directly into an array index in O(1) time, allowing direct memory access to the bucket without scanning items.",
+  },
+];
+
+const SAMPLE_SCENARIOS_CODE = [
+  {
+    id: "array-max-bug",
+    title: "Array Maximum Bug",
+    category: "Boundary Bug",
+    code: `function findMax(arr) {
+  let max = 0; // Bug: fails for arrays with negative numbers only
+
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] > max) {
+      max = arr[i];
+    }
+  }
+  return max;
+}`,
+  },
+  {
+    id: "async-foreach-bug",
+    title: "Async in forEach",
+    category: "Async Flow",
+    code: `async function saveAllUsers(users) {
+  // Bug: forEach does not await async operations
+  users.forEach(async (user) => {
+    await db.save(user);
+  });
+  console.log("Finished saving all users");
+}`,
+  },
+  {
+    id: "clean-binary-search",
+    title: "Binary Search Code",
+    category: "Optimal Logic",
+    code: `function binarySearch(arr, target) {
+  let left = 0;
+  let right = arr.length - 1;
+
+  while (left <= right) {
+    const mid = Math.floor(left + (right - left) / 2);
+    if (arr[mid] === target) return mid;
+    if (arr[mid] < target) left = mid + 1;
+    else right = mid - 1;
+  }
+
+  return -1;
+}`,
+  },
+];
 
 export default function ConceptRootDemo({ className = "" }) {
   const [mode, setMode] = useState("normal"); // 'normal' | 'code'
 
   // Normal answer state
-  const [normalPresetId, setNormalPresetId] = useState(NORMAL_ANSWER_PRESETS[0].id);
-  const [questionText, setQuestionText] = useState(NORMAL_ANSWER_PRESETS[0].question);
-  const [userAnswerText, setUserAnswerText] = useState(NORMAL_ANSWER_PRESETS[0].userAnswer);
+  const [selectedScenarioId, setSelectedScenarioId] = useState(SAMPLE_SCENARIOS_NORMAL[0].id);
+  const [questionText, setQuestionText] = useState(SAMPLE_SCENARIOS_NORMAL[0].question);
+  const [userAnswerText, setUserAnswerText] = useState(SAMPLE_SCENARIOS_NORMAL[0].userAnswer);
 
   // Code submission state
-  const [codePresetId, setCodePresetId] = useState(CODE_SUBMISSION_PRESETS[0].id);
-  const [codeText, setCodeText] = useState(CODE_SUBMISSION_PRESETS[0].code);
+  const [codeScenarioId, setCodeScenarioId] = useState(SAMPLE_SCENARIOS_CODE[0].id);
+  const [codeText, setCodeText] = useState(SAMPLE_SCENARIOS_CODE[0].code);
 
   // Interactive flow state
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState(NORMAL_ANSWER_PRESETS[0].analysis);
-  const [hasAnalyzed, setHasAnalyzed] = useState(true);
+  const [result, setResult] = useState(null);
+  const [hasAnalyzed, setHasAnalyzed] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   // Switch modes
   const handleModeSwitch = (newMode) => {
     setMode(newMode);
     setIsLoading(false);
+    setErrorMsg("");
+    setResult(null);
+    setHasAnalyzed(false);
     if (newMode === "normal") {
-      const preset =
-        NORMAL_ANSWER_PRESETS.find((p) => p.id === normalPresetId) ||
-        NORMAL_ANSWER_PRESETS[0];
-      setQuestionText(preset.question);
-      setUserAnswerText(preset.userAnswer);
-      setResult(preset.analysis);
+      const scenario =
+        SAMPLE_SCENARIOS_NORMAL.find((p) => p.id === selectedScenarioId) ||
+        SAMPLE_SCENARIOS_NORMAL[0];
+      setQuestionText(scenario.question);
+      setUserAnswerText(scenario.userAnswer);
     } else {
-      const preset =
-        CODE_SUBMISSION_PRESETS.find((p) => p.id === codePresetId) ||
-        CODE_SUBMISSION_PRESETS[0];
-      setCodeText(preset.code);
-      setResult(preset.analysis);
+      const scenario =
+        SAMPLE_SCENARIOS_CODE.find((p) => p.id === codeScenarioId) ||
+        SAMPLE_SCENARIOS_CODE[0];
+      setCodeText(scenario.code);
     }
-    setHasAnalyzed(true);
   };
 
   // Select Normal Answer Preset
-  const handleSelectNormalPreset = (preset) => {
-    setNormalPresetId(preset.id);
-    setQuestionText(preset.question);
-    setUserAnswerText(preset.userAnswer);
-    setResult(preset.analysis);
-    setHasAnalyzed(true);
+  const handleSelectNormalPreset = (scenario) => {
+    setSelectedScenarioId(scenario.id);
+    setQuestionText(scenario.question);
+    setUserAnswerText(scenario.userAnswer);
+    setResult(null);
+    setHasAnalyzed(false);
+    setErrorMsg("");
   };
 
   // Select Code Preset
-  const handleSelectCodePreset = (preset) => {
-    setCodePresetId(preset.id);
-    setCodeText(preset.code);
-    setResult(preset.analysis);
-    setHasAnalyzed(true);
+  const handleSelectCodePreset = (scenario) => {
+    setCodeScenarioId(scenario.id);
+    setCodeText(scenario.code);
+    setResult(null);
+    setHasAnalyzed(false);
+    setErrorMsg("");
   };
 
-  // Run diagnostic analysis
-  const handleRunAnalysis = () => {
+  // Run live diagnostic analysis via backend Gemini AI
+  const handleRunAnalysis = async () => {
     setIsLoading(true);
+    setErrorMsg("");
     setHasAnalyzed(false);
 
-    setTimeout(() => {
-      let res;
-      if (mode === "normal") {
-        res = analyzeSubmission("normal", {
-          question: questionText,
-          userAnswer: userAnswerText,
-        });
+    try {
+      const payload =
+        mode === "normal"
+          ? {
+              mode: "normal",
+              question: questionText,
+              userAnswer: userAnswerText,
+            }
+          : {
+              mode: "code",
+              code: codeText,
+            };
+
+      const res = await conceptRootApi.analyze(payload);
+      if (res.success && res.data) {
+        setResult(res.data);
+        setHasAnalyzed(true);
       } else {
-        res = analyzeSubmission("code", {
-          code: codeText,
-        });
+        setErrorMsg(res.error || res.message || "Failed to analyze submission with ConceptRoot AI.");
       }
-      setResult(res);
+    } catch (err) {
+      console.error("ConceptRoot AI diagnostic error:", err);
+      setErrorMsg("Network error: Could not reach the ConceptRoot diagnostic service.");
+    } finally {
       setIsLoading(false);
-      setHasAnalyzed(true);
-    }, 450);
+    }
   };
 
   // Reset form
   const handleReset = () => {
     setHasAnalyzed(false);
     setIsLoading(false);
+    setResult(null);
+    setErrorMsg("");
     if (mode === "normal") {
-      const preset = NORMAL_ANSWER_PRESETS[0];
-      setNormalPresetId(preset.id);
-      setQuestionText(preset.question);
-      setUserAnswerText(preset.userAnswer);
-      setResult(preset.analysis);
+      const scenario = SAMPLE_SCENARIOS_NORMAL[0];
+      setSelectedScenarioId(scenario.id);
+      setQuestionText(scenario.question);
+      setUserAnswerText(scenario.userAnswer);
     } else {
-      const preset = CODE_SUBMISSION_PRESETS[0];
-      setCodePresetId(preset.id);
-      setCodeText(preset.code);
-      setResult(preset.analysis);
+      const scenario = SAMPLE_SCENARIOS_CODE[0];
+      setCodeScenarioId(scenario.id);
+      setCodeText(scenario.code);
     }
-    setHasAnalyzed(true);
   };
 
   // Verdict Badge Helper (Supports 5 Verdict States)
@@ -149,13 +237,13 @@ export default function ConceptRootDemo({ className = "" }) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-primary-100)] px-3 py-1 text-xs font-semibold text-[var(--color-primary-700)]">
-              Interactive ConceptRoot AI Diagnostic
+              Live AI ConceptRoot Diagnostic
             </span>
             <h3 className="mt-2 text-xl font-bold text-[var(--color-text-h)]">
               Test ConceptRoot Diagnostic Engine
             </h3>
             <p className="text-sm text-[var(--color-text-muted)]">
-              Submit an explanation or code snippet to receive 8-field root cause analysis.
+              Submit an explanation or code snippet to receive live 8-field root cause analysis from Gemini AI.
             </p>
           </div>
 
@@ -189,35 +277,35 @@ export default function ConceptRootDemo({ className = "" }) {
         {/* Preset Selector Pills */}
         <div className="mt-6 flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-            Test Scenarios:
+            Example Scenarios:
           </span>
           {mode === "normal"
-            ? NORMAL_ANSWER_PRESETS.map((preset) => (
+            ? SAMPLE_SCENARIOS_NORMAL.map((scenario) => (
                 <button
-                  key={preset.id}
+                  key={scenario.id}
                   type="button"
-                  onClick={() => handleSelectNormalPreset(preset)}
+                  onClick={() => handleSelectNormalPreset(scenario)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition-all ${
-                    normalPresetId === preset.id
+                    selectedScenarioId === scenario.id
                       ? "border-[var(--color-primary-600)] bg-[var(--color-primary-50)] text-[var(--color-primary-700)] font-semibold shadow-xs"
                       : "border-[var(--color-border)] bg-white text-[var(--color-text-muted)] hover:border-[var(--color-primary-300)]"
                   }`}
                 >
-                  {preset.category || preset.title}
+                  {scenario.category || scenario.title}
                 </button>
               ))
-            : CODE_SUBMISSION_PRESETS.map((preset) => (
+            : SAMPLE_SCENARIOS_CODE.map((scenario) => (
                 <button
-                  key={preset.id}
+                  key={scenario.id}
                   type="button"
-                  onClick={() => handleSelectCodePreset(preset)}
+                  onClick={() => handleSelectCodePreset(scenario)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition-all ${
-                    codePresetId === preset.id
+                    codeScenarioId === scenario.id
                       ? "border-[var(--color-primary-600)] bg-[var(--color-primary-50)] text-[var(--color-primary-700)] font-semibold shadow-xs"
                       : "border-[var(--color-border)] bg-white text-[var(--color-text-muted)] hover:border-[var(--color-primary-300)]"
                   }`}
                 >
-                  {preset.category || preset.title}
+                  {scenario.category || scenario.title}
                 </button>
               ))}
         </div>
@@ -234,9 +322,13 @@ export default function ConceptRootDemo({ className = "" }) {
                   <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">
                     Question / Problem
                   </label>
-                  <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-primary-50)]/40 p-4 text-sm font-medium text-[var(--color-text-h)]">
-                    {questionText}
-                  </div>
+                  <textarea
+                    rows={2}
+                    value={questionText}
+                    onChange={(e) => setQuestionText(e.target.value)}
+                    placeholder="Enter the question or problem statement..."
+                    className="w-full rounded-xl border border-[var(--color-border)] bg-white p-3.5 text-sm font-medium text-[var(--color-text-h)] placeholder-[var(--color-text-light)] focus:border-[var(--color-primary-600)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-100)] transition-all resize-none"
+                  />
                 </div>
 
                 <div>
@@ -292,6 +384,13 @@ export default function ConceptRootDemo({ className = "" }) {
               </div>
             )}
 
+            {/* Error banner */}
+            {errorMsg && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                {errorMsg}
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex items-center gap-3 pt-2">
               <Button
@@ -322,7 +421,7 @@ export default function ConceptRootDemo({ className = "" }) {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    Analyzing Concept Root...
+                    Analyzing with Gemini AI...
                   </span>
                 ) : (
                   "Run ConceptRoot AI Diagnostic"
@@ -346,7 +445,7 @@ export default function ConceptRootDemo({ className = "" }) {
                 ConceptRoot Diagnostic Output
               </h4>
               <span className="text-xs font-mono text-[var(--color-primary-600)]">
-                {isLoading ? "Diagnosing..." : "8-Field Schema"}
+                {isLoading ? "Diagnosing with AI..." : "8-Field Schema"}
               </span>
             </div>
 
@@ -355,10 +454,10 @@ export default function ConceptRootDemo({ className = "" }) {
                 <div className="h-10 w-10 rounded-full border-2 border-[var(--color-primary-600)] border-t-transparent animate-spin" />
                 <div>
                   <p className="text-sm font-semibold text-[var(--color-text-h)]">
-                    Analyzing student understanding...
+                    Analyzing student understanding with Gemini AI...
                   </p>
                   <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                    Identifying correct reasoning, missing prerequisites, root breakdown, and personalized guidance.
+                    Extracting correct reasoning, missing prerequisites, root breakdown, and personalized guidance.
                   </p>
                 </div>
               </div>
@@ -373,7 +472,7 @@ export default function ConceptRootDemo({ className = "" }) {
                 </div>
 
                 <div className="space-y-3 text-xs leading-relaxed">
-                  {/* 2. What You Got Right (Preserving correct understanding) */}
+                  {/* 2. What You Got Right */}
                   {result.whatYouGotRight && (
                     <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 block mb-1">
@@ -385,7 +484,7 @@ export default function ConceptRootDemo({ className = "" }) {
                     </div>
                   )}
 
-                  {/* 3. What Needs Attention (Specific flaw / anti-pattern) */}
+                  {/* 3. What Needs Attention */}
                   {result.whatNeedsAttention && (
                     <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 block mb-1">
@@ -397,7 +496,7 @@ export default function ConceptRootDemo({ className = "" }) {
                     </div>
                   )}
 
-                  {/* 4. Focus First (Single minimum prerequisite concept) */}
+                  {/* 4. Focus First */}
                   {result.focusFirst && (
                     <div className="rounded-xl border border-[var(--color-primary-200)] bg-[var(--color-primary-50)] p-3">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-primary-700)] block mb-0.5">
@@ -448,7 +547,7 @@ export default function ConceptRootDemo({ className = "" }) {
               </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--color-border)] p-8 text-center text-sm text-[var(--color-text-muted)]">
-                Select a scenario or type custom text above and click "Run ConceptRoot AI Diagnostic".
+                Select an example scenario or type custom text above and click "Run ConceptRoot AI Diagnostic".
               </div>
             )}
           </div>

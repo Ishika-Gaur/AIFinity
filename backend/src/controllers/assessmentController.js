@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Assessment from "../models/Assessment.js";
 import AttemptResult from "../models/AttemptResult.js";
 import { generatePersonalizedRoadmap } from "./analyticsController.js";
-import { generateQuestions } from "../services/geminiService.js";
+import { generateQuestions, evaluateAssessmentWithAI } from "../services/geminiService.js";
 
 // Active in-memory attempt sessions cache for server-side evaluation
 const activeAttemptSessions = new Map();
@@ -917,5 +917,200 @@ export async function getDailyAssessmentStatus(req, res) {
   } catch (error) {
     console.error("Daily Status Error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch daily status" });
+  }
+}
+
+/**
+ * AI ASSESSMENT EVALUATOR
+ * Submits the completed attempt to Gemini for intelligent grading.
+ * Merges AI feedback into the standard questionResults shape so the
+ * frontend requires zero changes.
+ *
+ * POST /assessments/:id/evaluate-ai
+ * Body: { attemptId, responses: { [questionId]: userAnswer }, elapsedSeconds, violations }
+ */
+export async function evaluateAttemptWithAI(req, res) {
+  try {
+    const {
+      attemptId,
+      responses = {},
+      elapsedSeconds = 0,
+      violations = [],
+      assessmentTitle: bodyTitle,
+      assessmentCategory: bodyCategory,
+      assessmentField: bodyField,
+    } = req.body;
+
+    const targetId = req.params.id;
+    let assessment = null;
+
+    if (mongoose.Types.ObjectId.isValid(targetId)) {
+      assessment = await Assessment.findById(targetId);
+    }
+    if (!assessment) {
+      assessment = await Assessment.findOne({
+        $or: [
+          { category: new RegExp(targetId, "i") },
+          { field: new RegExp(targetId, "i") },
+          { title: new RegExp(targetId, "i") },
+        ],
+      });
+    }
+
+    const session = activeAttemptSessions.get(attemptId);
+    const rawQuestions = assessment?.questions || [];
+
+    // -----------------------------------------------------------------------
+    // Step 1: Run deterministic evaluation (same logic as submitAttempt)
+    // -----------------------------------------------------------------------
+    const questionResults = [];
+    let totalScore = 0;
+    let maxScore = 0;
+    let correctCount = 0;
+    let incorrectCount = 0;
+    let unansweredCount = 0;
+
+    rawQuestions.forEach((q) => {
+      const qId = String(q._id || q.id);
+      const userResp = responses[qId];
+      const sessionQ = session?.answersMap?.get(qId) ?? null;
+
+      const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
+      evalResult.concept = q.concept || sessionQ?.concept || assessment?.category || bodyCategory || "General";
+      questionResults.push(evalResult);
+
+      totalScore += evalResult.marksAwarded;
+      maxScore += evalResult.maxMarks;
+
+      if (evalResult.status === "correct" || evalResult.marksAwarded >= 7) correctCount++;
+      else if (evalResult.status === "unanswered") unansweredCount++;
+      else incorrectCount++;
+    });
+
+    const totalQuestions = rawQuestions.length || 1;
+    if (maxScore === 0) maxScore = totalQuestions * 10;
+
+    // -----------------------------------------------------------------------
+    // Step 2: Call Gemini for AI evaluation — merge results
+    // -----------------------------------------------------------------------
+    let overallFeedback = null;
+    let overallRating = null;
+    let aiEvalApplied = false;
+
+    try {
+      const aiResult = await evaluateAssessmentWithAI({
+        assessmentTitle: assessment?.title || bodyTitle || targetId,
+        assessmentCategory: assessment?.category || bodyCategory || "General",
+        questions: rawQuestions,
+        userAnswers: responses,
+      });
+
+      overallFeedback = aiResult.overallFeedback;
+      overallRating = aiResult.overallRating;
+
+      // Build a lookup map from Gemini's per-question evaluations
+      const aiMap = new Map();
+      (aiResult.questionEvaluations || []).forEach((ev) => {
+        aiMap.set(String(ev.questionId), ev);
+      });
+
+      // Merge AI feedback into each question result
+      let aiTotalScore = 0;
+      let aiCorrectCount = 0;
+      let aiIncorrectCount = 0;
+
+      questionResults.forEach((qr) => {
+        const aiEval = aiMap.get(String(qr.questionId));
+        if (aiEval) {
+          qr.aiFeedback = aiEval.aiFeedback;
+          qr.keyPointsMissed = aiEval.keyPointsMissed || [];
+
+          // For descriptive question types, override marks with AI score
+          if (["long_answer", "short_answer"].includes(qr.type)) {
+            qr.marksAwarded = Math.min(10, Math.max(0, Math.round(aiEval.aiScore)));
+            qr.status = aiEval.status;
+            qr.isCorrect = aiEval.status !== "incorrect";
+            qr.explanation = aiEval.aiFeedback;
+          }
+        }
+
+        aiTotalScore += qr.marksAwarded;
+        if (qr.status === "correct" || qr.marksAwarded >= 7) aiCorrectCount++;
+        else if (qr.status !== "unanswered") aiIncorrectCount++;
+      });
+
+      // Recalculate totals with AI-adjusted marks
+      totalScore = aiTotalScore;
+      correctCount = aiCorrectCount;
+      incorrectCount = aiIncorrectCount;
+      aiEvalApplied = true;
+    } catch (aiErr) {
+      console.error("[AI Evaluator] Gemini evaluation failed, falling back to deterministic scoring:", aiErr.message);
+      overallFeedback = "AI evaluation is temporarily unavailable. Scores shown are based on automated grading.";
+      overallRating = null;
+    }
+
+    const percentage = maxScore > 0 ? Math.min(100, Math.round((totalScore / maxScore) * 100)) : 0;
+
+    // Clean up session
+    if (attemptId) activeAttemptSessions.delete(attemptId);
+
+    const title    = assessment?.title    || bodyTitle    || `Assessment (${targetId})`;
+    const category = assessment?.category || bodyCategory || "General";
+    const field    = assessment?.field    || bodyField    || "";
+
+    // -----------------------------------------------------------------------
+    // Step 3: Persist attempt result
+    // -----------------------------------------------------------------------
+    if (req.user) {
+      try {
+        await AttemptResult.create({
+          userId: req.user._id,
+          assessmentId: assessment?._id,
+          assessmentTitle: title,
+          assessmentCategory: category,
+          assessmentField: field,
+          scorePercent: percentage,
+          totalScore,
+          maxScore,
+          correctCount,
+          incorrectCount,
+          unansweredCount,
+          gradableCount: totalQuestions,
+          totalQuestions,
+          elapsedSeconds: elapsedSeconds || 0,
+          questionResults,
+          completedAt: new Date(),
+        });
+
+        await generatePersonalizedRoadmap(req.user._id);
+      } catch (saveErr) {
+        console.error("[AI Evaluator] Failed to persist attempt result:", saveErr.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      aiEvalApplied,
+      overallFeedback,
+      overallRating,
+      scorePercent: percentage,
+      totalScore,
+      maxScore,
+      percentage,
+      correctCount,
+      incorrectCount,
+      unansweredCount,
+      answeredCount: totalQuestions - unansweredCount,
+      totalQuestions,
+      questionResults,
+      elapsedSeconds,
+      violationsCount: violations.length,
+      violations,
+      autoSubmitted: violations.length >= 3,
+    });
+  } catch (error) {
+    console.error("[AI Evaluator] Unexpected error:", error);
+    res.status(500).json({ success: false, message: error.message || "Failed to evaluate assessment with AI" });
   }
 }

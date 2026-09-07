@@ -165,6 +165,16 @@ export const conceptRootApi = {
    * Returns fully personalized ConceptRoot analysis data.
    */
   get: () => request("/concept-root"),
+
+  /**
+   * POST /api/concept-root/analyze
+   * Live AI diagnostic analysis for ConceptRoot submission.
+   */
+  analyze: (payload) =>
+    request("/concept-root/analyze", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 export const mistakeMapApi = {
