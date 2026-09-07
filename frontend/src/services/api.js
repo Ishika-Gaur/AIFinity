@@ -205,3 +205,30 @@ export const roadmapApi = {
    */
   get: () => request("/roadmap"),
 };
+
+export const personalIntelligenceApi = {
+  /**
+   * POST /api/personal-intelligence/chat
+   * Interactive chat completion with personal AI
+   */
+  chat: (messages) =>
+    request("/personal-intelligence/chat", {
+      method: "POST",
+      body: JSON.stringify({ messages }),
+    }),
+
+  /**
+   * GET /api/personal-intelligence/history
+   * Fetches conversation history for authenticated user
+   */
+  getHistory: () => request("/personal-intelligence/history"),
+
+  /**
+   * DELETE /api/personal-intelligence/history
+   * Clears conversation history for authenticated user
+   */
+  clearHistory: () =>
+    request("/personal-intelligence/history", {
+      method: "DELETE",
+    }),
+};

@@ -1,6 +1,7 @@
 import AttemptResult from "../models/AttemptResult.js";
 import UserRoadmap from "../models/UserRoadmap.js";
 import User from "../models/User.js";
+import ChatMessage from "../models/ChatMessage.js";
 import { chatCompletion } from "../services/geminiService.js";
 
 function getCategoryStats(attempts) {
@@ -101,8 +102,27 @@ Instructions:
 
 6. Keep the entire response between 100-150 words maximum. Do NOT generate long study plans, tables, or essays. Do not use excessive emojis. Make it extremely easy to scan in 10 seconds.`;
 
+    // 3. Persist incoming user message
+    const lastUserMsg = messages[messages.length - 1];
+    if (lastUserMsg && lastUserMsg.role === "user" && lastUserMsg.content?.trim()) {
+      await ChatMessage.create({
+        userId: user._id,
+        role: "user",
+        content: lastUserMsg.content.trim(),
+      });
+    }
+
     // 4. Call Gemini
     const aiResponse = await chatCompletion(systemPrompt, messages.map(m => ({ role: m.role, content: m.content })));
+
+    // 5. Persist AI assistant response
+    if (aiResponse) {
+      await ChatMessage.create({
+        userId: user._id,
+        role: "assistant",
+        content: aiResponse,
+      });
+    }
 
     return res.json({
       success: true,
@@ -111,5 +131,49 @@ Instructions:
   } catch (error) {
     console.error("[PI Controller] Error:", error);
     return res.status(500).json({ success: false, message: "Personal Intelligence is currently unavailable." });
+  }
+};
+
+/**
+ * GET /api/personal-intelligence/history
+ * Fetches user-specific chat conversation history
+ */
+export const getChatHistory = async (req, res) => {
+  try {
+    const user = req.user;
+    const history = await ChatMessage.find({ userId: user._id })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    return res.json({
+      success: true,
+      history: history.map((msg) => ({
+        id: String(msg._id),
+        role: msg.role,
+        content: msg.content,
+        createdAt: msg.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error("[PI History] Error:", error);
+    return res.status(500).json({ success: false, message: "Failed to load chat history." });
+  }
+};
+
+/**
+ * DELETE /api/personal-intelligence/history
+ * Clears user-specific chat conversation history
+ */
+export const clearChatHistory = async (req, res) => {
+  try {
+    const user = req.user;
+    await ChatMessage.deleteMany({ userId: user._id });
+    return res.json({
+      success: true,
+      message: "Chat history cleared successfully.",
+    });
+  } catch (error) {
+    console.error("[PI Clear History] Error:", error);
+    return res.status(500).json({ success: false, message: "Failed to clear chat history." });
   }
 };
