@@ -319,42 +319,52 @@ function CategoryTile({ category, count, index, onSelect }) {
 /* ---------------- Daily calendar (LeetCode-style) ---------------- */
 
 /* Single day cell — number in a circle, tiny activity dot below.
-   Today gets a filled circle; locked days are dimmed and inert. */
-function DayCell({ daily }) {
-  const isLocked = daily.status === "Locked";
-  const hasActivity = !isLocked;
+   Today gets a filled circle; future days are dimmed; past days are all clickable. */
+function DayCell({ daily, onDailyClick }) {
+  const isFuture = daily.isFuture;
+  const isCompleted = daily.status === "Completed";
 
   const content = (
     <div className="flex flex-col items-center justify-center gap-0.5 py-0.5">
       <span
-        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors ${daily.isToday
-          ? "bg-[var(--color-primary-600)] text-white"
-          : isLocked
-            ? "text-[var(--color-text-light)]"
-            : "text-[var(--color-text-h)] hover:bg-[var(--color-surface-secondary)]"
-          }`}
+        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors ${
+          daily.isToday
+            ? "bg-[var(--color-primary-600)] text-white"
+            : isCompleted
+              ? "bg-green-100 text-green-700"
+              : isFuture
+                ? "text-[var(--color-text-light)] opacity-40"
+                : "text-[var(--color-text-h)] hover:bg-[var(--color-primary-50)] hover:text-[var(--color-primary-600)] cursor-pointer"
+        }`}
       >
         {daily.day}
       </span>
       <span
-        className={`h-1 w-1 rounded-full ${!hasActivity
-          ? "bg-transparent"
-          : daily.status === "Completed"
+        className={`h-1 w-1 rounded-full ${
+          isCompleted
             ? "bg-green-500"
-            : "bg-[var(--color-primary-600)]"
-          }`}
+            : isFuture
+              ? "bg-transparent"
+              : "bg-[var(--color-primary-400)]"
+        }`}
       />
     </div>
   );
 
-  if (isLocked) {
-    return content;
+  // Future days are not clickable yet
+  if (isFuture) {
+    return <div title={`Day ${daily.day} — upcoming`}>{content}</div>;
   }
 
+  // Past and today: clicking generates a daily challenge
   return (
-    <Link to={`/assessment/${daily.id}`} className="block" title={daily.title}>
+    <div
+      onClick={() => onDailyClick && onDailyClick()}
+      className="block cursor-pointer"
+      title={isCompleted ? `Day ${daily.day} — Completed ✓` : `Day ${daily.day} — Click to start a challenge`}
+    >
       {content}
-    </Link>
+    </div>
   );
 }
 
@@ -378,7 +388,7 @@ function FlameIcon({ className }) {
 
 /* ---------------- Right sidebar: streak calendar + stats ---------------- */
 
-function StreakSidebar({ profile, dailyAssessments, completedDays }) {
+function StreakSidebar({ profile, dailyAssessments, completedDays, onDailyClick }) {
   const now = new Date();
   const monthLabel = `${MONTH_LABELS[now.getMonth()]} ${now.getFullYear()}`;
   const firstWeekdayOffset = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
@@ -430,20 +440,20 @@ function StreakSidebar({ profile, dailyAssessments, completedDays }) {
             <div key={`pad-${i}`} />
           ))}
           {dailyAssessments.map((daily) => (
-            <DayCell key={daily.id} daily={daily} />
+            <DayCell key={daily.id} daily={daily} onDailyClick={onDailyClick} />
           ))}
         </div>
 
         {/* Legend */}
         <div className="mt-4 flex flex-wrap gap-4 border-t border-[var(--color-border)] pt-3 text-[11px] text-[var(--color-text-muted)]">
           <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary-600)]" /> Available
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary-400)]" /> Available
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Completed
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-light)]" /> Locked
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-light)] opacity-40" /> Upcoming
           </span>
         </div>
       </div>
@@ -665,12 +675,16 @@ export default function AssessmentPage() {
       const day = i + 1;
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const isCompleted = completedDailyDates.includes(dateStr);
+      // All days in the current month (past, today, and future) are Available.
+      // Past days that were missed can still be completed retroactively.
+      // Only future days beyond today are shown as upcoming (still Available).
       return {
         id: `day-${day}`,
         day,
         isToday: day === today,
+        isFuture: day > today,
         title: `Day ${day}`,
-        status: isCompleted ? "Completed" : day === today ? "Available" : day < today ? "Locked" : "Available",
+        status: isCompleted ? "Completed" : "Available",
       };
     });
   }, [completedDailyDates]);
@@ -703,15 +717,18 @@ export default function AssessmentPage() {
       calendar.push({ day: null, isPadding: true, isToday: false, status: "Locked" });
     }
 
-    // Add all days of the month
+    // Add all days of the month — all days are Available so users can
+    // complete missed assessments from any day in the current month.
     for (let day = 1; day <= daysInMonth; day++) {
       const isToday = day === today;
-      // For now, mark days as Available (this could be enhanced with real assessment data)
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isCompleted = completedDailyDates.includes(dateStr);
       calendar.push({
         day,
         isPadding: false,
         isToday,
-        status: isToday ? "Available" : day < today ? "Locked" : "Available"
+        isFuture: day > today,
+        status: isCompleted ? "Completed" : "Available"
       });
     }
 
@@ -874,6 +891,7 @@ export default function AssessmentPage() {
               profile={profile}
               dailyAssessments={dailyAssessments}
               completedDays={completedDays}
+              onDailyClick={handleGenerateDaily}
             />
           </div>
 
@@ -1021,25 +1039,36 @@ export default function AssessmentPage() {
                   </div>
                   <div className="grid grid-cols-7 gap-1.5 text-center">
                     {weekDays.map((d, index) => (
-                      <div key={index} className="flex flex-col items-center gap-1">
+                      <div
+                        key={index}
+                        className={`flex flex-col items-center gap-1 ${!d.isPadding && !d.isFuture ? "cursor-pointer group" : ""}`}
+                        onClick={() => !d.isPadding && !d.isFuture && handleGenerateDaily()}
+                        title={d.isPadding ? "" : d.isFuture ? "Future day" : d.status === "Completed" ? `Day ${d.day} — Completed` : `Day ${d.day} — Click to start challenge`}
+                      >
                         <span
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold ${d.isPadding
-                            ? "invisible"
-                            : d.isToday
-                              ? "bg-[var(--color-primary-600)] text-white"
-                              : d.status === "Completed"
-                                ? "bg-green-50 text-green-700"
-                                : d.status === "Locked"
-                                  ? "text-[var(--color-text-light)]"
-                                  : "text-[var(--color-text-h)]"
-                            }`}
+                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
+                            d.isPadding
+                              ? "invisible"
+                              : d.isToday
+                                ? "bg-[var(--color-primary-600)] text-white"
+                                : d.status === "Completed"
+                                  ? "bg-green-100 text-green-700"
+                                  : d.isFuture
+                                    ? "text-[var(--color-text-light)] opacity-40"
+                                    : "text-[var(--color-text-h)] group-hover:bg-[var(--color-primary-50)] group-hover:text-[var(--color-primary-600)]"
+                          }`}
                         >
                           {d.day}
                         </span>
                         {!d.isPadding && (
                           <span
-                            className={`h-1 w-1 rounded-full ${d.status === "Completed" ? "bg-green-500" : d.status === "Locked" ? "bg-transparent" : "bg-[var(--color-primary-600)]"
-                              }`}
+                            className={`h-1 w-1 rounded-full ${
+                              d.status === "Completed"
+                                ? "bg-green-500"
+                                : d.isFuture
+                                  ? "bg-transparent"
+                                  : "bg-[var(--color-primary-400)]"
+                            }`}
                           />
                         )}
                       </div>
@@ -1168,6 +1197,7 @@ export default function AssessmentPage() {
             profile={profile}
             dailyAssessments={dailyAssessments}
             completedDays={completedDays}
+            onDailyClick={handleGenerateDaily}
           />
         </aside>
       </div>
