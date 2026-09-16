@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import logo from "../assets/logo.svg";
-import { authApi } from "../services/api";
+import { useStudentAuth } from "../context/StudentAuthContext";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -36,41 +36,10 @@ export default function Navbar() {
   const navigate = useNavigate();
   const currentPath = location.pathname;
 
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    const checkUser = () => {
-      try {
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        } else {
-          setUser(null);
-        }
-      } catch (e) {
-        setUser(null);
-      }
-    };
-    
-    checkUser();
-    window.addEventListener("storage", checkUser);
-    window.addEventListener("authChange", checkUser);
-    
-    return () => {
-      window.removeEventListener("storage", checkUser);
-      window.removeEventListener("authChange", checkUser);
-    };
-  }, [currentPath]);
+  const { user, loading: authLoading, logout } = useStudentAuth();
 
   const handleLogout = async () => {
-    try {
-      await authApi.logout();
-    } catch (e) {
-      console.error(e);
-    }
-    localStorage.removeItem("user");
-    setUser(null);
-    window.dispatchEvent(new Event("authChange"));
+    await logout();
     navigate("/login");
   };
 
@@ -111,7 +80,9 @@ export default function Navbar() {
 
         {/* CTA Buttons */}
         <div className="hidden items-center gap-3 md:flex relative">
-          {user ? (
+          {authLoading ? (
+            <div className="h-9 w-40 rounded-xl bg-[#EDE6D3]/70 animate-pulse" aria-hidden="true" />
+          ) : user ? (
             <>
               {/* User avatar + name → clicks to dashboard */}
               <a
@@ -225,7 +196,9 @@ export default function Navbar() {
               >
                 ⚡ Take Assessment
               </a>
-              {user ? (
+              {authLoading ? (
+                <div className="h-10 w-full rounded-xl bg-[#EDE6D3]/70 animate-pulse" aria-hidden="true" />
+              ) : user ? (
                 <>
                   <div className="px-4 py-3 mb-1 bg-white/50 rounded-xl border border-[#2E4F42]/5 flex items-center gap-3">
                     <div className="flex shrink-0 items-center justify-center h-10 w-10 rounded-full bg-[#1B332C] text-[#E8C547] font-bold text-sm shadow-sm">

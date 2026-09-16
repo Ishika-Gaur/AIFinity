@@ -5,7 +5,8 @@ import Card from "../components/Card";
 import ConceptRootDemo from "../components/ConceptRootDemo";
 import CtaBanner from "../components/CtaBanner";
 import HeroSection from "../components/HeroSection";
-import { conceptRootApi, authApi } from "../services/api";
+import { conceptRootApi } from "../services/api";
+import { useStudentAuth } from "../context/StudentAuthContext";
 import { Link } from "react-router-dom";
 
 const HOW_IT_WORKS_STEPS = [
@@ -66,26 +67,7 @@ export default function ConceptRoot() {
   const demoRef = useRef(null);
   const howItWorksRef = useRef(null);
 
-  const [user, setUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "null");
-    } catch (_) {
-      return null;
-    }
-  });
-
-  useEffect(() => {
-    async function checkUser() {
-      const res = await authApi.getMe();
-      if (res && res.success && res.user) {
-        setUser(res.user);
-        try {
-          localStorage.setItem("user", JSON.stringify(res.user));
-        } catch (_) {}
-      }
-    }
-    checkUser();
-  }, []);
+  const { user } = useStudentAuth();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

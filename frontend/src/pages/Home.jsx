@@ -7,6 +7,8 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import CtaBanner from "../components/CtaBanner";
 import { dashboardApi } from "../services/api";
+import { useStudentAuth } from "../context/StudentAuthContext";
+import { isStudentUser } from "../utils/studentAuthStorage";
 
 /* =========================================================
    REUSABLE SVG ICONS
@@ -58,15 +60,13 @@ const CHALLENGE_SOLUTIONS = [
 
 export default function Home() {
   const [activeObsTab, setActiveObsTab] = useState(OBSERVATORY_TABS[0]);
-  const [userData, setUserData] = useState(() => {
-    try {
-      const stored = localStorage.getItem("user");
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
+  const { user: sessionUser } = useStudentAuth();
+  const [userData, setUserData] = useState(sessionUser);
   const [dashboardData, setDashboardData] = useState(null);
+
+  useEffect(() => {
+    setUserData(sessionUser);
+  }, [sessionUser]);
 
   useEffect(() => {
     let isMounted = true;
@@ -75,7 +75,7 @@ export default function Home() {
       .then((res) => {
         if (isMounted && res.success && res.data) {
           setDashboardData(res.data);
-          if (res.data.user) {
+          if (isStudentUser(res.data.user)) {
             setUserData(res.data.user);
           }
         }

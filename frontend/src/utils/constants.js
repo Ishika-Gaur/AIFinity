@@ -1,3 +1,5 @@
+import { readCachedStudentUser } from "./studentAuthStorage";
+
 export const FIELDS = [
   "Software Development",
   "Data Science & Analytics",
@@ -153,7 +155,7 @@ export const CAREER_GOALS_BY_FIELD = {
   ],
 };
 export const FIELD_ICONS = {
-  "Software Development": "</\>",
+  "Software Development": "</>",
   "Data Science & Analytics": "📊",
   "Web Development": "🌐",
   "Mobile App Development": "📱",
@@ -265,10 +267,7 @@ function matchField(text) {
 export function getUserProfile() {
   if (typeof window === "undefined" || !window.localStorage) return DEFAULT_PROFILE;
   try {
-    let sessionUser = null;
-    try {
-      sessionUser = JSON.parse(window.localStorage.getItem("user") || "null");
-    } catch (_) {}
+    const sessionUser = readCachedStudentUser();
 
     if (sessionUser && sessionUser.selectedField) {
       const profile = sessionUser.onboardingProfile || {};

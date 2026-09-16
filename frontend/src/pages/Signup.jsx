@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import { authApi } from "../services/api";
+import { useStudentAuth } from "../context/StudentAuthContext";
+import { isNetworkAuthError } from "../utils/studentAuthStorage";
 import logoImg from "../assets/logo.svg";
 
 const BENEFITS = [
@@ -31,6 +33,7 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { applySession } = useStudentAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,15 +57,11 @@ export default function SignupPage() {
     setLoading(false);
 
     if (res && res.success) {
-      if (res.user) {
-        try {
-          localStorage.setItem("user", JSON.stringify(res.user));
-        } catch (_) {}
-      }
+      applySession(res.user || null);
       navigate("/onboardingpage");
     } else {
       // If network fails (e.g. backend server offline), gracefully create local session
-      if (res?.error && (res.error.includes("Network") || res.error.includes("Failed to fetch") || res.error.includes("Failed to reach server"))) {
+      if (isNetworkAuthError(res?.error)) {
         const fallbackUser = {
           name: trimmedName,
           email: trimmedEmail,
@@ -70,9 +69,7 @@ export default function SignupPage() {
           onboardingCompleted: false,
           selectedField: "",
         };
-        try {
-          localStorage.setItem("user", JSON.stringify(fallbackUser));
-        } catch (_) {}
+        applySession(fallbackUser);
         navigate("/onboardingpage");
         return;
       }

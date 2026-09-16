@@ -29,6 +29,7 @@ import StudentAuthGuard from './components/StudentAuthGuard';
 
 // Admin Auth & Protection
 import { AdminAuthProvider } from './context/AdminAuthContext';
+import { StudentAuthProvider } from './context/StudentAuthContext';
 import ProtectedRoute from './components/admin/ProtectedRoute';
 
 // Admin Auth Pages
@@ -74,6 +75,7 @@ function AssessmentLoading() {
 function App() {
   return (
     <AdminAuthProvider>
+      <StudentAuthProvider>
       <Router>
         <Routes>
 
@@ -219,6 +221,7 @@ function App() {
           </Route>
         </Routes>
       </Router>
+      </StudentAuthProvider>
     </AdminAuthProvider>
   );
 }

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { authApi } from "../services/api";
+import { useStudentAuth } from "../context/StudentAuthContext";
 
 export default function StudentAuthGuard({
   children,
@@ -8,38 +8,11 @@ export default function StudentAuthGuard({
   allowOnlyIncomplete = false,
 }) {
   const location = useLocation();
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  const { user, loading, refreshUser } = useStudentAuth();
 
   useEffect(() => {
-    async function checkAuth() {
-      let localUser = null;
-      try {
-        localUser = JSON.parse(localStorage.getItem("user") || "null");
-      } catch (_) {}
-
-      // Do not trust cached identity when the backend explicitly rejects the session.
-      const res = await authApi.getMe();
-      const networkUnavailable = res?.error && (
-        res.error.includes("Network") ||
-        res.error.includes("Failed to fetch") ||
-        res.error.includes("Failed to reach server")
-      );
-      const currentUser = res?.success && res.user ? res.user : networkUnavailable ? localUser : null;
-
-      if (currentUser) {
-        setUser(currentUser);
-        try {
-          localStorage.setItem("user", JSON.stringify(currentUser));
-        } catch (_) {}
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    }
-
-    checkAuth();
-  }, [location.pathname]);
+    refreshUser();
+  }, [location.pathname, refreshUser]);
 
   if (loading) {
     return (
