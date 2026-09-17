@@ -1,4 +1,7 @@
 import AttemptResult from "../models/AttemptResult.js";
+import ConceptRootAnalysis from "../models/ConceptRootAnalysis.js";
+import SkillGapAnalysis from "../models/SkillGapAnalysis.js";
+import UserRoadmap from "../models/UserRoadmap.js";
 import User from "../models/User.js";
 
 // ─────────────────────────────────────────────
@@ -331,9 +334,9 @@ function scoreToStatus(avgScore) {
 /**
  * Derives an AI insight from recent attempt data.
  */
-function buildAiInsight(attempts, careerGoal) {
+function buildAiInsight(attempts, careerGoal, sgData, crData, rdData) {
   const defaultInsight = {
-    title: "✦ AI LEARNING INSIGHT",
+    title: "🧠 AI LEARNING INSIGHT",
     observation: "Complete your first assessment to unlock personalized AI insights.",
     recommendationTitle: "RECOMMENDED NEXT STEP",
     recommendation: "Take an assessment to start building your learning profile.",
@@ -343,40 +346,49 @@ function buildAiInsight(attempts, careerGoal) {
 
   if (!attempts || attempts.length === 0) return defaultInsight;
 
-  const recent = attempts.slice(0, 5);
-  const avgRecent = Math.round(recent.reduce((s, a) => s + a.scorePercent, 0) / recent.length);
-  const trend = attempts.length >= 2 ? attempts[0].scorePercent - attempts[Math.min(4, attempts.length - 1)].scorePercent : 0;
+  let strongestArea = "None yet";
+  let criticalGap = "None yet";
+  let recurringMistake = "None yet";
+  let action = "Continue learning";
+  let careerReadiness = "N/A";
 
-  const catStats = getCategoryStats(attempts);
-  const weakest = catStats.sort((a, b) => a.avgScore - b.avgScore)[0];
-  const strongest = catStats.sort((a, b) => b.avgScore - a.avgScore)[0];
-
-  let observation;
-  let recommendation;
-
-  if (trend > 5) {
-    observation = `Your scores are trending upward (+${Math.round(trend)}% in recent assessments). ${weakest ? `Focus next on ${weakest.category} where your average is ${weakest.avgScore}%.` : "Keep up the momentum!"}`;
-  } else if (trend < -5) {
-    observation = `Your recent scores show a slight dip. ${weakest ? `${weakest.category} needs attention — your average there is ${weakest.avgScore}%.` : "Review recent mistakes to get back on track."}`;
-  } else {
-    observation = `Your accuracy is consistent at ${avgRecent}%. ${strongest ? `${strongest.category} is your strongest area at ${strongest.avgScore}%.` : ""} ${weakest && weakest !== strongest ? `${weakest.category} needs more practice.` : ""}`;
+  if (sgData && sgData.analysis) {
+    strongestArea = sgData.analysis.strongestSkill || strongestArea;
+    careerReadiness = sgData.analysis.readinessScore || sgData.analysis.matchPercentage || careerReadiness;
+    const gaps = sgData.analysis.criticalGaps || [];
+    if (gaps.length > 0) criticalGap = gaps[0].skill || gaps[0].topic || criticalGap;
   }
 
-  if (weakest) {
-    recommendation = `Practice more ${weakest.category} assessments to improve your ${weakest.avgScore}% accuracy in that area${careerGoal ? ` — key for ${careerGoal}` : ""}.`;
-  } else {
-    recommendation = careerGoal
-      ? `Continue building skills relevant to your ${careerGoal} career goal.`
-      : "Take more assessments to unlock deeper personalized recommendations.";
+  if (crData && crData.length > 0 && crData[0].analysis) {
+    const weaknesses = crData[0].analysis.rootWeaknesses || [];
+    if (weaknesses.length > 0) {
+      recurringMistake = weaknesses[0].rootConcept || recurringMistake;
+    }
   }
 
+  if (rdData && rdData.phases) {
+    for (const phase of rdData.phases) {
+      const step = (phase.steps || []).find(s => s.completionStatus !== "COMPLETED");
+      if (step) {
+        action = step.topic;
+        break;
+      }
+    }
+  }
+
+  const observation = `Current Level: Intermediate
+Strongest Area: ${strongestArea}
+Critical Gap: ${criticalGap}
+Recurring Mistake: ${recurringMistake}
+Career Readiness: ${careerReadiness}%`;
+  
   return {
-    title: "✦ AI LEARNING INSIGHT",
+    title: "🧠 AI LEARNING INTELLIGENCE",
     observation,
     recommendationTitle: "RECOMMENDED NEXT STEP",
-    recommendation,
-    cta: "View Insight",
-    href: "/concept-root",
+    recommendation: `${action}`,
+    cta: "Continue Roadmap",
+    href: "/roadmap",
   };
 }
 
@@ -458,56 +470,68 @@ function buildRoadmap(careerGoal, categoryStats) {
 /**
  * Builds recommended next steps from weak areas and career goal.
  */
-function buildRecommendations(catStats, careerGoal, attempts) {
+function buildRecommendations(attempts, careerGoal, rdData, crData, sgData) {
   const recs = [];
-
+  
   if (!attempts || attempts.length === 0) {
     return [
       { id: "r1", num: "01", text: "Take your first assessment to start tracking progress", href: "/assessment" },
       { id: "r2", num: "02", text: "Set up your career goal in the dashboard", href: "/dashboard" },
       { id: "r3", num: "03", text: "Explore available assessment topics", href: "/assessment" },
-      { id: "r4", num: "04", text: careerGoal ? `Research skills needed for ${careerGoal}` : "Browse learning pathways", href: "/roadmap" },
     ];
   }
 
-  // Weak categories (score < 70)
-  const weakCats = catStats.filter((c) => c.avgScore < 70).sort((a, b) => a.avgScore - b.avgScore);
-  const strongCats = catStats.filter((c) => c.avgScore >= 80);
-
-  weakCats.slice(0, 2).forEach((cat, i) => {
-    recs.push({
-      id: `r${recs.length + 1}`,
-      num: String(recs.length + 1).padStart(2, "0"),
-      text: `Improve your ${cat.category} score (currently ${cat.avgScore}%)`,
-      href: "/assessment",
-    });
-  });
-
-  if (careerGoal) {
-    recs.push({
-      id: `r${recs.length + 1}`,
-      num: String(recs.length + 1).padStart(2, "0"),
-      text: `Continue building skills for ${careerGoal}`,
-      href: "/roadmap",
-    });
+  // AI-driven Next Steps:
+  // 1. Next step from Roadmap
+  if (rdData && rdData.phases) {
+    for (const phase of rdData.phases) {
+      const step = (phase.steps || []).find(s => s.completionStatus !== "COMPLETED");
+      if (step) {
+        recs.push({
+          id: `r${recs.length + 1}`,
+          num: String(recs.length + 1).padStart(2, "0"),
+          text: `Complete Roadmap Step: ${step.topic}`,
+          href: "/roadmap",
+        });
+        break; // just add the next immediate one
+      }
+    }
   }
 
+  // 2. Weakness from ConceptRoot
+  if (crData && crData.length > 0 && crData[0].analysis && crData[0].analysis.rootWeaknesses) {
+    const weak = crData[0].analysis.rootWeaknesses[0];
+    if (weak) {
+      recs.push({
+        id: `r${recs.length + 1}`,
+        num: String(recs.length + 1).padStart(2, "0"),
+        text: `Resolve Root Concept: ${weak.rootConcept}`,
+        href: "/concept-root",
+      });
+    }
+  }
+
+  // 3. Gap from SkillGap
+  if (sgData && sgData.analysis && sgData.analysis.criticalGaps) {
+    const gap = sgData.analysis.criticalGaps[0];
+    if (gap) {
+      recs.push({
+        id: `r${recs.length + 1}`,
+        num: String(recs.length + 1).padStart(2, "0"),
+        text: `Close Skill Gap: ${gap.skill || gap.topic}`,
+        href: "/skill-gap",
+      });
+    }
+  }
+
+  // Fallbacks if we didn't get enough
   if (recs.length < 3) {
-    recs.push({
-      id: `r${recs.length + 1}`,
-      num: String(recs.length + 1).padStart(2, "0"),
-      text: "Review your mistakes to find patterns",
-      href: "/mistake-map",
-    });
-  }
-
-  if (recs.length < 4) {
-    recs.push({
-      id: `r${recs.length + 1}`,
-      num: String(recs.length + 1).padStart(2, "0"),
-      text: strongCats.length > 0 ? `Build on your strength in ${strongCats[0].category}` : "Take a new assessment to challenge yourself",
-      href: "/assessment",
-    });
+      recs.push({
+        id: `r${recs.length + 1}`,
+        num: String(recs.length + 1).padStart(2, "0"),
+        text: `Take a new assessment to refresh your AI profile.`,
+        href: "/assessment",
+      });
   }
 
   return recs.slice(0, 4);
@@ -534,6 +558,10 @@ export async function getDashboard(req, res) {
     const careerGoal = user.onboardingProfile?.careerGoal || user.selectedField || "";
     const catStats = getCategoryStats(attempts);
     const streak = computeStreak(attempts);
+
+    const sgData = await SkillGapAnalysis.findOne({ userId: user._id }).sort({ createdAt: -1 }).lean();
+    const crData = await ConceptRootAnalysis.find({ userId: user._id }).sort({ createdAt: -1 }).limit(1).lean();
+    const rdData = await UserRoadmap.findOne({ userId: user._id }).sort({ createdAt: -1 }).lean();
 
     // ── Progress chart series
     const progressSeries = buildProgressSeries(attempts);
@@ -624,13 +652,13 @@ export async function getDashboard(req, res) {
     };
 
     // ── Roadmap
-    const roadmap = buildRoadmap(careerGoal, catStats);
+    const roadmap = rdData ? rdData : buildRoadmap(careerGoal, catStats);
 
     // ── AI Insight
-    const aiInsight = buildAiInsight(attempts, careerGoal);
+    const aiInsight = buildAiInsight(attempts, careerGoal, sgData, crData, rdData);
 
     // ── Recommendations
-    const recommendations = buildRecommendations(catStats, careerGoal, attempts);
+    const recommendations = buildRecommendations(attempts, careerGoal, rdData, crData, sgData);
 
     // ── Career Goal card data
     const careerGoalData = {

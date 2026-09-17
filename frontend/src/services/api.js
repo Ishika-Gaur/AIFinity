@@ -134,15 +134,16 @@ export const assessmentApi = {
 };
 
 export const analyticsApi = {
-  getSkillGap: () => request("/analytics/skill-gap"),
-  getMistakeMap: () => request("/analytics/mistake-map"),
-  getConceptRoot: () => request("/analytics/concept-root"),
-  getRoadmap: () => request("/analytics/roadmap"),
-  updateRoadmap: (payload) =>
-    request("/analytics/roadmap", {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    }),
+  getSkillGap: () => request("/skill-gap"),
+  getMistakeMap: () => request("/mistake-map"),
+  getConceptRoot: () => request("/concept-root"),
+  getRoadmap: () => request("/roadmap"),
+  generateRoadmap: () => request("/roadmap/generate", { method: "POST" }),
+  regenerateRoadmap: () => request("/roadmap/regenerate", { method: "POST" }),
+  updateRoadmapStep: (stepId, status) => request(`/roadmap/step/${stepId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status })
+  }),
 };
 
 export const dashboardApi = {

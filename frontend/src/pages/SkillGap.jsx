@@ -270,22 +270,25 @@ export default function SkillGap() {
 
   useEffect(() => {
     analyticsApi.getSkillGap().then((res) => {
-      if (res && res.success && res.data && res.data.hasHistory) {
+      if (res && res.success && res.data && res.data.hasData && res.data.skills?.aiAnalysis) {
+        const aiAnalysis = res.data.skills.aiAnalysis;
         setAnalysis({
-          score: res.data.demonstratedCapability,
-          averageGap: res.data.averageGap,
-          strengths: res.data.strengths,
-          goal: res.data.targetCareer,
-          recommendations: res.data.recommendations,
-          gaps: (res.data.weakSkills || []).map((w) => ({
-            id: w.name,
-            skill: w.name,
-            current: w.avgScore,
-            required: 100,
-            gap: w.gapPoints,
-            priority: w.gapPoints >= 40 ? "High" : "Medium",
-            why: `Accuracy is currently ${w.avgScore}%.`,
-            recommendation: `Complete additional assessments in ${w.name}.`,
+          score: res.data.performance.overallScore,
+          averageGap: Math.round(
+            aiAnalysis.skills.reduce((sum, skill) => sum + skill.gap, 0) / Math.max(aiAnalysis.skills.length, 1)
+          ),
+          strengths: res.data.skills.strengths,
+          goal: res.data.user.careerGoal,
+          recommendations: aiAnalysis.criticalGaps,
+          gaps: aiAnalysis.skills.filter((skill) => skill.gap > 0).map((skill) => ({
+            id: skill.skill,
+            skill: skill.skill,
+            current: skill.currentScore,
+            required: skill.requiredScore,
+            gap: skill.gap,
+            priority: skill.priority,
+            why: skill.reason,
+            recommendation: skill.rootConceptIssues?.join("; ") || skill.reason,
           })),
         });
       }
@@ -751,9 +754,29 @@ export default function SkillGap() {
                         <ArrowRightIcon className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`} style={{ color: "var(--color-primary-600)" }} />
                       </div>
 
-                      {expanded && (
-                        <div className="mt-3 rounded-lg p-3 text-xs leading-5" style={{ background: "var(--color-surface-secondary)", color: "var(--color-text-muted)" }}>
-                          <strong style={{ color: "var(--color-text-h)" }}>Action Plan:</strong> Solve targeted practical problems covering {gap.name.toLowerCase()} concepts.
+                                            {expanded && (
+                        <div className="mt-3 flex flex-col gap-3 rounded-lg p-3 text-xs leading-5" style={{ background: "var(--color-surface-secondary)", color: "var(--color-text-muted)" }}>
+                          <div>
+                            <strong style={{ color: "var(--color-text-h)" }}>Evidence:</strong>
+                            <ul className="list-disc pl-4 mt-1">
+                              {gap.evidence?.map((ev, i) => <li key={i}>{ev}</li>)}
+                            </ul>
+                          </div>
+                          {gap.rootConceptIssues && gap.rootConceptIssues.length > 0 && (
+                            <div>
+                              <strong style={{ color: "var(--color-text-h)" }}>Root Concepts to Fix:</strong>
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {gap.rootConceptIssues.map((root, i) => (
+                                  <span key={i} className="rounded-md border px-2 py-0.5" style={{ borderColor: "var(--color-primary-200)", background: "var(--color-primary-50)", color: "var(--color-primary-700)" }}>
+                                    {root}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div>
+                            <strong style={{ color: "var(--color-text-h)" }}>Action Plan:</strong> Focus on bridging this gap through targeted practical problem-solving.
+                          </div>
                         </div>
                       )}
                     </Card>

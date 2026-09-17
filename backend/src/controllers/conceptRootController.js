@@ -1,6 +1,7 @@
 import AttemptResult from "../models/AttemptResult.js";
 import User from "../models/User.js";
-import { analyzeConceptRootWithAI } from "../services/geminiService.js";
+import { analyzeConceptRootWithAI, analyzeConceptRootDashboardWithAI } from "../services/geminiService.js";
+import ConceptRootAnalysis from '../models/ConceptRootAnalysis.js';
 
 /**
  * Maps an average score to a ConceptRoot status label.
@@ -134,6 +135,7 @@ function buildLearningDiagnosis(attempts, careerGoal) {
   };
 }
 
+
 /**
  * GET /api/concept-root
  * Returns personalized ConceptRoot analysis for the authenticated user.
@@ -148,7 +150,40 @@ export async function getConceptRoot(req, res) {
       .lean();
 
     const careerGoal = user.onboardingProfile?.careerGoal || user.selectedField || "";
-    const learningDiagnosis = buildLearningDiagnosis(attempts, careerGoal);
+    
+    let learningDiagnosis;
+    let hasDiagnosis = false;
+
+    if (attempts && attempts.length > 0) {
+      hasDiagnosis = true;
+      const latestAttemptId = attempts[0]._id;
+
+      // Check cache
+      const cachedAnalysis = await ConceptRootAnalysis.findOne({ 
+        userId: user._id, 
+        latestAttemptId 
+      }).lean();
+
+      if (cachedAnalysis && cachedAnalysis.analysis) {
+        learningDiagnosis = cachedAnalysis.analysis;
+        learningDiagnosis.hasDiagnosis = true;
+      } else {
+        // Generate via AI
+        const rawDiagnosis = await analyzeConceptRootDashboardWithAI(attempts, careerGoal);
+        rawDiagnosis.hasDiagnosis = true;
+        
+        // Save to cache
+        await ConceptRootAnalysis.create({
+          userId: user._id,
+          latestAttemptId,
+          analysis: rawDiagnosis
+        });
+        
+        learningDiagnosis = rawDiagnosis;
+      }
+    } else {
+      learningDiagnosis = { hasDiagnosis: false };
+    }
 
     // Compute overall performance metrics
     const totalAttempts = attempts.length;
@@ -182,6 +217,13 @@ export async function getConceptRoot(req, res) {
       },
     });
   } catch (err) {
+    if (err.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("[ConceptRoot] Error fetching ConceptRoot data:", err);
     return res.status(500).json({
       success: false,
@@ -225,6 +267,13 @@ export async function analyzeConceptRoot(req, res) {
       data: diagnosis,
     });
   } catch (err) {
+    if (err.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("[ConceptRoot] Error running AI analysis:", err);
     return res.status(500).json({
       success: false,

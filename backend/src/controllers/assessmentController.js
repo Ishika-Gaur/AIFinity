@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import Assessment from "../models/Assessment.js";
 import AttemptResult from "../models/AttemptResult.js";
-import { generatePersonalizedRoadmap } from "./analyticsController.js";
+import { processLearningCycle } from "../services/learningCycleService.js";
 import { generateQuestions, evaluateAssessmentWithAI } from "../services/geminiService.js";
 
 // Active in-memory attempt sessions cache for server-side evaluation
@@ -488,7 +488,7 @@ export async function submitAttempt(req, res) {
   // Persist the attempt result for the authenticated user (dashboard & roadmap analytics)
   if (req.user) {
     try {
-      await AttemptResult.create({
+      const attempt = await AttemptResult.create({
         userId: req.user._id,
         assessmentId: assessment?._id,
         assessmentTitle: title,
@@ -507,8 +507,8 @@ export async function submitAttempt(req, res) {
         completedAt: new Date(),
       });
 
-      // Automatically regenerate personalized roadmap with latest assessment results
-      await generatePersonalizedRoadmap(req.user._id);
+      // Automatically trigger continuous learning cycle
+      processLearningCycle(req.user._id, attempt._id);
     } catch (saveErr) {
       console.error("[Dashboard] Failed to persist attempt result:", saveErr.message);
     }
@@ -577,16 +577,23 @@ export async function syncAttemptResult(req, res) {
       completedAt: new Date(),
     });
 
-    // Automatically regenerate personalized roadmap with latest assessment results
-    const updatedRoadmap = await generatePersonalizedRoadmap(userId);
+    // Automatically trigger continuous learning cycle
+    processLearningCycle(userId, attempt._id);
 
     return res.json({
       success: true,
-      message: "Attempt synchronized successfully and personalized roadmap updated.",
+      message: "Attempt synchronized successfully and learning cycle triggered.",
       attemptId: attempt._id,
-      roadmap: updatedRoadmap,
+      roadmap: null,
     });
   } catch (err) {
+    if (err.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("[Assessment] Error syncing attempt result:", err);
     return res.status(500).json({ success: false, message: "Failed to sync attempt result." });
   }
@@ -671,6 +678,13 @@ export async function createAssessment(req, res) {
     });
     res.status(201).json({ success: true, assessment: serialize(assessment, true) });
   } catch (err) {
+    if (err.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("Error creating assessment:", err);
     res.status(500).json({ success: false, message: "Server error while creating assessment." });
   }
@@ -688,6 +702,13 @@ export async function updateAssessment(req, res) {
     if (!assessment) return res.status(404).json({ success: false, message: "Assessment not found." });
     res.json({ success: true, assessment: serialize(assessment, true) });
   } catch (err) {
+    if (err.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("Error updating assessment:", err);
     if (err.name === "CastError") {
       return res.status(400).json({ success: false, message: "Invalid assessment ID format." });
@@ -763,6 +784,13 @@ export async function generateAIAssessment(req, res) {
 
     res.json({ success: true, assessmentId: assessment._id });
   } catch (error) {
+    if (error.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("Generate AI Assessment Error:", error);
     res.status(500).json({ success: false, message: error.message || "Failed to generate AI assessment" });
   }
@@ -776,27 +804,31 @@ export async function getPersonalizedAssessments(req, res) {
     const userId = req.user._id;
     const userField = req.user.selectedField || "Software Development";
 
-    // 1. Get user's past attempts
-    const attempts = await AttemptResult.find({ userId }).sort({ completedAt: -1 }).lean();
+    const SkillGapAnalysis = (await import('../models/SkillGapAnalysis.js')).default;
+    const ConceptRootAnalysis = (await import('../models/ConceptRootAnalysis.js')).default;
+    const UserRoadmap = (await import('../models/UserRoadmap.js')).default;
     
-    // 2. Identify weak topics (average score < 60%)
-    const topicScores = {};
-    attempts.forEach(attempt => {
-      const cat = attempt.assessmentCategory || "General";
-      if (!topicScores[cat]) {
-        topicScores[cat] = { total: 0, count: 0 };
-      }
-      topicScores[cat].total += attempt.scorePercent;
-      topicScores[cat].count += 1;
-    });
+    // 1. Fetch AI contexts
+    const sgData = await SkillGapAnalysis.findOne({ userId }).sort({ createdAt: -1 }).lean();
+    const crData = await ConceptRootAnalysis.findOne({ userId }).sort({ createdAt: -1 }).lean();
+    const rdData = await UserRoadmap.findOne({ userId }).sort({ createdAt: -1 }).lean();
 
     const weakTopics = [];
-    for (const [topic, data] of Object.entries(topicScores)) {
-      const avg = data.total / data.count;
-      if (avg < 60) weakTopics.push(topic);
+    
+    if (sgData && sgData.analysis && sgData.analysis.criticalGaps) {
+        sgData.analysis.criticalGaps.forEach(g => weakTopics.push(g.skill || g.topic));
+    }
+    
+    if (crData && crData.analysis && crData.analysis.rootWeaknesses) {
+        crData.analysis.rootWeaknesses.forEach(w => weakTopics.push(w.rootConcept));
+    }
+    
+    if (rdData && rdData.phases) {
+        const step = rdData.phases.flatMap(p => p.steps || []).find(s => s.completionStatus !== "COMPLETED");
+        if (step) weakTopics.push(step.topic);
     }
 
-    // 3. Find relevant published assessments (excluding AI generated ones for other users)
+    // 3. Find relevant published assessments
     const baseQuery = { 
       status: "published",
       $or: [
@@ -805,10 +837,13 @@ export async function getPersonalizedAssessments(req, res) {
       ]
     };
 
-    // First try to find assessments matching user's field OR weak topics
     const queryConds = [{ field: new RegExp(userField, "i") }];
     if (weakTopics.length > 0) {
-      queryConds.push({ category: { $in: weakTopics.map(t => new RegExp(t, "i")) } });
+      // Add weak topics safely mapped
+      const safeWeakTopics = weakTopics.filter(Boolean).map(t => new RegExp(t.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\$&'), "i"));
+      if (safeWeakTopics.length > 0) {
+          queryConds.push({ category: { $in: safeWeakTopics } });
+      }
     }
 
     let recommended = await Assessment.find({
@@ -816,44 +851,24 @@ export async function getPersonalizedAssessments(req, res) {
       $or: queryConds
     }).limit(6).lean();
 
-    // If not enough recommendations, fallback to general ones in the field
-    if (recommended.length < 3) {
-      const additional = await Assessment.find({
-        ...baseQuery,
-        field: new RegExp(userField, "i"),
-        _id: { $nin: recommended.map(r => r._id) }
-      }).limit(6 - recommended.length).lean();
-      recommended = [...recommended, ...additional];
+    // Fill with generic if empty
+    if (recommended.length === 0) {
+      recommended = await Assessment.find(baseQuery).limit(6).lean();
     }
 
-    // 4. Attach recommendation reasons
-    const formattedRecommendations = recommended.map(assessment => {
-      let reason = `Recommended based on your field: ${userField}`;
-      const isWeak = weakTopics.some(wt => 
-        new RegExp(wt, "i").test(assessment.category) || 
-        new RegExp(wt, "i").test(assessment.title)
-      );
-      
-      if (isWeak) {
-        reason = `Recommended because ${assessment.category} is one of your weak areas.`;
-      } else if (assessment.isAiGenerated) {
-        reason = `Your generated AI assessment.`;
+    // Tag reasons
+    const enriched = recommended.map(ass => {
+      let reason = `Recommended for ${userField}`;
+      if (weakTopics.some(wt => (ass.category || "").toLowerCase().includes((wt || "").toLowerCase()))) {
+        reason = "Focus Area: Addresses your critical gap";
       }
-
-      return {
-        ...serialize(assessment, false),
-        recommendationReason: reason
-      };
+      return { ...ass, recommendationReason: reason };
     });
 
-    res.json({
-      success: true,
-      assessments: formattedRecommendations,
-      weakTopics
-    });
+    res.json({ success: true, assessments: enriched });
   } catch (error) {
-    console.error("Personalized Assessments Error:", error);
-    res.status(500).json({ success: false, message: "Failed to fetch personalized assessments" });
+    console.error("[getPersonalizedAssessments] Error:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch personalized assessments" });
   }
 }
 
@@ -944,6 +959,13 @@ export async function generateDailyAIAssessment(req, res) {
 
     return res.json({ success: true, assessmentId: assessment._id });
   } catch (error) {
+    if (error.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("Generate Daily AI Error:", error);
     res.status(500).json({ success: false, message: error.message || "Failed to generate daily AI assessment" });
   }
@@ -966,6 +988,13 @@ export async function getDailyAssessmentStatus(req, res) {
 
     return res.json({ success: true, completedDates: [...new Set(completedDates)] });
   } catch (error) {
+    if (error.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("Daily Status Error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch daily status" });
   }
@@ -1146,8 +1175,7 @@ export async function evaluateAttemptWithAI(req, res) {
           questionResults,
           completedAt: new Date(),
         });
-
-        await generatePersonalizedRoadmap(req.user._id);
+        processLearningCycle(req.user._id, attempt._id);
       } catch (saveErr) {
         console.error("[AI Evaluator] Failed to persist attempt result:", saveErr.message);
       }
@@ -1180,6 +1208,13 @@ export async function evaluateAttemptWithAI(req, res) {
       autoSubmitted: violations.length >= 3,
     });
   } catch (error) {
+    if (error.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("[AI Evaluator] Unexpected error:", error);
     res.status(500).json({ success: false, message: error.message || "Failed to evaluate assessment with AI" });
   }

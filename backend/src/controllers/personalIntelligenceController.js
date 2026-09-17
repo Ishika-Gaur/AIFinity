@@ -52,6 +52,13 @@ export const listSessions = async (req, res) => {
       })),
     });
   } catch (error) {
+    if (error.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("[PI listSessions] Error:", error);
     return res.status(500).json({ success: false, message: "Failed to load chat sessions." });
   }
@@ -81,6 +88,13 @@ export const createSession = async (req, res) => {
       },
     });
   } catch (error) {
+    if (error.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("[PI createSession] Error:", error);
     return res.status(500).json({ success: false, message: "Failed to create new chat." });
   }
@@ -119,6 +133,13 @@ export const getSessionMessages = async (req, res) => {
       })),
     });
   } catch (error) {
+    if (error.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("[PI getSessionMessages] Error:", error);
     return res.status(500).json({ success: false, message: "Failed to load session messages." });
   }
@@ -273,6 +294,13 @@ Instructions:
       },
     });
   } catch (error) {
+    if (error.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("[PI Controller] Error:", error);
     return res.status(500).json({ success: false, message: "Personal Intelligence is currently unavailable." });
   }
@@ -295,6 +323,13 @@ export const deleteSession = async (req, res) => {
       message: "Chat session deleted successfully.",
     });
   } catch (error) {
+    if (error.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("[PI deleteSession] Error:", error);
     return res.status(500).json({ success: false, message: "Failed to delete chat session." });
   }
@@ -315,6 +350,13 @@ export const clearAllSessions = async (req, res) => {
       message: "All chat conversations cleared successfully.",
     });
   } catch (error) {
+    if (error.message === "AI_SERVICE_UNAVAILABLE") {
+      return res.status(503).json({
+        success: false,
+        error: "AI_SERVICE_UNAVAILABLE",
+        message: "AI analysis is temporarily unavailable."
+      });
+    }
     console.error("[PI clearAllSessions] Error:", error);
     return res.status(500).json({ success: false, message: "Failed to clear conversations." });
   }

@@ -1,42 +1,17 @@
 import AttemptResult from "../models/AttemptResult.js";
-import User from "../models/User.js";
-
-/**
- * Computes per-category performance from attempts.
- * Returns array of { category, avgScore, count }
- */
-function getCategoryStats(attempts) {
-  const map = {};
-  attempts.forEach((a) => {
-    const cat = a.assessmentCategory || "General";
-    if (!map[cat]) map[cat] = { sum: 0, count: 0 };
-    map[cat].sum += a.scorePercent;
-    map[cat].count++;
-  });
-  return Object.entries(map).map(([category, { sum, count }]) => ({
-    category,
-    avgScore: Math.round(sum / count),
-    count,
-  }));
-}
-
-/**
- * Maps an average score to a status label.
- */
-function scoreToStatus(avgScore) {
-  if (avgScore >= 75) return "strong";
-  if (avgScore >= 55) return "improving";
-  return "attention";
-}
+import ConceptRootAnalysis from "../models/ConceptRootAnalysis.js";
+import SkillGapAnalysis from "../models/SkillGapAnalysis.js";
+import { analyzeSkillGapWithAI } from "../services/geminiService.js";
 
 /**
  * GET /api/skill-gap
- * Returns personalized Skill Gap analysis based on real assessment performance.
+ * Returns personalized Skill Gap analysis based on AI mapping of real assessment performance.
  */
 export async function getSkillGap(req, res) {
   try {
     const user = req.user;
     const attempts = await AttemptResult.find({ userId: user._id }).sort({ completedAt: -1 }).lean();
+    const careerGoal = user.onboardingProfile?.careerGoal || user.selectedField || "";
 
     if (!attempts || attempts.length === 0) {
       return res.json({
@@ -47,45 +22,59 @@ export async function getSkillGap(req, res) {
             id: String(user._id),
             name: user.name,
             email: user.email,
-            careerGoal: user.onboardingProfile?.careerGoal || user.selectedField || "",
+            careerGoal,
           },
         },
       });
     }
 
-    const careerGoal = user.onboardingProfile?.careerGoal || user.selectedField || "";
+    const latestAttemptId = attempts[0]._id;
+
+    // Check Cache
+    const cachedAnalysis = await SkillGapAnalysis.findOne({
+      userId: user._id,
+      latestAttemptId,
+    }).lean();
+
+    let aiAnalysis;
+    if (cachedAnalysis && cachedAnalysis.analysis) {
+      aiAnalysis = cachedAnalysis.analysis;
+    } else {
+      // Fetch Concept Root Context
+      const conceptRoots = await ConceptRootAnalysis.find({ userId: user._id })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .lean();
+
+      // Trigger AI
+      try {
+        aiAnalysis = await analyzeSkillGapWithAI(careerGoal, attempts, conceptRoots);
+        
+        // Save to cache
+        await SkillGapAnalysis.create({
+          userId: user._id,
+          latestAttemptId,
+          analysis: aiAnalysis
+        });
+      } catch (aiErr) {
+        if (aiErr.message === "AI_SERVICE_UNAVAILABLE") {
+          return res.status(503).json({
+            success: false,
+            error: "AI_SERVICE_UNAVAILABLE",
+            message: "AI analysis is temporarily unavailable."
+          });
+        }
+        throw aiErr;
+      }
+    }
+
+    // Map AI analysis to the expected UI payload shape where possible,
+    // and provide the raw new rich AI analysis inside it.
+    
+    // For legacy UI compatibility we calculate avgScore:
     const totalAttempts = attempts.length;
     const avgScore = Math.round(attempts.reduce((s, a) => s + a.scorePercent, 0) / totalAttempts);
-    const catStats = getCategoryStats(attempts);
-
-    // Strong areas (>= 75%)
-    const strongAreas = catStats.filter((c) => c.avgScore >= 75).sort((a, b) => b.avgScore - a.avgScore);
-
-    // Areas needing improvement (< 60%)
-    const weakAreas = catStats.filter((c) => c.avgScore < 60).sort((a, b) => a.avgScore - b.avgScore);
-
-    // Improving areas (55-74%)
-    const improvingAreas = catStats.filter((c) => c.avgScore >= 55 && c.avgScore < 75).sort((a, b) => b.avgScore - a.avgScore);
-
-    // Calculate skill gaps for weak areas
-    const skillGaps = weakAreas.map((area) => {
-      const targetScore = 75; // Target proficiency threshold
-      const gap = Math.max(targetScore - area.avgScore, 0);
-      const priority = gap >= 20 ? "High" : gap >= 10 ? "Medium" : "Low";
-      
-      return {
-        name: area.category,
-        current: area.avgScore,
-        target: targetScore,
-        gap,
-        priority,
-        attempts: area.count,
-      };
-    });
-
-    // Identify demonstrated strengths
-    const strengths = strongAreas.map((area) => area.category);
-
+    
     return res.json({
       success: true,
       data: {
@@ -99,18 +88,25 @@ export async function getSkillGap(req, res) {
         performance: {
           overallScore: avgScore,
           totalAssessments: totalAttempts,
-          strongAreasCount: strongAreas.length,
-          improvingAreasCount: improvingAreas.length,
-          weakAreasCount: weakAreas.length,
+          strongAreasCount: aiAnalysis.skills.filter(s => s.gap === 0).length,
+          improvingAreasCount: aiAnalysis.skills.filter(s => s.gap > 0 && s.gap < 15).length,
+          weakAreasCount: aiAnalysis.skills.filter(s => s.gap >= 15).length,
         },
         skills: {
-          strongAreas,
-          improvingAreas,
-          weakAreas,
-          skillGaps,
-          strengths,
-        },
-        categoryPerformance: catStats,
+          // Send the full raw AI rich object
+          aiAnalysis,
+          
+          // Legacy backwards compatibility maps for the frontend to easily render if not fully updated yet
+          skillGaps: aiAnalysis.skills.filter(s => s.gap > 0).map(s => ({
+            name: s.skill,
+            description: s.reason,
+            current: s.currentScore,
+            target: s.requiredScore,
+            gap: s.gap,
+            priority: s.priority
+          })),
+          strengths: aiAnalysis.skills.filter(s => s.gap === 0).map(s => s.skill),
+        }
       },
     });
   } catch (err) {
