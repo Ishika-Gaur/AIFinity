@@ -98,7 +98,13 @@ export async function generateAndSaveRoadmap(user, careerGoal) {
   const fullContext = {
     ...studentContext,
     orderedSkills, // Pass the deterministically ordered skills to Gemini
-    availableTime: user.onboardingProfile?.availableTime || "2 hours/day"
+    availableTime: user.onboardingProfile?.availableTime || "2 hours/day",
+    // Pass grade/level context so AI can tailor tasks (e.g., 10th class → NCERT + PYQs)
+    audienceLevel: user.onboardingProfile?.level
+      ? `${user.onboardingProfile.level} level student`
+      : user.onboardingProfile?.grade
+      ? `${user.onboardingProfile.grade} student`
+      : "General student",
   };
 
   let finalAiRoadmap = null;

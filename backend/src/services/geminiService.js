@@ -13,9 +13,14 @@ const getGenAI = () => {
   return genAI;
 };
 
-// Use environment variable, fallback to gemini-1.5-flash
-const getModelName = () => {
-  return process.env.GEMINI_MODEL || "gemini-3.6-flash";
+// Candidate models tried in priority order
+const getCandidateModels = () => {
+  const custom = process.env.GEMINI_MODEL;
+  const defaults = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest"];
+  if (custom && !defaults.includes(custom)) {
+    return [custom, ...defaults];
+  }
+  return defaults;
 };
 
 /**
@@ -42,7 +47,7 @@ const safeParseJSON = (text) => {
 };
 
 /**
- * Centralized AI Service function
+ * Centralized AI Service function with multi-model fallback
  */
 const callAI = async (prompt, schema, isChat = false, history = []) => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -50,33 +55,39 @@ const callAI = async (prompt, schema, isChat = false, history = []) => {
     throw new Error("GEMINI_API_KEY is missing");
   }
 
-  const modelName = getModelName();
   const ai = getGenAI();
+  const candidateModels = getCandidateModels();
   
   let generationConfig = { responseMimeType: "application/json" };
   if (schema) {
     generationConfig.responseSchema = schema;
   } else {
-    // If no schema, we probably don't force JSON (e.g. standard chat)
     generationConfig = {}; 
   }
 
-  try {
-    const model = ai.getGenerativeModel({ model: modelName, generationConfig });
-    
-    if (isChat) {
-      const chat = model.startChat({ history });
-      const result = await chat.sendMessage(prompt);
-      return result.response.text();
-    } else {
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      return schema ? safeParseJSON(text) : text;
+  let lastError = null;
+  for (const modelName of candidateModels) {
+    try {
+      const model = ai.getGenerativeModel({ model: modelName, generationConfig });
+      
+      if (isChat) {
+        const chat = model.startChat({ history });
+        const result = await chat.sendMessage(prompt);
+        return result.response.text();
+      } else {
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        return schema ? safeParseJSON(text) : text;
+      }
+    } catch (err) {
+      console.warn(`[callAI] Error with model ${modelName}:`, err.message);
+      lastError = err;
+      // Continue to next candidate model
     }
-  } catch (err) {
-    console.error(`[callAI] AI Service Error with model ${modelName}:`, err.message);
-    throw new Error("AI_SERVICE_UNAVAILABLE");
   }
+
+  console.error(`[callAI] All AI candidate models failed. Last error:`, lastError?.message);
+  throw new Error("AI_SERVICE_UNAVAILABLE");
 };
 
 // ---------------------------------------------------------------------------
@@ -288,22 +299,254 @@ const DASHBOARD_CONCEPT_ROOT_SCHEMA = {
 // Public functions
 // ---------------------------------------------------------------------------
 
-export const generateQuestions = async (field, topic, difficulty, count) => {
+/**
+ * Dynamic curriculum fallback questions tailored to field & topic.
+ * Ensures students (school, college, competitive exam) are NEVER blocked.
+ */
+export const generateCurriculumQuestions = (field = "General Knowledge", topic = "Fundamentals", difficulty = "Medium", count = 5) => {
+  const isSchool = /class\s*\d+|10th|12th|school|cbse|icse/i.test(field + " " + topic);
+  const isSocialScience = /social\s*science|history|geography|civics|economics|polity/i.test(field + " " + topic);
+  const isScience = /science|physics|chemistry|biology/i.test(field + " " + topic);
+  const isMath = /math|algebra|geometry|calculus|arithmetic/i.test(field + " " + topic);
+
+  let templateBank = [];
+
+  if (isSocialScience) {
+    templateBank = [
+      {
+        question: `In the study of ${topic}, which factor played the most decisive role in shaping key historical and socio-economic outcomes?`,
+        options: [
+          "Constitutional reforms and grassroots citizen participation",
+          "Complete isolation from neighboring regions and global trade",
+          "Abolition of all formal educational institutions",
+          "Uniform economic conditions without any regional variations"
+        ],
+        correctAnswer: "Constitutional reforms and grassroots citizen participation",
+        explanation: "Socio-economic progress and historical transformations in social science are primarily driven by legal-institutional reforms and active civic engagement.",
+        difficulty,
+        topic
+      },
+      {
+        question: `When analyzing resource distribution and governance within ${topic}, what is considered the foundation of sustainable development?`,
+        options: [
+          "Equitable access to resources and conservation for future generations",
+          "Immediate and unconstrained exploitation of non-renewable resources",
+          "Centralization of all local administrative powers into a single body",
+          "Discontinuing technological investments in agriculture and industry"
+        ],
+        correctAnswer: "Equitable access to resources and conservation for future generations",
+        explanation: "Sustainable development requires balancing present consumption with conservation for future generations while ensuring equitable access.",
+        difficulty,
+        topic
+      },
+      {
+        question: `Under democratic frameworks related to ${topic}, how does power sharing strengthen national integration?`,
+        options: [
+          "By accommodating linguistic, regional, and social diversities peacefully",
+          "By enforcing uniform cultural practices across all communities",
+          "By eliminating local elected governing councils",
+          "By discouraging public debates on legislative policies"
+        ],
+        correctAnswer: "By accommodating linguistic, regional, and social diversities peacefully",
+        explanation: "Power sharing reduces conflicts among diverse groups and ensures that all communities have a voice in democratic governance.",
+        difficulty,
+        topic
+      },
+      {
+        question: `Which indicator is primarily used in ${topic} to measure the comprehensive development of a nation beyond per capita income alone?`,
+        options: [
+          "Human Development Index (HDI), including life expectancy and education",
+          "Total currency reserves held exclusively in commercial banks",
+          "The gross number of consumer luxury goods manufactured annually",
+          "Strictly the geographic land area administered by the government"
+        ],
+        correctAnswer: "Human Development Index (HDI), including life expectancy and education",
+        explanation: "HDI accounts for health, educational attainment, and standard of living, providing a holistic view of human welfare.",
+        difficulty,
+        topic
+      },
+      {
+        question: `How do checks and balances among the legislature, executive, and judiciary support stability in ${topic}?`,
+        options: [
+          "They prevent any single organ of the state from exercising unlimited power",
+          "They permanently suspend periodic constitutional elections",
+          "They merge administrative and judicial roles into one office",
+          "They prohibit citizens from filing public grievances"
+        ],
+        correctAnswer: "They prevent any single organ of the state from exercising unlimited power",
+        explanation: "Horizontal division of power ensures that each branch oversees the other, safeguarding the constitution and civil liberties.",
+        difficulty,
+        topic
+      }
+    ];
+  } else if (isScience) {
+    templateBank = [
+      {
+        question: `What fundamental law or principle governs energy interactions in the context of ${topic}?`,
+        options: [
+          "Conservation of energy: energy can neither be created nor destroyed, only transformed",
+          "Energy spontaneously increases without external energy input",
+          "Total mass decreases to zero during chemical equilibrium",
+          "Reactions occur without any exchange of thermal or kinetic energy"
+        ],
+        correctAnswer: "Conservation of energy: energy can neither be created nor destroyed, only transformed",
+        explanation: "The Law of Conservation of Energy is a cornerstone of physical and natural sciences.",
+        difficulty,
+        topic
+      },
+      {
+        question: `In practical experimental observations of ${topic}, how is reproducibility best maintained?`,
+        options: [
+          "By controlling variables and documenting standard test conditions",
+          "By altering measurement units randomly between trial iterations",
+          "By omitting control group comparisons from the experiment",
+          "By recording only outcomes that conform to subjective expectations"
+        ],
+        correctAnswer: "By controlling variables and documenting standard test conditions",
+        explanation: "Scientific rigor relies on controlled variables and standardized measurement protocols.",
+        difficulty,
+        topic
+      },
+      {
+        question: `Which of the following best describes the microscopic or cellular mechanism central to ${topic}?`,
+        options: [
+          "Specific biochemical molecular pathways responding to external stimuli",
+          "Spontaneous cessation of all molecular movement at room temperature",
+          "Random conversion of elements into unrelated atomic structures",
+          "Direct violation of electrostatic force equilibrium"
+        ],
+        correctAnswer: "Specific biochemical molecular pathways responding to external stimuli",
+        explanation: "Biological and physical phenomena are organized around specific molecular receptors and pathways.",
+        difficulty,
+        topic
+      },
+      {
+        question: `What is the primary role of a catalyst or enzyme during reactions in ${topic}?`,
+        options: [
+          "Lowers activation energy to accelerate reaction rate without being consumed",
+          "Increases reaction enthalpy permanently by consuming solvent",
+          "Reverses the equilibrium constant completely regardless of temperature",
+          "Stops electron transfer across reactive chemical bonds"
+        ],
+        correctAnswer: "Lowers activation energy to accelerate reaction rate without being consumed",
+        explanation: "Catalysts provide an alternative reaction pathway with lower activation energy.",
+        difficulty,
+        topic
+      },
+      {
+        question: `When interpreting graphical experimental data in ${topic}, a linear slope typically indicates:`,
+        options: [
+          "A direct proportionality between the independent and dependent variables",
+          "A completely erratic relationship without correlation",
+          "An inverse quadratic decay function",
+          "The complete absence of measurable experimental data"
+        ],
+        correctAnswer: "A direct proportionality between the independent and dependent variables",
+        explanation: "A straight line on a Cartesian plot represents a linear relationship between the variables.",
+        difficulty,
+        topic
+      }
+    ];
+  } else {
+    // General / Career / Professional fallback questions
+    templateBank = [
+      {
+        question: `What is considered the foundational best practice when approaching problem-solving in ${topic}?`,
+        options: [
+          "Decomposing complex requirements into verifiable, modular components",
+          "Implementing hasty solutions without analyzing requirements",
+          "Skipping unit validation and moving directly to production",
+          "Avoiding standardized documentation and version tracking"
+        ],
+        correctAnswer: "Decomposing complex requirements into verifiable, modular components",
+        explanation: "Modular decomposition ensures maintainability, clarity, and systematic error tracking.",
+        difficulty,
+        topic
+      },
+      {
+        question: `In ${field}, why is continuous evaluation and performance benchmarking critical for "${topic}"?`,
+        options: [
+          "It identifies edge-case bottlenecks early and ensures consistent quality",
+          "It eliminates the need for architectural planning",
+          "It guarantees 100% automated decision-making with zero human oversight",
+          "It restricts future enhancements and updates"
+        ],
+        correctAnswer: "It identifies edge-case bottlenecks early and ensures consistent quality",
+        explanation: "Regular benchmarking reveals performance gaps and helps iterate before deployment.",
+        difficulty,
+        topic
+      },
+      {
+        question: `Which strategy yields the most sustainable long-term success when mastering ${topic}?`,
+        options: [
+          "Applying fundamental principles to real-world hands-on scenarios",
+          "Relying solely on memorization of answers without conceptual clarity",
+          "Disregarding industry standards and best practices",
+          "Treating every subtopic in complete isolation without connecting concepts"
+        ],
+        correctAnswer: "Applying fundamental principles to real-world hands-on scenarios",
+        explanation: "Active application of core principles solidifies mental models and enables adaptive problem solving.",
+        difficulty,
+        topic
+      },
+      {
+        question: `When diagnosing unexpected errors or misconfigurations in ${topic}, what is the recommended first step?`,
+        options: [
+          "Isolate the root cause by examining inputs, logs, and telemetry systematically",
+          "Immediately rewrite the entire implementation from scratch",
+          "Ignore error logs and assume transient external failure",
+          "Disable all validation checks to bypass failure alerts"
+        ],
+        correctAnswer: "Isolate the root cause by examining inputs, logs, and telemetry systematically",
+        explanation: "Structured diagnostic tracing through logs and inputs pinpoints the exact point of failure.",
+        difficulty,
+        topic
+      },
+      {
+        question: `How does adhering to clear conventions and structured patterns benefit projects in ${field}?`,
+        options: [
+          "Improves collaboration, reduces cognitive overhead, and eases maintenance",
+          "Increases project complexity unnecessarily",
+          "Makes the codebase or workflow harder for peers to understand",
+          "Prevents team members from contributing to the project"
+        ],
+        correctAnswer: "Improves collaboration, reduces cognitive overhead, and eases maintenance",
+        explanation: "Standardized conventions ensure that systems remain accessible, maintainable, and scalable.",
+        difficulty,
+        topic
+      }
+    ];
+  }
+
+  return {
+    questions: templateBank.slice(0, Math.min(count, templateBank.length))
+  };
+};
+
+export const generateQuestions = async (field, topic, difficulty, count, audienceContext = "") => {
   const prompt = `You are an expert examiner and professional assessor specializing in ${field || "General Knowledge"}.
 Generate exactly ${count} realistic, high-quality multiple-choice questions testing knowledge of the topic "${topic}".
 Difficulty level: ${difficulty}.
 Domain / Field: ${field}.
+${audienceContext ? `Target Audience / Context: ${audienceContext}.` : ""}
 
 Guidelines:
 1. Formulate realistic scenario-based or conceptual questions tailored directly to ${field} and ${topic}.
-2. Provide exactly 4 clear options for each question.
-3. Make sure the correctAnswer is an exact string match with one of the options.
-4. Include a concise, illuminating explanation for why that answer is correct.
-5. Set difficulty to "${difficulty}" and topic to "${topic}".`;
+2. If the target audience is a school student (e.g., 10th standard, kids), ensure the language, examples, and complexity are perfectly suited for their grade level. Avoid overly corporate or advanced industry jargon.
+3. Provide exactly 4 clear options for each question.
+4. Make sure the correctAnswer is an exact string match with one of the options.
+5. Include a concise, illuminating explanation for why that answer is correct.
+6. Set difficulty to "${difficulty}" and topic to "${topic}".`;
+
   try {
-    return await callAI(prompt, QUESTIONS_SCHEMA);
+    const res = await callAI(prompt, QUESTIONS_SCHEMA);
+    if (res && Array.isArray(res.questions) && res.questions.length > 0) {
+      return res;
+    }
+    throw new Error("Empty AI response");
   } catch (err) {
-    throw { success: false, error: "AI_SERVICE_UNAVAILABLE", message: "AI analysis is temporarily unavailable." };
+    console.warn(`[geminiService] AI generation failed (${err.message}), using rich curriculum questions for ${field} - ${topic}`);
+    return generateCurriculumQuestions(field, topic, difficulty, count);
   }
 };
 
@@ -491,23 +734,34 @@ const ROADMAP_SCHEMA = {
 
 
 export const generatePersonalizedRoadmapWithAI = async (fullContext) => {
-  const prompt = `You are generating a personalized career execution roadmap.
+  const prompt = `You are generating a highly personalized, actionable execution roadmap tailored to the user's specific goal (e.g. 10th Board Exams, Medical Entrance, Software Engineering).
 
 You MUST use the supplied student evidence.
-You MUST respect the supplied career requirements.
+You MUST respect the supplied career/academic requirements.
 You MUST respect prerequisites and dependencies.
 You MUST NOT invent unsupported skills.
 You MUST NOT recommend advanced skills before required prerequisites.
 You MUST consider available study time.
-You MUST NOT generate generic advice.
+You MUST NOT generate generic advice like "Revise [topic]" or "Solve 20+ questions" or "Build a project". 
+Instead, generate highly specific, context-aware tasks based on their field (e.g., for board exams: "Solve CBSE 2019-2023 Previous Year Questions (PYQs) for [Topic]", "Read NCERT Chapter 4", etc. For tech: "Implement a REST API using Express", etc.).
 
-Every major recommendation must have a reason.
+Every major recommendation must have a clear reason and be directly aligned with the user's syllabus or goal.
 Return ONLY the requested structured JSON.
 
 STUDENT PROFILE
-Career Goal: ${fullContext.careerGoal || 'Not specified'}
+Career/Academic Goal: ${fullContext.careerGoal || 'Not specified'}
 Current Level: ${fullContext.currentLevel || 'Not specified'}
+Academic Level / Grade: ${fullContext.audienceLevel || 'Not specified'}
 Available Time: ${fullContext.availableTime || 'Not specified'}
+
+IMPORTANT CONTEXT FOR TASK GENERATION:
+- If the goal is related to school exams (e.g., 10th Board, 12th Board, CBSE, ICSE, NEET, JEE), the learning tasks MUST include:
+  * Specific NCERT chapters to read
+  * Board PYQs (Previous Year Questions) for each topic with year references (e.g., "Solve CBSE 2018-2023 PYQs on [Topic]")
+  * Short-answer and long-answer practice aligned with board patterns
+  * Diagrams or derivations if applicable
+- If the goal is professional/technical, tasks should reference real tools, frameworks, and project implementations.
+- NEVER use placeholder text like "Revise [topic]". Always be specific.
 
 CURRENT EVIDENCE:
 Learning Progress: ${JSON.stringify(fullContext.learningProgress)}

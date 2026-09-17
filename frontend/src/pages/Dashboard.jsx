@@ -8,7 +8,8 @@ import CognifyModules from "../components/dashboard/CognifyModules";
 import RoadmapSection from "../components/dashboard/RoadmapSection";
 import RecentAssessmentsTable from "../components/dashboard/RecentAssessmentsTable";
 import NextStepsCard from "../components/dashboard/NextStepsCard";
-import CareerGoalCard from "../components/dashboard/CareerGoalCard";
+import ProfileSettingsCard from "../components/dashboard/ProfileSettingsCard";
+import ProfileEditModal from "../components/dashboard/ProfileEditModal";
 import FloatingAIAssistant from "../components/FloatingAIAssistant";
 import { Link } from "react-router-dom";
 import { dashboardApi, assessmentApi } from "../services/api";
@@ -125,6 +126,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [recommended, setRecommended] = useState([]);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
@@ -220,7 +222,11 @@ export default function Dashboard() {
       <Container size="wide">
         <div className="flex flex-col gap-8">
           {/* 1. DASHBOARD HEADER WITH ROTATING MOTIVATIONAL QUOTES */}
-          <DashboardHeader user={user} quotes={[]} />
+          <DashboardHeader 
+            user={user} 
+            quotes={[]} 
+            onOpenProfile={() => setIsProfileModalOpen(true)}
+          />
 
           {/* 2. LEARNING OVERVIEW (4 STAT CARDS) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -369,7 +375,7 @@ export default function Dashboard() {
               <NextStepsCard recommendations={recommendations} />
             </div>
             <div className="lg:col-span-1">
-              <CareerGoalCard
+              <ProfileSettingsCard
                 careerGoal={careerGoal}
                 onUpdateGoal={handleUpdateGoal}
               />
@@ -378,6 +384,12 @@ export default function Dashboard() {
         </div>
       </Container>
       <FloatingAIAssistant />
+      <ProfileEditModal 
+        isOpen={isProfileModalOpen} 
+        onClose={() => setIsProfileModalOpen(false)} 
+        careerGoal={careerGoal} 
+        onUpdateGoal={handleUpdateGoal} 
+      />
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { useStudentAuth } from "../../context/StudentAuthContext";
 import { LogOut } from 'lucide-react';
 import DashboardLogo from "./DashboardLogo";
 
-export default function DashboardHeader({ user, quotes = [] }) {
+export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
   const navigate = useNavigate();
   const { user: sessionUser, logout } = useStudentAuth();
   const currentUser = sessionUser;
@@ -74,10 +74,17 @@ export default function DashboardHeader({ user, quotes = [] }) {
           <DashboardLogo />
 
           <div className="mt-1">
-            <h1 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1B332C] tracking-tight leading-tight">
+            <h1 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1B332C] tracking-tight leading-tight flex items-center flex-wrap gap-3">
               {dynamicName ? `${greeting}, ${dynamicName} 👋` : `${greeting} 👋`}
+              <button 
+                type="button"
+                onClick={onOpenProfile}
+                className="text-xs font-sans font-semibold text-[#1B332C] bg-[#EDE6D3]/80 border border-[#2E4F42]/15 hover:bg-[#1B332C] hover:text-[#E8C547] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+              >
+                <span>⚙️</span> Edit Profile
+              </button>
             </h1>
-            <p className="mt-1 text-sm sm:text-base text-[#5B6B5F] font-normal leading-relaxed">
+            <p className="mt-2 text-sm sm:text-base text-[#5B6B5F] font-normal leading-relaxed">
               {subtitle}
             </p>
           </div>

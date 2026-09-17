@@ -296,7 +296,7 @@ function StageCard({ stage, expanded, onToggle, onStart, onToggleCompletion }) {
 
             <div className="mt-5 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: "var(--color-border)" }}>
               <div className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                <span className="font-bold" style={{ color: "var(--color-text-h)" }}>{stage.questions || 20}</span> career practice modules
+                <span className="font-bold" style={{ color: "var(--color-text-h)" }}>{stage.questions || 20}</span> practice modules
               </div>
 
               <div className="flex items-center gap-2">
@@ -463,12 +463,20 @@ export default function Roadmap() {
   const activePhases = stages.length > 0 ? stages : [];
   const WEEKLY_FOCUS_ITEMS = activePhases[0]?.tasks?.slice(0, 4) || [];
 
-  // Resources list dynamically generated for the career
-  const HELPFUL_RESOURCES = [
-    { id: "res-1", title: `${targetCareer} Handbook`, type: "guide", icon: "📄", url: `/resources/handbook?topic=${encodeURIComponent(targetCareer)}` },
-    { id: "res-2", title: "Interactive Practice", type: "practice", icon: "💻", url: "/assessment" },
-    { id: "res-3", title: "Common Mistakes", type: "mistakes", icon: "🎥", url: "/mistake-map" },
-    { id: "res-4", title: "Project Ideas", type: "projects", icon: "💡", url: `/resources/project-ideas?topic=${encodeURIComponent(targetCareer)}` },
+  // Detect if student is preparing for school / board exams
+  const isAcademic = /class \d|board|cbse|icse|ncert|sst|social science|science|math/i.test(targetCareer);
+
+  // Resources list dynamically generated for the career or board exam
+  const HELPFUL_RESOURCES = isAcademic ? [
+    { id: "res-1", title: "NCERT Official E-Books", type: "textbook", icon: "🏛️", url: "https://ncert.nic.in/textbook.php", isExternal: true },
+    { id: "res-2", title: "Board PYQs & Question Bank", type: "practice", icon: "✍️", url: "/assessment", isExternal: false },
+    { id: "res-3", title: "Mistake Analysis & Traps", type: "mistakes", icon: "🎯", url: "/mistake-map", isExternal: false },
+    { id: "res-4", title: "Chapter Revision Notes", type: "notes", icon: "📖", url: `/resources/handbook?topic=${encodeURIComponent(targetCareer)}`, isExternal: false },
+  ] : [
+    { id: "res-1", title: `${targetCareer} Handbook`, type: "guide", icon: "📄", url: `/resources/handbook?topic=${encodeURIComponent(targetCareer)}`, isExternal: false },
+    { id: "res-2", title: "Interactive Practice", type: "practice", icon: "💻", url: "/assessment", isExternal: false },
+    { id: "res-3", title: "Common Mistakes", type: "mistakes", icon: "🎥", url: "/mistake-map", isExternal: false },
+    { id: "res-4", title: "Project Ideas", type: "projects", icon: "💡", url: `/resources/project-ideas?topic=${encodeURIComponent(targetCareer)}`, isExternal: false },
   ];
 
   // Load roadmap from backend API
@@ -488,23 +496,69 @@ export default function Roadmap() {
             const phaseNum = idx + 1;
             const weekStart = (phaseNum - 1) * 2 + 1;
             const weekEnd = phaseNum * 2;
-            const concepts = st.concepts || ["Core Theory", "Practical Patterns", "Project Application"];
+
+            // Clean concept names — strip internal prefixes like ai_rec_ globally
+            const cleanName = (raw) => {
+              if (!raw) return "";
+              try {
+                return decodeURIComponent(raw)
+                  .replace(/ai_rec_/gi, "")
+                  .replace(/_/g, " ")
+                  .trim()
+                  .replace(/\s+/g, " ");
+              } catch { return String(raw).replace(/ai_rec_/gi, "").replace(/_/g, " ").trim(); }
+            };
+
+            const concepts = (st.concepts || [])
+              .map(cleanName)
+              .filter(Boolean);
+
+            if (concepts.length === 0) {
+              concepts.push("Core Theory", "Practical Application", "Assessment Practice");
+            }
+
+            // Use actual tasks from backend if they exist (learningTasks / practiceTasks),
+            // otherwise build clean, meaningful defaults — never raw variable names
+            const backendTasks = [
+              ...(st.learningTasks || []),
+              ...(st.practiceTasks || []),
+            ];
+
+            let tasks;
+            if (backendTasks.length > 0) {
+              tasks = backendTasks.slice(0, 4).map((text, i) => ({
+                id: `task-${phaseNum}-${i}`,
+                text: cleanName(text),
+              }));
+            } else {
+              // Generate clean, sensible defaults from the first clean concept
+              const topic = concepts[0] || "Core Concepts";
+              const isSchool = /class \d|board|cbse|icse|ncert|sst|social science|school|10th|12th/i.test(career);
+              tasks = isSchool ? [
+                { id: `task-${phaseNum}-0`, text: `Study ${topic} from NCERT & syllabus textbook` },
+                { id: `task-${phaseNum}-1`, text: `Solve Previous Year Questions (PYQs) on ${topic}` },
+                { id: `task-${phaseNum}-2`, text: `Attempt a timed practice assessment on ${topic}` },
+              ] : [
+                { id: `task-${phaseNum}-0`, text: `Study ${topic} from verified guides & reference material` },
+                { id: `task-${phaseNum}-1`, text: `Apply ${topic} with practical exercises and case scenarios` },
+                { id: `task-${phaseNum}-2`, text: `Validate mastery with a timed assessment on ${topic}` },
+              ];
+            }
+
             return {
               id: st.id || phaseNum,
               phaseNum,
-              weeks: st.duration ? `Weeks ${weekStart}–${weekEnd}` : `Weeks ${weekStart}–${weekEnd}`,
+              weeks: `Weeks ${weekStart}–${weekEnd}`,
               title: st.title.replace(/^Phase\s*\d+:\s*/i, ""),
               priority: st.priority === "High" || st.isWeakConcept ? "High" : st.priority === "Medium" ? "Medium" : "Low",
               baseProgress: st.progress || (st.status === "completed" ? 100 : st.status === "current" ? 40 : 0),
-              description: st.description || `Master essential competencies for ${career}.`,
+              description: st.description
+                ? cleanName(st.description)
+                : `Master essential competencies for ${career}.`,
               topics: concepts,
-              tasks: [
-                { id: `task-${phaseNum}-0`, text: `Revise ${concepts[0] || "core concepts"}` },
-                { id: `task-${phaseNum}-1`, text: `Solve 20+ ${concepts[1] || concepts[0] || "topic"} practice questions` },
-                { id: `task-${phaseNum}-2`, text: `Build a small ${concepts[2] || "hands-on"} project` },
-              ],
+              tasks,
               status: st.status || (idx === 0 ? "current" : "upcoming"),
-              why: st.why || "",
+              why: st.why ? cleanName(st.why) : "",
             };
           });
           setStages(formatted);
@@ -646,7 +700,24 @@ export default function Roadmap() {
         secondaryCta={{ label: "Take Assessment", href: "/assessment" }}
       />
 
+      {/* LOADING STATE */}
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <svg className="w-10 h-10 animate-spin text-[#2E4F42]" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <p className="text-sm font-semibold text-[#5B6B5F]">Generating your personalized roadmap…</p>
+        </div>
+      )}
+
+      {/* EMPTY STATE — no assessment history */}
+      {!isLoading && stages.length === 0 && !hasHistory && (
+        <EmptyRoadmapState />
+      )}
+
       {/* MAIN ROADMAP CONTAINER */}
+      {!isLoading && (stages.length > 0 || hasHistory) && (
       <div id="roadmap-content" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* STAT OVERVIEW CARDS (Career Goal, Total Duration, Total Skills, Focus Areas) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -881,22 +952,36 @@ export default function Roadmap() {
                   Recommended documentation, interactive trainers, and cheat sheets for {targetCareer}.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {HELPFUL_RESOURCES.map((res) => (
-                    <Link
-                      key={res.id}
-                      to={res.url}
-                      className="flex items-center justify-between p-4 rounded-xl border border-[#2E4F42]/12 bg-[#EDE6D3]/40 hover:bg-[#EDE6D3] hover:scale-[1.01] transition-all duration-200"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">{res.icon}</span>
-                        <div>
-                          <p className="text-sm font-bold text-[#1B332C]">{res.title}</p>
-                          <p className="text-[11px] text-[#5B6B5F] capitalize">{res.type} material</p>
+                  {HELPFUL_RESOURCES.map((res) => {
+                    const content = (
+                      <div className="flex items-center justify-between p-4 rounded-xl border border-[#2E4F42]/12 bg-[#EDE6D3]/40 hover:bg-[#EDE6D3] hover:scale-[1.01] transition-all duration-200">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{res.icon}</span>
+                          <div>
+                            <p className="text-sm font-bold text-[#1B332C]">{res.title}</p>
+                            <p className="text-[11px] text-[#5B6B5F] capitalize">{res.type} material</p>
+                          </div>
                         </div>
+                        <ArrowRightIcon className="w-4 h-4 text-[#2E4F42]" />
                       </div>
-                      <ArrowRightIcon className="w-4 h-4 text-[#2E4F42]" />
-                    </Link>
-                  ))}
+                    );
+
+                    return res.isExternal ? (
+                      <a
+                        key={res.id}
+                        href={res.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block"
+                      >
+                        {content}
+                      </a>
+                    ) : (
+                      <Link key={res.id} to={res.url} className="block">
+                        {content}
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1095,6 +1180,9 @@ export default function Roadmap() {
                                 <div className="flex flex-wrap gap-2">
                                   {phase.topics?.map((topic) => {
                                     const docUrl = getPrimaryDocUrl(topic);
+                                    const tooltipText = isAcademic
+                                      ? `📺 Watch video lecture for: ${topic}`
+                                      : `Open official documentation for ${topic}`;
                                     return (
                                       <a
                                         key={topic}
@@ -1102,7 +1190,7 @@ export default function Roadmap() {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
-                                        title={`Open official documentation for ${topic}`}
+                                        title={tooltipText}
                                         className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-[#1B332C] hover:text-[#E8C547] hover:border-[#1B332C] hover:scale-105 group"
                                         style={{
                                           borderColor: "rgba(46, 79, 66, 0.12)",
@@ -1110,8 +1198,9 @@ export default function Roadmap() {
                                           color: "var(--color-text-body)",
                                         }}
                                       >
+                                        {isAcademic && <span className="text-[10px] opacity-60 group-hover:opacity-100">📺</span>}
                                         <span>{topic}</span>
-                                        <span className="text-[10px] opacity-60 group-hover:opacity-100">↗</span>
+                                        <span className="text-[10px] opacity-60 group-hover:opacity-100">{isAcademic ? "▶" : "↗"}</span>
                                       </a>
                                     );
                                   })}
@@ -1173,41 +1262,67 @@ export default function Roadmap() {
                               <div className="pt-4 border-t border-[#2E4F42]/08 mt-2">
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-[#8B9690] mb-3">Your Learning Path for This Phase</p>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  {/* Step 1A: Official Documentation Link */}
-                                  <a
-                                    href={getPrimaryDocUrl(phase.topics?.[0] || phase.title)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs"
-                                    style={{ background: "#EDE6D3", color: "#1B332C", border: "1px solid rgba(46,79,66,0.18)" }}
-                                  >
-                                    <span>📖</span>
-                                    <span>1. Read Official Docs ↗</span>
-                                  </a>
+                                  {/* Step 1A: Read NCERT (academic) or Official Docs (professional) */}
+                                  {isAcademic ? (
+                                    <a
+                                      href="https://ncert.nic.in/textbook.php"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs"
+                                      style={{ background: "#EDE6D3", color: "#1B332C", border: "1px solid rgba(46,79,66,0.18)" }}
+                                    >
+                                      <span>🏛️</span>
+                                      <span>1. NCERT Textbook ↗</span>
+                                    </a>
+                                  ) : (
+                                    <a
+                                      href={getPrimaryDocUrl(phase.topics?.[0] || phase.title)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs"
+                                      style={{ background: "#EDE6D3", color: "#1B332C", border: "1px solid rgba(46,79,66,0.18)" }}
+                                    >
+                                      <span>📖</span>
+                                      <span>1. Read Official Docs ↗</span>
+                                    </a>
+                                  )}
 
-                                  {/* Step 1B: Study Hub & Resources */}
+                                  {/* Step 1B: Study Hub / Revision Notes */}
                                   <Link
                                     to={`/resources/handbook?topic=${encodeURIComponent(phase.topics?.[0] || phase.title)}`}
                                     onClick={(e) => e.stopPropagation()}
                                     className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-200 hover:bg-[#E8C547]/20 text-[#1B332C] border border-[#2E4F42]/15"
                                   >
                                     <span>📚</span>
-                                    <span>Study Hub</span>
+                                    <span>{isAcademic ? "Revision Notes" : "Study Hub"}</span>
                                   </Link>
 
-                                  {/* Step 2: Build */}
-                                  <Link
-                                    to={`/resources/project-ideas?topic=${encodeURIComponent(phase.topics?.[0] || phase.title)}&difficulty=${phase.priority === "High" ? "Beginner" : phase.priority === "Medium" ? "Intermediate" : "Advanced"}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95"
-                                    style={{ background: "#DBEAFE", color: "#1D4ED8", border: "1px solid rgba(29,78,216,0.15)" }}
-                                  >
-                                    <span>💡</span>
-                                    <span>2. Build a Project</span>
-                                  </Link>
+                                  {/* Step 2: Board PYQs (academic) or Build a Project (professional) */}
+                                  {isAcademic ? (
+                                    <Link
+                                      to="/assessment"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95"
+                                      style={{ background: "#DBEAFE", color: "#1D4ED8", border: "1px solid rgba(29,78,216,0.15)" }}
+                                    >
+                                      <span>✍️</span>
+                                      <span>2. Board PYQs</span>
+                                    </Link>
+                                  ) : (
+                                    <Link
+                                      to={`/resources/project-ideas?topic=${encodeURIComponent(phase.topics?.[0] || phase.title)}&difficulty=${phase.priority === "High" ? "Beginner" : phase.priority === "Medium" ? "Intermediate" : "Advanced"}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95"
+                                      style={{ background: "#DBEAFE", color: "#1D4ED8", border: "1px solid rgba(29,78,216,0.15)" }}
+                                    >
+                                      <span>💡</span>
+                                      <span>2. Build a Project</span>
+                                    </Link>
+                                  )}
 
-                                  {/* Step 3: Test */}
+                                  {/* Step 3: Test Knowledge */}
                                   <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); handleTestKnowledge(phase); }}
@@ -1226,7 +1341,7 @@ export default function Roadmap() {
                                     ) : (
                                       <>
                                         <span>⚡</span>
-                                        <span>3. Test Knowledge</span>
+                                        <span>{isAcademic ? "3. Practice Assessment" : "3. Test Knowledge"}</span>
                                       </>
                                     )}
                                   </button>
@@ -1393,21 +1508,34 @@ export default function Roadmap() {
               </div>
 
               <div className="space-y-2.5">
-                {HELPFUL_RESOURCES.map((res) => (
-                  <Link
-                    key={res.id}
-                    to={res.url}
-                    className="flex items-center justify-between p-2.5 rounded-xl border border-[#2E4F42]/08 bg-[#EDE6D3]/40 hover:bg-[#EDE6D3] hover:translate-x-1 transition-all duration-200"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-base">{res.icon}</span>
-                      <span className="text-xs font-semibold text-[#1B332C] truncate">
-                        {res.title}
-                      </span>
+                {HELPFUL_RESOURCES.map((res) => {
+                  const linkContent = (
+                    <div className="flex items-center justify-between p-2.5 rounded-xl border border-[#2E4F42]/08 bg-[#EDE6D3]/40 hover:bg-[#EDE6D3] hover:translate-x-1 transition-all duration-200">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-base">{res.icon}</span>
+                        <span className="text-xs font-semibold text-[#1B332C] truncate">
+                          {res.title}
+                        </span>
+                      </div>
+                      <ArrowRightIcon className="w-3.5 h-3.5 text-[#2E4F42] shrink-0" />
                     </div>
-                    <ArrowRightIcon className="w-3.5 h-3.5 text-[#2E4F42] shrink-0" />
-                  </Link>
-                ))}
+                  );
+                  return res.isExternal ? (
+                    <a
+                      key={res.id}
+                      href={res.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      {linkContent}
+                    </a>
+                  ) : (
+                    <Link key={res.id} to={res.url} className="block">
+                      {linkContent}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
 
@@ -1448,6 +1576,7 @@ export default function Roadmap() {
           </p>
         </div>
       </div>
+      )} {/* end !isLoading && (stages.length > 0 || hasHistory) */}
 
       {/* FINAL CTA SECTION */}
       <Section>

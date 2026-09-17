@@ -79,6 +79,12 @@ export const authApi = {
       method: "PUT",
       body: JSON.stringify(data),
     }),
+
+  updateProfile: (data) =>
+    request("/auth/profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 };
 
 export const adminApi = {

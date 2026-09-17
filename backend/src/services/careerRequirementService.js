@@ -64,6 +64,11 @@ export const getCareerRequirements = async (careerGoal) => {
     }
   }
 
-  // Default fallback
-  return CAREER_KNOWLEDGE_BASE["software engineer"];
+  // Default fallback if no match is found
+  // Instead of forcing Software Engineering on everyone (like a 10th class student),
+  // return an empty/generic requirement set so the AI relies entirely on the user's goal and assessment history.
+  return {
+    role: careerGoal || "Custom Goal",
+    skills: []
+  };
 };

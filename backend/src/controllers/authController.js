@@ -225,6 +225,54 @@ export async function completeOnboarding(req, res) {
 }
 
 /**
+ * Update Profile Endpoint:
+ * PUT /api/auth/profile
+ * Allows user to update their name, target field, level, and career goal.
+ */
+export async function updateProfile(req, res) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: "Not authenticated." });
+    }
+
+    const { name, field, careerGoal, level } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    if (name) {
+      user.name = name.trim();
+    }
+
+    if (field) {
+      user.selectedField = String(field).trim();
+    }
+
+    user.onboardingProfile = {
+      field: user.selectedField || user.onboardingProfile?.field || "",
+      careerGoal: careerGoal || user.onboardingProfile?.careerGoal || "",
+      level: level || user.onboardingProfile?.level || "Intermediate",
+    };
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully.",
+      user: formatUserResponse(user),
+    });
+  } catch (err) {
+    console.error("Profile update error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update profile.",
+    });
+  }
+}
+
+/**
  * POST /api/auth/forgot-password
  */
 export async function forgotPassword(req, res) {

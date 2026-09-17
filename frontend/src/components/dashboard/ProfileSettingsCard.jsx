@@ -1,6 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Button from "../Button";
+import { useStudentAuth } from "../../context/StudentAuthContext";
+import { authApi } from "../../services/api";
+import { FIELDS } from "../../utils/constants";
 
 const CAREER_PRESETS = [
   {
@@ -25,19 +28,34 @@ const CAREER_PRESETS = [
   },
 ];
 
-export default function CareerGoalCard({ careerGoal, onUpdateGoal }) {
+export default function ProfileSettingsCard({ careerGoal, onUpdateGoal }) {
+  const { user, applySession } = useStudentAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [currentGoal, setCurrentGoal] = useState({
     title: careerGoal?.title || "YOUR CAREER GOAL",
     role: careerGoal?.role || "Machine Learning Engineer",
     tags: careerGoal?.tags || ["Python", "ML", "Deep Learning", "NLP", "GenAI"],
-    cta: careerGoal?.cta || "Update Goal",
+    cta: careerGoal?.cta || "Update Profile",
   });
 
   const [selectedRole, setSelectedRole] = useState(currentGoal.role);
   const [customTagsInput, setCustomTagsInput] = useState(
     currentGoal.tags.join(", ")
   );
+  
+  // Profile specific fields
+  const [name, setName] = useState(user?.name || "");
+  const [field, setField] = useState(user?.selectedField || user?.onboardingProfile?.field || "");
+  const [level, setLevel] = useState(user?.onboardingProfile?.level || "Beginner");
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setField(user.selectedField || user.onboardingProfile?.field || "");
+      setLevel(user.onboardingProfile?.level || "Beginner");
+    }
+  }, [user]);
+
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   const handleSelectPreset = (preset) => {
@@ -45,18 +63,36 @@ export default function CareerGoalCard({ careerGoal, onUpdateGoal }) {
     setCustomTagsInput(preset.tags.join(", "));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     const parsedTags = customTagsInput
       .split(",")
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
 
+    const updatedRole = selectedRole.trim() || "Machine Learning Engineer";
     const updated = {
       ...currentGoal,
-      role: selectedRole.trim() || "Machine Learning Engineer",
+      role: updatedRole,
       tags: parsedTags.length > 0 ? parsedTags : ["Python", "AI"],
     };
+
+    setCurrentGoal(updated);
+    
+    // Update user profile in backend
+    try {
+      const res = await authApi.updateProfile({
+        name,
+        field,
+        careerGoal: updatedRole,
+        level,
+      });
+      if (res && res.success && res.user) {
+        applySession(res.user);
+      }
+    } catch (err) {
+      console.error("Failed to update profile", err);
+    }
 
     setCurrentGoal(updated);
     if (onUpdateGoal) {
@@ -78,10 +114,10 @@ export default function CareerGoalCard({ careerGoal, onUpdateGoal }) {
         <div className="flex items-center justify-between border-b border-[#2E4F42]/15 pb-3">
           <div>
             <h3 className="font-sans text-xl font-bold text-[#1B332C]">
-              Update Career Goal
+              Update Profile & Career Goal
             </h3>
             <p className="text-xs text-[#5B6B5F] font-sans mt-0.5">
-              Select a target pathway to customize your entire learning analytics & roadmap.
+              Customize your profile and target pathway to personalize your analytics.
             </p>
           </div>
           <button
@@ -123,7 +159,55 @@ export default function CareerGoalCard({ careerGoal, onUpdateGoal }) {
         <form onSubmit={handleSave} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="font-mono text-xs font-bold uppercase tracking-wider text-[#1B332C]">
-              Target Role Title
+              Full Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="w-full rounded-xl border border-[#2E4F42]/20 bg-white px-3.5 py-2 text-sm text-[#1B332C] focus:border-[#C4952A] focus:outline-none focus:ring-1 focus:ring-[#C4952A]"
+            />
+          </div>
+
+          <div className="flex gap-4">
+            <div className="flex flex-col gap-1.5 flex-1">
+              <label className="font-mono text-xs font-bold uppercase tracking-wider text-[#1B332C]">
+                Target Field
+              </label>
+              <input
+                type="text"
+                list="modal-field-options"
+                value={field}
+                onChange={(e) => setField(e.target.value)}
+                required
+                className="w-full rounded-xl border border-[#2E4F42]/20 bg-white px-3.5 py-2 text-sm text-[#1B332C] focus:border-[#C4952A] focus:outline-none focus:ring-1 focus:ring-[#C4952A]"
+              />
+              <datalist id="modal-field-options">
+                {FIELDS.map((f) => (
+                  <option key={f} value={f} />
+                ))}
+              </datalist>
+            </div>
+            <div className="flex flex-col gap-1.5 flex-1">
+              <label className="font-mono text-xs font-bold uppercase tracking-wider text-[#1B332C]">
+                Level
+              </label>
+              <select
+                value={level}
+                onChange={(e) => setLevel(e.target.value)}
+                className="w-full rounded-xl border border-[#2E4F42]/20 bg-white px-3.5 py-2 text-sm text-[#1B332C] focus:border-[#C4952A] focus:outline-none focus:ring-1 focus:ring-[#C4952A]"
+              >
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 border-t border-[#2E4F42]/10 pt-4">
+            <label className="font-mono text-xs font-bold uppercase tracking-wider text-[#1B332C]">
+              Target Role / Career Goal
             </label>
             <input
               type="text"
@@ -160,7 +244,7 @@ export default function CareerGoalCard({ careerGoal, onUpdateGoal }) {
               Cancel
             </Button>
             <Button variant="primary" size="sm" type="submit">
-              Save & Recalculate Dashboard
+              Save Profile & Recalculate
             </Button>
           </div>
         </form>
@@ -169,7 +253,7 @@ export default function CareerGoalCard({ careerGoal, onUpdateGoal }) {
   ) : null;
 
   return (
-    <div className="relative rounded-2xl bg-[#FBF8F0] p-6 border border-[#2E4F42]/12 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between gap-4 group">
+    <div id="profile-settings-card" className="relative rounded-2xl bg-[#FBF8F0] p-6 border border-[#2E4F42]/12 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between gap-4 group">
       {/* Toast Notification on Success */}
       {showSuccessToast && (
         <div className="absolute -top-3 inset-x-4 z-20 rounded-xl bg-[#1B332C] px-3.5 py-2 text-xs text-[#E8C547] border border-[#E8C547]/50 shadow-md flex items-center justify-between font-mono">
