@@ -314,6 +314,30 @@ export const FIELD_CORE_TOPICS = {
     "Good Manufacturing Practices (GMP) & QA",
     "Drug Regulatory Affairs & Clinical Trials"
   ],
+  "Class 10 Social Science (SST)": [
+    "Rise of Nationalism in Europe & India",
+    "Resources, Agriculture & Mineral Wealth",
+    "Power Sharing, Federalism & Political Parties",
+    "Economic Sectors, Money & Credit",
+    "Board Exam Map Skills (Dams, Ports, Minerals)",
+    "Class 10 Board PYQs & Answer Writing"
+  ],
+  "Class 10 Science": [
+    "Chemical Reactions, Acids & Carbon Compounds",
+    "Life Processes & Control & Coordination",
+    "Reproduction, Heredity & Evolution",
+    "Light Reflection, Refraction & Human Eye",
+    "Electricity & Magnetic Effects of Current",
+    "Class 10 Science Board PYQs & Numericals"
+  ],
+  "Class 10 Mathematics": [
+    "Real Numbers, Polynomials & Quadratic Equations",
+    "Arithmetic Progressions & Coordinate Geometry",
+    "Triangles, Circles & Geometric Proofs",
+    "Trigonometry & Heights and Distances",
+    "Surface Areas, Volumes & Statistics",
+    "Class 10 Maths Board PYQs & Theorem Proofs"
+  ]
 };
 
 /**
@@ -321,7 +345,19 @@ export const FIELD_CORE_TOPICS = {
  */
 export function getRecommendedTopicsForField(field, careerGoal) {
   const normField = field || "Software Development";
+  const lower = normField.toLowerCase();
   
+  // Specific academic / board syllabus matching
+  if (/social science|sst|history|geography|civics/i.test(lower)) {
+    return FIELD_CORE_TOPICS["Class 10 Social Science (SST)"];
+  }
+  if (/science/i.test(lower) && (/10/i.test(lower) || /board/i.test(lower) || /class/i.test(lower))) {
+    return FIELD_CORE_TOPICS["Class 10 Science"];
+  }
+  if (/math/i.test(lower) && (/10/i.test(lower) || /board/i.test(lower) || /class/i.test(lower))) {
+    return FIELD_CORE_TOPICS["Class 10 Mathematics"];
+  }
+
   // 1. Check exact or partial match in FIELD_CORE_TOPICS
   let topics = FIELD_CORE_TOPICS[normField];
   if (!topics) {
@@ -334,10 +370,10 @@ export function getRecommendedTopicsForField(field, careerGoal) {
   // 2. Fallback to career goals for this field if specific topics not defined
   if (!topics || topics.length === 0) {
     topics = CAREER_GOALS_BY_FIELD[normField] || [
+      `${normField} Fundamentals`,
       `${normField} Core Principles`,
-      `${normField} Practical Application`,
-      `${normField} Advanced Concepts`,
-      `${normField} Industry Best Practices`
+      `${normField} Applied Practice`,
+      `${normField} Exam & Interview Prep`
     ];
   }
 

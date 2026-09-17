@@ -1,4 +1,21 @@
 import AttemptResult from "../models/AttemptResult.js";
+
+/**
+ * Strips internal prefixes (ai_rec_, URL-encoding) from raw category/concept names.
+ */
+function cleanTopicName(name) {
+  if (!name) return "General";
+  try {
+    return decodeURIComponent(name)
+      .replace(/^ai_rec_/i, "")
+      .replace(/_/g, " ")
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/^(\w)/, (c) => c.toUpperCase());
+  } catch {
+    return name.replace(/^ai_rec_/i, "").replace(/_/g, " ").trim();
+  }
+}
 import User from "../models/User.js";
 
 // ─────────────────────────────────────────────
@@ -184,7 +201,7 @@ function getCategoryStats(attempts) {
     map[cat].count++;
   });
   return Object.entries(map).map(([category, { sum, count }]) => ({
-    category,
+    category: cleanTopicName(category),
     avgScore: Math.round(sum / count),
     count,
   }));
@@ -381,75 +398,65 @@ function buildAiInsight(attempts, careerGoal) {
 }
 
 /**
- * Builds the roadmap based on career goal keywords.
- * Returns roadmap items with plausible statuses derived from assessments.
+ * Builds the dashboard mini-roadmap from the user's actual assessment categories
+ * and career goal — no hardcoded tech presets.
  */
 function buildRoadmap(careerGoal, categoryStats) {
-  const roadmapPresets = {
-    "Machine Learning Engineer": ["Python", "Machine Learning", "Deep Learning", "NLP", "Generative AI"],
-    "Full Stack AI Developer": ["Frontend Basics", "Full Stack APIs", "LLM Integration", "Vector Search", "Production AI"],
-    "Data Scientist & AI Analyst": ["Data Analysis", "SQL & BigQuery", "Statistical ML", "Feature Engineering", "AI Dashboards"],
-    "AI Research Engineer": ["Math & Calculus", "PyTorch DL", "Transformers", "RL Algorithms", "Model Research"],
-    "GenAI & Prompt Engineer": ["Prompt Engineering", "LangChain", "RAG Search", "Fine-Tuning", "AI Agents"],
-  };
-
-  // Try to match career goal
-  let steps = null;
-  if (careerGoal) {
-    const normalised = careerGoal.toLowerCase();
-    for (const [key, val] of Object.entries(roadmapPresets)) {
-      if (normalised.includes(key.toLowerCase()) || key.toLowerCase().includes(normalised)) {
-        steps = val;
-        break;
-      }
+  // Build steps from real assessment categories the user has encountered
+  // If no assessments yet, use generic phase labels
+  let steps;
+  if (categoryStats && categoryStats.length > 0) {
+    // Use the actual topics the user has been assessed on, sorted by score ascending
+    // so weaker areas come first (needs most attention)
+    const sorted = [...categoryStats].sort((a, b) => a.avgScore - b.avgScore);
+    steps = sorted.slice(0, 5).map((c) => c.category);
+    // Pad with generic next steps if fewer than 3 categories
+    if (steps.length < 3) {
+      steps.push("Practice Previous Year Questions", "Full Mock Test");
     }
+  } else {
+    // No assessments yet — show goal-based generic milestones
+    steps = [
+      "Foundation Concepts",
+      "Core Topics",
+      "Practice & PYQs",
+      "Mock Tests",
+      "Revision & Mastery",
+    ];
   }
 
-  if (!steps) {
-    // Generic fallback
-    steps = ["Foundations", "Core Skills", "Advanced Topics", "Specialization", "Mastery"];
-  }
+  // Assign statuses based on scores
+  const doneCategories = new Set(
+    categoryStats.filter((c) => c.avgScore >= 60).map((c) => c.category.toLowerCase())
+  );
+  const improvingCategories = new Set(
+    categoryStats.filter((c) => c.avgScore < 60 && c.count > 0).map((c) => c.category.toLowerCase())
+  );
 
-  // Assign statuses: categories with assessments = completed/in_progress, rest = upcoming
-  const doneCategories = new Set(categoryStats.filter((c) => c.avgScore >= 60).map((c) => c.category.toLowerCase()));
-  const improvingCategories = new Set(categoryStats.filter((c) => c.avgScore < 60 && c.count > 0).map((c) => c.category.toLowerCase()));
-
+  let foundInProgress = false;
   const items = steps.map((title, idx) => {
     const titleLower = title.toLowerCase();
     let status = "upcoming";
 
-    // First item that matches a done category or first 1-2 items if user has assessments
-    if (doneCategories.size > 0 && idx < doneCategories.size) {
-      status = "completed";
-    } else if (improvingCategories.size > 0 && status === "upcoming" && idx === Math.min(doneCategories.size, steps.length - 1)) {
-      status = "in_progress";
-    } else if (categoryStats.length === 0) {
-      // No assessments at all → first is in_progress, rest upcoming
-      status = idx === 0 ? "in_progress" : "upcoming";
-    }
-
-    // Directly check if title word appears in done categories
     if ([...doneCategories].some((cat) => titleLower.includes(cat) || cat.includes(titleLower))) {
       status = "completed";
-    } else if ([...improvingCategories].some((cat) => titleLower.includes(cat) || cat.includes(titleLower))) {
+    } else if (!foundInProgress && [...improvingCategories].some((cat) => titleLower.includes(cat) || cat.includes(titleLower))) {
       status = "in_progress";
+      foundInProgress = true;
+    } else if (!foundInProgress && categoryStats.length === 0 && idx === 0) {
+      status = "in_progress";
+      foundInProgress = true;
+    } else if (!foundInProgress && status === "upcoming" && idx === doneCategories.size) {
+      status = "in_progress";
+      foundInProgress = true;
     }
 
     return { id: String(idx + 1), title, status };
   });
 
-  // Ensure at most one "in_progress" item
-  let foundInProgress = false;
-  for (const item of items) {
-    if (item.status === "in_progress") {
-      if (foundInProgress) item.status = "upcoming";
-      else foundInProgress = true;
-    }
-  }
-
   return {
     title: "YOUR LEARNING ROADMAP",
-    cta: "Continue Roadmap",
+    cta: "View Full Roadmap",
     href: "/roadmap",
     items,
   };
@@ -571,7 +578,7 @@ export async function getDashboard(req, res) {
     // ── Recent assessments (last 5)
     const recentAssessments = attempts.slice(0, 5).map((a) => ({
       id: String(a._id),
-      name: a.assessmentTitle,
+      name: cleanTopicName(a.assessmentTitle || a.assessmentCategory || "Assessment"),
       score: `${a.scorePercent}%`,
       date: new Date(a.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       status: a.scorePercent >= 60 ? "Completed" : "Needs Review",
@@ -634,12 +641,12 @@ export async function getDashboard(req, res) {
 
     // ── Career Goal card data
     const careerGoalData = {
-      title: "YOUR CAREER GOAL",
+      title: "PROFILE & CAREER GOAL",
       role: careerGoal || "Not set",
       tags: careerGoal
         ? (user.onboardingProfile?.careerGoalTags || [careerGoal])
         : [],
-      cta: "Update Goal",
+      cta: "Edit Profile",
     };
 
     // ── User info for header
