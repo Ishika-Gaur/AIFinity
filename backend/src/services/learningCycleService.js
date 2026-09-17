@@ -21,12 +21,66 @@ export const processLearningCycle = async (userId, attemptId) => {
      // 2. Trigger ConceptRoot
      try {
        console.log("[LearningCycle] Running ConceptRoot AI");
-       const aiAnalysis = await analyzeConceptRootWithAI(latestAttempt);
-       await ConceptRootAnalysis.findOneAndUpdate(
-         { userId, latestAttemptId: attemptId },
-         { analysis: aiAnalysis },
-         { new: true, upsert: true }
-       );
+       
+       // Build evidence specifically for the most failed concept in recent attempts
+       const failuresByConcept = {};
+       attempts.forEach(a => {
+         (a.questionResults || []).forEach(q => {
+           if (!q.isCorrect && q.canonicalConcept) {
+             failuresByConcept[q.canonicalConcept] = (failuresByConcept[q.canonicalConcept] || 0) + 1;
+           }
+         });
+       });
+       const sortedConcepts = Object.keys(failuresByConcept).sort((a, b) => failuresByConcept[b] - failuresByConcept[a]);
+       const targetConceptId = sortedConcepts[0] || null;
+
+       if (targetConceptId) {
+         const { getCandidateRoots, isValidStatus, isValidErrorType } = await import("./knowledgeService.js");
+         const candidateRoots = getCandidateRoots(targetConceptId);
+         
+         const structuredEvidence = [];
+         attempts.forEach(a => {
+           (a.questionResults || []).forEach(q => {
+             if (q.canonicalConcept === targetConceptId && !q.isCorrect) {
+               structuredEvidence.push({
+                 questionId: q.questionId,
+                 questionText: q.questionText,
+                 userAnswer: q.userAnswer,
+                 correctAnswer: q.correctAnswer,
+                 difficulty: q.difficulty
+               });
+             }
+           });
+         });
+
+         if (structuredEvidence.length > 0) {
+           const aiResponse = await analyzeConceptRootWithAI(targetConceptId, candidateRoots, structuredEvidence);
+           
+           let finalStatus = aiResponse.status;
+           if (!isValidStatus(finalStatus)) finalStatus = "insufficient_evidence";
+
+           const crypto = await import('crypto');
+           const evidenceHash = crypto.createHash('sha256').update(JSON.stringify(structuredEvidence)).digest('hex');
+
+           await ConceptRootAnalysis.findOneAndUpdate(
+             { userId, targetConceptId },
+             { 
+               latestAttemptId: attemptId,
+               sourceAttemptIds: attempts.map(a => a._id),
+               status: finalStatus,
+               errorType: aiResponse.errorType,
+               rootConceptId: aiResponse.rootConceptId,
+               alternativeConceptIds: aiResponse.alternativeConceptIds,
+               explanation: aiResponse.explanation,
+               recommendedDiagnostic: aiResponse.recommendedDiagnostic,
+               confidence: finalStatus === "diagnosed" ? Math.min(structuredEvidence.length * 25 + 15, 99) : 0,
+               evidenceHash,
+               analysisVersion: "2.0"
+             },
+             { new: true, upsert: true }
+           );
+         }
+       }
      } catch (err) {
        console.error("[LearningCycle] ConceptRoot update failed:", err.message);
      }

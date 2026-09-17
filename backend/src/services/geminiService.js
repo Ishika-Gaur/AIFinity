@@ -139,149 +139,36 @@ const EVALUATION_SCHEMA = {
   required: ["overallFeedback", "overallRating", "strengths", "areasToImprove", "questionEvaluations"],
 };
 
-const CONCEPT_ROOT_SCHEMA = {
+const CONCEPT_ROOT_SCHEMA_V2 = {
   type: SchemaType.OBJECT,
   properties: {
-    success: { type: SchemaType.BOOLEAN },
-    surfaceTopic: { type: SchemaType.STRING },
-    primaryRootCause: {
-      type: SchemaType.OBJECT,
-      properties: {
-        concept: { type: SchemaType.STRING },
-        confidence: { type: SchemaType.NUMBER },
-        explanation: { type: SchemaType.STRING }
-      },
-      required: ["concept", "confidence", "explanation"]
+    status: {
+      type: SchemaType.STRING,
+      description: "Must be 'diagnosed' if a clear root cause from candidates is found, or 'insufficient_evidence' if cannot determine."
     },
-    secondaryRootCauses: {
+    errorType: {
+      type: SchemaType.STRING,
+      description: "One of: incorrect_fact, misapplied_rule, boundary_error, invariant_violation, state_representation_error, pattern_recognition_failure, terminology_confusion, calculation_error, incomplete_reasoning, concept_misunderstanding, unanswered, unknown."
+    },
+    rootConceptId: {
+      type: SchemaType.STRING,
+      description: "The ID of the primary missing prerequisite/root concept. Must be chosen from the provided candidateRoots."
+    },
+    alternativeConceptIds: {
       type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          concept: { type: SchemaType.STRING },
-          confidence: { type: SchemaType.NUMBER },
-          explanation: { type: SchemaType.STRING }
-        },
-        required: ["concept", "confidence", "explanation"]
-      }
+      items: { type: SchemaType.STRING },
+      description: "Other candidate root IDs that might also be contributing."
     },
-    evidence: {
-      type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING }
+    explanation: {
+      type: SchemaType.STRING,
+      description: "Why this root concept explains the student's mistakes."
     },
-    mistakePatterns: {
-      type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING }
-    },
-    conceptHealth: {
-      type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING }
-    },
-    dependencyPath: {
-      type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING }
-    },
-    recoveryPath: {
-      type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING }
-    },
-    overallInsight: { type: SchemaType.STRING }
+    recommendedDiagnostic: {
+      type: SchemaType.STRING,
+      description: "What targeted question could confirm this diagnosis?"
+    }
   },
-  required: [
-    "success",
-    "surfaceTopic",
-    "primaryRootCause",
-    "secondaryRootCauses",
-    "evidence",
-    "mistakePatterns",
-    "conceptHealth",
-    "dependencyPath",
-    "recoveryPath",
-    "overallInsight"
-  ]
-};
-
-const DASHBOARD_CONCEPT_ROOT_SCHEMA = {
-  type: SchemaType.OBJECT,
-  properties: {
-    surfaceTopic: { type: SchemaType.STRING },
-    primaryRootCause: {
-      type: SchemaType.OBJECT,
-      properties: {
-        concept: { type: SchemaType.STRING },
-        confidence: { type: SchemaType.NUMBER },
-        explanation: { type: SchemaType.STRING }
-      },
-      required: ["concept", "confidence", "explanation"]
-    },
-    secondaryRootCauses: {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          concept: { type: SchemaType.STRING },
-          confidence: { type: SchemaType.NUMBER }
-        },
-        required: ["concept", "confidence"]
-      }
-    },
-    evidence: {
-      type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING }
-    },
-    mistakePatterns: {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          mistake: { type: SchemaType.STRING },
-          conceptProblem: { type: SchemaType.STRING },
-          fundamentalConcept: { type: SchemaType.STRING },
-          rootCause: { type: SchemaType.STRING }
-        },
-        required: ["mistake", "conceptProblem", "fundamentalConcept", "rootCause"]
-      }
-    },
-    conceptHealth: {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          concept: { type: SchemaType.STRING },
-          score: { type: SchemaType.NUMBER },
-          isRoot: { type: SchemaType.BOOLEAN }
-        },
-        required: ["concept", "score", "isRoot"]
-      }
-    },
-    dependencyPath: {
-      type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING }
-    },
-    recoveryPath: {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          step: { type: SchemaType.STRING },
-          explanation: { type: SchemaType.STRING }
-        },
-        required: ["step", "explanation"]
-      }
-    },
-    overallInsight: { type: SchemaType.STRING }
-  },
-  required: [
-    "surfaceTopic",
-    "primaryRootCause",
-    "secondaryRootCauses",
-    "evidence",
-    "mistakePatterns",
-    "conceptHealth",
-    "dependencyPath",
-    "recoveryPath",
-    "overallInsight"
-  ]
+  required: ["status", "explanation"]
 };
 
 // ---------------------------------------------------------------------------
@@ -316,37 +203,24 @@ export const chatCompletion = async (systemPrompt, messages) => {
   }
 };
 
-export const analyzeConceptRootWithAI = async (submission) => {
-  const prompt = `Perform a deep Root Cause Analysis on this student submission.
-Do NOT just say they are weak in the surface topic. Identify the underlying prerequisite/root concept they are struggling with.
+export const analyzeConceptRootWithAI = async (targetConcept, candidateRoots, structuredEvidence) => {
+  const prompt = `You are a diagnostic engine. Your task is to identify the root cause of the student's mistakes in the target concept based ONLY on the provided evidence.
 
-Submission Data:
-Mode: ${submission.mode}
-Question: ${submission.question || 'N/A'}
-User Answer / Text: ${submission.text || 'N/A'}
-Code: ${submission.code || 'N/A'}`;
+Target Concept: ${targetConcept}
+Candidate Root Concepts (Prerequisites): ${JSON.stringify(candidateRoots)}
+
+Structured Evidence:
+${JSON.stringify(structuredEvidence, null, 2)}
+
+Instructions:
+1. If the evidence clearly points to a misunderstanding of one of the Candidate Root Concepts, set status to "diagnosed", select the rootConceptId from the candidates, and pick the best matching errorType.
+2. If there is not enough evidence to distinguish between candidate roots, or if none of the candidates explain the mistakes, set status to "insufficient_evidence".
+3. Do NOT hallucinate or invent new rootConceptIds. You must only pick from the provided candidateRoots.
+4. Do NOT calculate a confidence score (the backend handles this).`;
 
   try {
-    const result = await callAI(prompt, CONCEPT_ROOT_SCHEMA);
+    const result = await callAI(prompt, CONCEPT_ROOT_SCHEMA_V2);
     return result;
-  } catch (err) {
-    throw { success: false, error: "AI_SERVICE_UNAVAILABLE", message: "AI analysis is temporarily unavailable." };
-  }
-};
-
-export const analyzeConceptRootDashboardWithAI = async (attempts, careerGoal) => {
-  const attemptSummaries = attempts.slice(0, 10).map(a => 
-    'Assessment: ' + a.assessmentTitle + ', Score: ' + a.scorePercent + '%, Correct: ' + a.correctCount + ', Incorrect: ' + a.incorrectCount + '. ' +
-    'Questions: ' + (a.questionResults || []).map(q => q.status === 'incorrect' ? ('Q: ' + q.questionText + ' | Concept: ' + q.concept + ' | Answer: ' + q.userAnswer) : '').filter(Boolean).join('; ')
-  ).join('\n');
-
-  const prompt = 'Perform a deep Root Cause Analysis on these recent student assessment attempts. Career Goal: ' + (careerGoal || 'None') + '.\n' +
-'Identify the true underlying prerequisite concept they are struggling with, going below the surface topic.\n' +
-'Return structured JSON with dependencyPath from surface to root, evidence, mistake patterns, and a learning recovery path.\n\n' +
-'Recent attempts context:\n' + attemptSummaries;
-
-  try {
-    return await callAI(prompt, DASHBOARD_CONCEPT_ROOT_SCHEMA);
   } catch (err) {
     throw { success: false, error: "AI_SERVICE_UNAVAILABLE", message: "AI analysis is temporarily unavailable." };
   }
@@ -356,50 +230,38 @@ export const analyzeConceptRootDashboardWithAI = async (attempts, careerGoal) =>
 const SKILL_GAP_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
-    careerGoal: { type: SchemaType.STRING },
-    skills: {
+    insights: {
       type: SchemaType.ARRAY,
       items: {
         type: SchemaType.OBJECT,
         properties: {
-          skill: { type: SchemaType.STRING },
-          currentScore: { type: SchemaType.NUMBER },
-          requiredScore: { type: SchemaType.NUMBER },
-          gap: { type: SchemaType.NUMBER },
-          priority: { type: SchemaType.STRING },
-          evidence: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-          reason: { type: SchemaType.STRING },
-          rootConceptIssues: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
+          skillId: { type: SchemaType.STRING },
+          reason: { type: SchemaType.STRING, description: "Why the student has this gap or strength, based on the provided evidence." },
+          actionPlan: { type: SchemaType.STRING, description: "Concrete steps to improve or maintain this skill." },
+          practiceFocus: { type: SchemaType.STRING, description: "Specific topics or question types to practice." }
         },
-        required: ["skill", "currentScore", "requiredScore", "gap", "priority", "evidence", "reason", "rootConceptIssues"]
+        required: ["skillId", "reason", "actionPlan", "practiceFocus"]
       }
     },
     criticalGaps: {
       type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING }
+      items: { type: SchemaType.STRING, description: "List of skillIds that represent the most critical blockers." }
     },
-    overallInsight: { type: SchemaType.STRING }
+    overallInsight: { type: SchemaType.STRING, description: "A summary of the learner's overall readiness." }
   },
-  required: ["careerGoal", "skills", "criticalGaps", "overallInsight"]
+  required: ["insights", "criticalGaps", "overallInsight"]
 };
 
+export const analyzeSkillGapWithAI = async (careerGoal, deterministicMetrics, attemptSummaries, rootSummaries) => {
+  const prompt = `Perform a qualitative Skill Gap Analysis for the career goal: ${careerGoal || 'None'}.
+You are provided with pre-calculated, deterministic metrics for the learner's skills.
+Your job is ONLY to explain these numbers, provide reasons based on evidence, and generate action plans.
+Do NOT recalculate or invent scores.
 
-export const analyzeSkillGapWithAI = async (careerGoal, attempts, conceptRoots) => {
-  const attemptSummaries = attempts.slice(0, 10).map(a => 
-    'Assessment: ' + a.assessmentTitle + ', Score: ' + a.scorePercent + '%. ' +
-    'Mistakes: ' + (a.questionResults || []).filter(q => q.status === 'incorrect').map(q => q.concept).join(', ')
-  ).join('\n');
-  
-  const rootSummaries = conceptRoots.map(c => 
-    'Concept Root Analysis: ' + (c.analysis?.primaryRootCause?.concept || '') + ' - ' + (c.analysis?.primaryRootCause?.explanation || '')
-  ).join('\n');
+Deterministic Metrics:
+${JSON.stringify(deterministicMetrics, null, 2)}
 
-  const prompt = `Perform a deep Skill Gap Analysis for the career goal: ${careerGoal || 'None'}.
-Identify the required industry skills, compare them against real student evidence, and calculate true gaps.
-Do NOT use random numbers or arbitrary score thresholds. Base the analysis directly on the evidence.
-
-Evidence Context:
-Attempts:
+Evidence Context (Attempts):
 ${attemptSummaries}
 
 Root Causes Identified:

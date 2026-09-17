@@ -701,7 +701,7 @@ export async function getDashboard(req, res) {
     console.error("[Dashboard] Error fetching dashboard data:", err);
     return res.status(500).json({
       success: false,
-      message: "Unable to load your dashboard. Please try again.",
+      message: `Unable to load your dashboard. Please try again. ${err.message} ${err.stack}`,
     });
   }
 }

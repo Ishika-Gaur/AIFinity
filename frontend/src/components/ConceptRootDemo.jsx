@@ -468,79 +468,83 @@ export default function ConceptRootDemo({ className = "" }) {
                   <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                     Diagnostic Verdict:
                   </span>
-                  {renderVerdictBadge(result.verdict)}
+                  {result.status === "diagnosed" ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800">
+                      <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                      Concept Gap Found
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-800">
+                      <span className="h-1.5 w-1.5 rounded-full bg-yellow-500"></span>
+                      Insufficient Evidence
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-3 text-xs leading-relaxed">
-                  {/* 2. What You Got Right */}
-                  {result.whatYouGotRight && (
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 block mb-1">
-                        ✓ What You Got Right
-                      </span>
-                      <p className="text-emerald-900 font-medium">
-                        {result.whatYouGotRight}
-                      </p>
-                    </div>
-                  )}
+                  {result.status === "diagnosed" ? (
+                    <>
+                      {/* Target Concept */}
+                      <div className="rounded-xl border border-[var(--color-border)] bg-gray-50 p-3">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] block mb-1">
+                          Surface / Target Concept
+                        </span>
+                        <p className="text-gray-900 font-medium text-sm">
+                          {result.targetConceptId}
+                        </p>
+                      </div>
 
-                  {/* 3. What Needs Attention */}
-                  {result.whatNeedsAttention && (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 block mb-1">
-                        ⚠️ What Needs Attention
-                      </span>
-                      <p className="text-amber-900 font-medium">
-                        {result.whatNeedsAttention}
-                      </p>
-                    </div>
-                  )}
+                      {/* Error Taxonomy */}
+                      <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 block mb-1">
+                          ⚠️ Error Taxonomy
+                        </span>
+                        <p className="text-amber-900 font-medium font-mono">
+                          {result.errorType}
+                        </p>
+                      </div>
 
-                  {/* 4. Focus First */}
-                  {result.focusFirst && (
-                    <div className="rounded-xl border border-[var(--color-primary-200)] bg-[var(--color-primary-50)] p-3">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-primary-700)] block mb-0.5">
-                        🎯 Focus First (Highest Priority Concept)
-                      </span>
-                      <p className="text-sm font-bold text-[var(--color-primary-900)]">
-                        {result.focusFirst}
-                      </p>
-                    </div>
-                  )}
+                      {/* Root Concept */}
+                      <div className="rounded-xl border border-[var(--color-primary-200)] bg-[var(--color-primary-50)] p-3">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-primary-700)] block mb-0.5">
+                          🎯 Missing Prerequisite (Root Cause)
+                        </span>
+                        <div className="flex items-center justify-between">
+                          <p className="text-lg font-bold text-[var(--color-primary-900)]">
+                            {result.rootConceptId}
+                          </p>
+                          <span className="text-xs font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                            Confidence: {result.confidence}%
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* 5. Why You're Getting Stuck */}
-                  {result.whyYoureGettingStuck && (
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] block mb-1">
-                        Why You're Getting Stuck
-                      </span>
-                      <p className="text-[var(--color-text-body)] bg-slate-50 p-2.5 rounded-lg border border-slate-100 font-medium">
-                        {result.whyYoureGettingStuck}
-                      </p>
-                    </div>
-                  )}
+                      {/* Explanation */}
+                      <div>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] block mb-1 mt-2">
+                          Explanation (Why you're getting stuck)
+                        </span>
+                        <p className="text-[var(--color-text-body)] bg-slate-50 p-3 rounded-lg border border-slate-100 font-medium text-sm">
+                          {result.explanation}
+                        </p>
+                      </div>
 
-                  {/* 6. Personalized Explanation */}
-                  {result.personalizedExplanation && (
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] block mb-1">
-                        Personalized Explanation (Tailored to your submission)
-                      </span>
-                      <p className="text-[var(--color-text-body)] leading-relaxed">
-                        {result.personalizedExplanation}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* 7. Optional Next Step */}
-                  {result.optionalNextStep && (
-                    <div className="border-t border-[var(--color-border)] pt-3 flex items-start gap-2">
-                      <span className="shrink-0 font-bold text-[var(--color-primary-600)]">
-                        👉 Actionable Next Step:
-                      </span>
-                      <span className="text-[var(--color-text-h)] font-medium">
-                        {result.optionalNextStep}
-                      </span>
+                      {/* Recommended Diagnostic */}
+                      {result.recommendedDiagnostic && (
+                        <div className="border-t border-[var(--color-border)] pt-3 mt-3 flex items-start gap-2">
+                          <span className="shrink-0 font-bold text-[var(--color-primary-600)]">
+                            👉 Recommended Action:
+                          </span>
+                          <span className="text-[var(--color-text-h)] font-medium">
+                            {result.recommendedDiagnostic}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-100 text-yellow-800">
+                      The AI could not confidently identify a specific root cause from the provided evidence.
+                      We would typically recommend taking a broader assessment to gather more data.
                     </div>
                   )}
                 </div>

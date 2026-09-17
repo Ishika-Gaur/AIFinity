@@ -2,18 +2,21 @@ import AttemptResult from "../models/AttemptResult.js";
 import ConceptRootAnalysis from "../models/ConceptRootAnalysis.js";
 import SkillGapAnalysis from "../models/SkillGapAnalysis.js";
 import { analyzeSkillGapWithAI } from "../services/geminiService.js";
+import { calculateSkillGap } from "../services/skillGapService.js";
 
 /**
  * GET /api/skill-gap
- * Returns personalized Skill Gap analysis based on AI mapping of real assessment performance.
+ * Returns deterministic Skill Gap metrics and AI qualitative insights.
  */
 export async function getSkillGap(req, res) {
   try {
     const user = req.user;
-    const attempts = await AttemptResult.find({ userId: user._id }).sort({ completedAt: -1 }).lean();
     const careerGoal = user.onboardingProfile?.careerGoal || user.selectedField || "";
-
-    if (!attempts || attempts.length === 0) {
+    
+    // 1. Calculate deterministic metrics
+    const deterministicData = await calculateSkillGap(user._id, careerGoal);
+    
+    if (!deterministicData.hasData) {
       return res.json({
         success: true,
         data: {
@@ -28,52 +31,66 @@ export async function getSkillGap(req, res) {
       });
     }
 
+    // Identify the latest attempt for caching
+    const attempts = await AttemptResult.find({ userId: user._id }).sort({ completedAt: -1 }).select('_id').lean();
     const latestAttemptId = attempts[0]._id;
 
-    // Check Cache
+    // 2. Check Cache
     const cachedAnalysis = await SkillGapAnalysis.findOne({
       userId: user._id,
       latestAttemptId,
+      careerGoal,
+      calculationVersion: "2B" // Must match version to be valid
     }).lean();
 
-    let aiAnalysis;
-    if (cachedAnalysis && cachedAnalysis.analysis) {
-      aiAnalysis = cachedAnalysis.analysis;
+    let aiInsights = null;
+    let aiStatus = "pending";
+
+    if (cachedAnalysis) {
+      aiInsights = cachedAnalysis.aiInsights;
+      aiStatus = cachedAnalysis.aiStatus;
     } else {
-      // Fetch Concept Root Context
+      // 3. Fetch Context for LLM Explanation
+      const attemptsFull = await AttemptResult.find({ userId: user._id }).sort({ completedAt: -1 }).limit(10).lean();
+      const attemptSummaries = attemptsFull.map(a => 
+        `Assessment: ${a.assessmentTitle}, Score: ${a.scorePercent}%. Mistakes: ${(a.questionResults || []).filter(q => q.status === 'incorrect').map(q => q.concept).join(', ')}`
+      ).join('\n');
+      
       const conceptRoots = await ConceptRootAnalysis.find({ userId: user._id })
         .sort({ createdAt: -1 })
         .limit(5)
         .lean();
+      const rootSummaries = conceptRoots.map(c => 
+        `Concept Root Analysis: ${c.analysis?.primaryRootCause?.concept || ''} - ${c.analysis?.primaryRootCause?.explanation || ''}`
+      ).join('\n');
 
-      // Trigger AI
+      // 4. Trigger AI only for explanation
       try {
-        aiAnalysis = await analyzeSkillGapWithAI(careerGoal, attempts, conceptRoots);
-        
-        // Save to cache
-        await SkillGapAnalysis.create({
-          userId: user._id,
-          latestAttemptId,
-          analysis: aiAnalysis
-        });
+        const aiResponse = await analyzeSkillGapWithAI(careerGoal, deterministicData.metrics, attemptSummaries, rootSummaries);
+        aiInsights = aiResponse;
+        aiStatus = "completed";
       } catch (aiErr) {
-        if (aiErr.message === "AI_SERVICE_UNAVAILABLE") {
-          return res.status(503).json({
-            success: false,
-            error: "AI_SERVICE_UNAVAILABLE",
-            message: "AI analysis is temporarily unavailable."
-          });
-        }
-        throw aiErr;
+        aiInsights = null;
+        aiStatus = "unavailable";
+        console.warn("[SkillGap] AI analysis unavailable:", aiErr.message);
       }
+      
+      // Save to cache (either full or missing AI)
+      await SkillGapAnalysis.create({
+        userId: user._id,
+        latestAttemptId,
+        careerGoal,
+        calculationVersion: "2B",
+        sourceAttemptCount: deterministicData.sourceAttemptCount,
+        deterministicMetrics: deterministicData.metrics,
+        aiInsights,
+        aiStatus
+      });
     }
 
-    // Map AI analysis to the expected UI payload shape where possible,
-    // and provide the raw new rich AI analysis inside it.
-    
-    // For legacy UI compatibility we calculate avgScore:
-    const totalAttempts = attempts.length;
-    const avgScore = Math.round(attempts.reduce((s, a) => s + a.scorePercent, 0) / totalAttempts);
+    // 5. Construct final response aligning with frontend expectations while being deterministic
+    const metrics = deterministicData.metrics;
+    const overallScore = Math.round(metrics.filter(m => m.isRequirement).reduce((sum, m) => sum + (m.currentPerformance || 0), 0) / (metrics.filter(m => m.isRequirement).length || 1));
     
     return res.json({
       success: true,
@@ -86,26 +103,33 @@ export async function getSkillGap(req, res) {
           careerGoal,
         },
         performance: {
-          overallScore: avgScore,
-          totalAssessments: totalAttempts,
-          strongAreasCount: aiAnalysis.skills.filter(s => s.gap === 0).length,
-          improvingAreasCount: aiAnalysis.skills.filter(s => s.gap > 0 && s.gap < 15).length,
-          weakAreasCount: aiAnalysis.skills.filter(s => s.gap >= 15).length,
+          overallScore,
+          totalAssessments: deterministicData.sourceAttemptCount,
+          strongAreasCount: metrics.filter(m => m.status === 'strong').length,
+          improvingAreasCount: 0, // 'improving' status deprecated in 2B
+          weakAreasCount: metrics.filter(m => m.status === 'gap' || m.status === 'attention').length,
+          unmappedEvidenceCount: deterministicData.unmappedEvidenceCount
         },
         skills: {
-          // Send the full raw AI rich object
-          aiAnalysis,
-          
-          // Legacy backwards compatibility maps for the frontend to easily render if not fully updated yet
-          skillGaps: aiAnalysis.skills.filter(s => s.gap > 0).map(s => ({
-            name: s.skill,
-            description: s.reason,
-            current: s.currentScore,
-            target: s.requiredScore,
-            gap: s.gap,
-            priority: s.priority
-          })),
-          strengths: aiAnalysis.skills.filter(s => s.gap === 0).map(s => s.skill),
+          aiAnalysis: aiInsights,
+          aiStatus,
+          // Legacy mappings from new deterministic data
+          skillGaps: metrics.filter(m => m.status === 'gap' || m.status === 'attention').map(m => {
+            const insight = aiInsights?.insights?.find(i => i.skillId === m.skillId);
+            return {
+              name: m.name,
+              description: insight?.reason || "Based on deterministic evidence, there is a gap between current performance and career requirements.",
+              current: m.currentPerformance,
+              target: m.requiredPerformance,
+              gap: m.gap,
+              priority: m.priority,
+              confidence: m.confidence,
+              actionPlan: insight?.actionPlan || null,
+              practiceFocus: insight?.practiceFocus || null
+            };
+          }),
+          strengths: metrics.filter(m => m.status === 'strong').map(m => m.name),
+          allMetrics: metrics // Expose full deterministic table
         }
       },
     });

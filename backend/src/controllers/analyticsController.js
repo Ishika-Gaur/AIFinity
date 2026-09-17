@@ -1,6 +1,7 @@
 import AttemptResult from "../models/AttemptResult.js";
 import User from "../models/User.js";
 import UserRoadmap from "../models/UserRoadmap.js";
+import { calculateSkillGap } from "../services/skillGapService.js";
 
 /**
  * Role to required skills dictionary
@@ -34,12 +35,14 @@ export async function getSkillGapAnalytics(req, res) {
   try {
     const userId = req.user._id;
     const user = await User.findById(userId).lean();
-    const attempts = await AttemptResult.find({ userId }).sort({ completedAt: -1 }).lean();
-
+    
     const targetCareer = user?.onboardingProfile?.careerGoal || user?.selectedField || "Full-Stack Software Engineer";
-    const requiredSkills = getRequiredSkillsForRole(targetCareer);
+    
+    // Call the single source of truth for SkillGap logic
+    const gapData = await calculateSkillGap(userId, targetCareer);
 
-    if (!attempts || attempts.length === 0) {
+    if (!gapData.hasData) {
+      const requiredSkills = getRequiredSkillsForRole(targetCareer);
       return res.json({
         success: true,
         data: {
@@ -60,41 +63,29 @@ export async function getSkillGapAnalytics(req, res) {
       });
     }
 
-    const totalAttempts = attempts.length;
-    const overallAvgScore = Math.round(attempts.reduce((s, a) => s + a.scorePercent, 0) / totalAttempts);
-    const averageGap = Math.max(0, 100 - overallAvgScore);
-
-    // Group scores by category
-    const catMap = {};
-    attempts.forEach((a) => {
-      const cat = a.assessmentCategory || "General";
-      if (!catMap[cat]) catMap[cat] = { sum: 0, count: 0 };
-      catMap[cat].sum += a.scorePercent;
-      catMap[cat].count++;
-    });
-
-    const categoryStats = Object.entries(catMap).map(([category, { sum, count }]) => ({
-      category,
-      avgScore: Math.round(sum / count),
-      count,
-    }));
-
-    const strengths = categoryStats.filter((c) => c.avgScore >= 75).map((c) => c.category);
+    const metrics = gapData.metrics;
+    const requiredMetrics = metrics.filter(m => m.isRequirement);
+    
+    // Convert new metrics format to the legacy dashboard format
+    const overallAvgScore = Math.round(metrics.reduce((sum, m) => sum + (m.currentPerformance || 0), 0) / (metrics.length || 1));
+    const averageGap = Math.round(requiredMetrics.reduce((sum, m) => sum + (m.gap || 0), 0) / (requiredMetrics.length || 1));
+    
+    const strengths = metrics.filter(m => m.status === 'strong').map(m => m.name);
     if (strengths.length === 0 && overallAvgScore >= 60) {
       strengths.push("Core Reasoning", "Basic Concepts");
     }
 
-    const weakSkills = categoryStats.filter((c) => c.avgScore < 70).map((c) => ({
-      name: c.category,
-      avgScore: c.avgScore,
-      gapPoints: 100 - c.avgScore,
-      status: c.avgScore >= 55 ? "improving" : "attention",
+    const weakSkills = metrics.filter(m => m.status === 'gap' || m.status === 'attention').map(m => ({
+      name: m.name,
+      avgScore: m.currentPerformance,
+      gapPoints: m.gap,
+      status: m.priority === 'high' ? 'attention' : 'improving'
     }));
 
-    const skillsBreakdown = categoryStats.map((c) => ({
-      name: c.category,
-      avgScore: c.avgScore,
-      status: c.avgScore >= 75 ? "strong" : c.avgScore >= 55 ? "improving" : "attention",
+    const skillsBreakdown = metrics.map(m => ({
+      name: m.name,
+      avgScore: m.currentPerformance,
+      status: m.status === 'strong' ? 'strong' : m.status === 'improving' ? 'improving' : 'attention'
     }));
 
     const recommendations = [];
@@ -118,14 +109,11 @@ export async function getSkillGapAnalytics(req, res) {
         strengths,
         weakSkills,
         skillsBreakdown,
-        requiredSkills: requiredSkills.map((name) => {
-          const match = categoryStats.find((c) => c.category.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(c.category.toLowerCase()));
-          return {
-            name,
-            status: match ? (match.avgScore >= 75 ? "strong" : match.avgScore >= 55 ? "improving" : "attention") : "upcoming",
-            score: match ? match.avgScore : null,
-          };
-        }),
+        requiredSkills: requiredMetrics.map(m => ({
+          name: m.name,
+          status: m.status === 'strong' ? 'strong' : m.status === 'improving' ? 'improving' : 'attention',
+          score: m.currentPerformance,
+        })),
         recommendations: recommendations.slice(0, 4),
       },
     });

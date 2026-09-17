@@ -13,9 +13,49 @@ const conceptRootAnalysisSchema = new mongoose.Schema(
       ref: "AttemptResult",
       required: true,
     },
-    analysis: {
-      type: mongoose.Schema.Types.Mixed,
+    sourceAttemptIds: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AttemptResult"
+    }],
+    targetConceptId: {
+      type: String,
       required: true,
+    },
+    status: {
+      type: String,
+      enum: ["diagnosed", "insufficient_evidence"],
+      required: true,
+    },
+    errorType: {
+      type: String,
+    },
+    rootConceptId: {
+      type: String,
+    },
+    supportingEvidenceIds: [{
+      type: String,
+    }],
+    alternativeConceptIds: [{
+      type: String,
+    }],
+    explanation: {
+      type: String,
+    },
+    recommendedDiagnostic: {
+      type: String,
+    },
+    confidence: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0,
+    },
+    analysisVersion: {
+      type: String,
+      default: "2.0",
+    },
+    evidenceHash: {
+      type: String,
     },
   },
   {

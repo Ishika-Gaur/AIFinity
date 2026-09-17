@@ -81,7 +81,7 @@ export default function RoadmapSection({ roadmap }) {
             const isLast = idx === items.length - 1;
 
             return (
-              <div key={item.id} className="relative flex flex-col gap-3 group cursor-pointer">
+              <div key={item.id || item.skillId || item._id || idx} className="relative flex flex-col gap-3 group cursor-pointer">
                 {!isLast && (
                   <div className="hidden sm:block absolute top-4 left-1/2 w-full h-0.5 bg-[#2E4F42]/20 -z-0">
                     <div

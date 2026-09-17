@@ -187,7 +187,7 @@ function getNormalizedType(q) {
   return "short_answer";
 }
 
-function evaluateSingleQuestion(q, userResp, sessionQ) {
+function evaluateSingleQuestion(q, userResp, sessionQ, assessmentCategory = "general") {
   const maxMarks = 10;
   const normType = getNormalizedType(q);
   const qId = String(q._id || q.id);
@@ -197,6 +197,15 @@ function evaluateSingleQuestion(q, userResp, sessionQ) {
   const originalOptions = sessionQ ? (sessionQ.options || q.options) : q.options;
   const shuffledOptions = sessionQ ? sessionQ.shuffledOptions : q.options;
 
+  // Determine Canonical Metadata (Phase 1)
+  const qCategory = q.category || sessionQ?.category || assessmentCategory;
+  const catNormalized = String(qCategory).trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const concNormalized = String(q.concept || "general").trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  
+  const canonicalConcept = concNormalized.startsWith(catNormalized) ? concNormalized : `${catNormalized}.${concNormalized}`;
+  const canonicalSkill = String(q.skill || qCategory).trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const difficulty = q.difficulty || "";
+
   // Unanswered Check
   if (userResp === undefined || userResp === null || String(userResp).trim() === "") {
     return {
@@ -205,6 +214,9 @@ function evaluateSingleQuestion(q, userResp, sessionQ) {
       type: normType,
       userAnswer: null,
       correctAnswer: originalAnswer != null ? String(originalAnswer) : "N/A",
+      canonicalConcept,
+      canonicalSkill,
+      difficulty,
       status: "unanswered",
       isCorrect: false,
       marksAwarded: 0,
@@ -232,6 +244,9 @@ function evaluateSingleQuestion(q, userResp, sessionQ) {
       type: normType,
       userAnswer: userText,
       correctAnswer: correctText,
+      canonicalConcept,
+      canonicalSkill,
+      difficulty,
       status: isMatch ? "correct" : "incorrect",
       isCorrect: isMatch,
       marksAwarded: isMatch ? maxMarks : 0,
@@ -262,6 +277,9 @@ function evaluateSingleQuestion(q, userResp, sessionQ) {
       type: normType,
       userAnswer: formattedUser,
       correctAnswer: formattedCorrect,
+      canonicalConcept,
+      canonicalSkill,
+      difficulty,
       status: isMatch ? "correct" : "incorrect",
       isCorrect: isMatch,
       marksAwarded: isMatch ? maxMarks : 0,
@@ -289,6 +307,9 @@ function evaluateSingleQuestion(q, userResp, sessionQ) {
       type: normType,
       userAnswer: userText,
       correctAnswer: correctText || "Valid short answer required",
+      canonicalConcept,
+      canonicalSkill,
+      difficulty,
       status: isMatch ? "correct" : "incorrect",
       isCorrect: isMatch,
       marksAwarded: isMatch ? maxMarks : 0,
@@ -373,6 +394,9 @@ function evaluateSingleQuestion(q, userResp, sessionQ) {
       type: normType,
       userAnswer: userText,
       correctAnswer: modelAnswer || "Detailed explanation",
+      canonicalConcept,
+      canonicalSkill,
+      difficulty,
       status,
       isCorrect,
       marksAwarded,
@@ -387,6 +411,9 @@ function evaluateSingleQuestion(q, userResp, sessionQ) {
     type: normType,
     userAnswer: String(userResp),
     correctAnswer: "N/A",
+    canonicalConcept,
+    canonicalSkill,
+    difficulty,
     status: "correct",
     isCorrect: true,
     marksAwarded: maxMarks,
@@ -439,7 +466,7 @@ export async function submitAttempt(req, res) {
       const userResp = responses ? responses[qId] : undefined;
       const sessionQ = session && session.answersMap ? session.answersMap.get(qId) : null;
 
-      const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
+      const evalResult = evaluateSingleQuestion(q, userResp, sessionQ, assessment?.category || bodyCategory);
       evalResult.concept = q.concept || sessionQ?.concept || assessment?.category || bodyCategory || "General";
       questionResults.push(evalResult);
 
@@ -455,11 +482,19 @@ export async function submitAttempt(req, res) {
       }
     });
   } else if (req.body.questionResults && Array.isArray(req.body.questionResults)) {
-    // If client supplied evaluated question results directly
+    // If client supplied evaluated question results directly (e.g. dynamic/personalized assessment)
+    const catNormalized = String(assessment?.category || bodyCategory || "general").trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
     req.body.questionResults.forEach((q) => {
+      const concNormalized = String(q.concept || "general").trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      const canonicalConcept = concNormalized.startsWith(catNormalized) ? concNormalized : `${catNormalized}.${concNormalized}`;
+      const canonicalSkill = catNormalized;
+      
       questionResults.push({
         ...q,
         concept: q.concept || bodyCategory || "General",
+        canonicalConcept,
+        canonicalSkill,
+        difficulty: "",
       });
       const marks = q.marksAwarded || (q.isCorrect ? 10 : 0);
       const maxM = q.maxMarks || 10;
@@ -559,6 +594,19 @@ export async function syncAttemptResult(req, res) {
       questionResults = [],
     } = req.body;
 
+    const catNormalized = String(assessmentCategory || "general").trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const sanitizedQuestionResults = (questionResults || []).map((q) => {
+      const concNormalized = String(q.concept || "general").trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      const canonicalConcept = concNormalized.startsWith(catNormalized) ? concNormalized : `${catNormalized}.${concNormalized}`;
+      const canonicalSkill = catNormalized;
+      return {
+        ...q,
+        canonicalConcept,
+        canonicalSkill,
+        difficulty: "",
+      };
+    });
+
     const attempt = await AttemptResult.create({
       userId,
       assessmentTitle,
@@ -573,7 +621,7 @@ export async function syncAttemptResult(req, res) {
       gradableCount: Number(totalQuestions),
       totalQuestions: Number(totalQuestions),
       elapsedSeconds: Number(elapsedSeconds),
-      questionResults,
+      questionResults: sanitizedQuestionResults,
       completedAt: new Date(),
     });
 
@@ -1055,7 +1103,7 @@ export async function evaluateAttemptWithAI(req, res) {
       const userResp = responses[qId];
       const sessionQ = session?.answersMap?.get(qId) ?? null;
 
-      const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
+      const evalResult = evaluateSingleQuestion(q, userResp, sessionQ, assessment?.category || bodyCategory);
       evalResult.concept = q.concept || sessionQ?.concept || assessment?.category || bodyCategory || "General";
       questionResults.push(evalResult);
 
@@ -1150,7 +1198,7 @@ export async function evaluateAttemptWithAI(req, res) {
     // -----------------------------------------------------------------------
     if (req.user) {
       try {
-        await AttemptResult.create({
+        const attempt = await AttemptResult.create({
           userId: req.user._id,
           assessmentId: assessment?._id,
           assessmentTitle: title,

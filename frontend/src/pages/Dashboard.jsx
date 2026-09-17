@@ -61,7 +61,7 @@ function DashboardSkeleton() {
 // ─────────────────────────────────────────────────────────────────
 // Error State — shown if the dashboard API returns an error.
 // ─────────────────────────────────────────────────────────────────
-function DashboardError({ onRetry }) {
+function DashboardError({ onRetry, errorMsg }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] gap-6">
       <div className="rounded-2xl bg-[#FBF8F0] border border-[#C1443C]/30 p-8 text-center max-w-md shadow-[var(--shadow-card)]">
@@ -70,7 +70,7 @@ function DashboardError({ onRetry }) {
           Unable to load your dashboard.
         </h2>
         <p className="mt-2 text-sm text-[#5B6B5F]">
-          Something went wrong while fetching your data. Please try again.
+          {errorMsg || "Something went wrong while fetching your data. Please try again."}
         </p>
         <button
           onClick={onRetry}
@@ -189,7 +189,7 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen py-6 sm:py-10">
         <Container size="wide">
-          <DashboardError onRetry={fetchDashboard} />
+          <DashboardError onRetry={fetchDashboard} errorMsg={error} />
         </Container>
       </div>
     );

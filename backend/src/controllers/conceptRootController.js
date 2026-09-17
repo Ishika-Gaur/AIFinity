@@ -1,140 +1,51 @@
 import AttemptResult from "../models/AttemptResult.js";
-import User from "../models/User.js";
-import { analyzeConceptRootWithAI, analyzeConceptRootDashboardWithAI } from "../services/geminiService.js";
 import ConceptRootAnalysis from '../models/ConceptRootAnalysis.js';
+import { analyzeConceptRootWithAI } from "../services/geminiService.js";
+import { getCandidateRoots, isValidConcept, isValidErrorType, isValidStatus } from "../services/knowledgeService.js";
+import crypto from 'crypto';
 
 /**
- * Maps an average score to a ConceptRoot status label.
+ * Builds structured evidence from failed attempts for a given target concept.
  */
-function scoreToStatus(avgScore) {
-  if (avgScore >= 75) return "strong";
-  if (avgScore >= 55) return "improving";
-  return "attention";
-}
-
-/**
- * Computes per-category performance from attempts.
- * Returns array of { category, avgScore, count }
- */
-function getCategoryStats(attempts) {
-  const map = {};
-  attempts.forEach((a) => {
-    const cat = a.assessmentCategory || "General";
-    if (!map[cat]) map[cat] = { sum: 0, count: 0 };
-    map[cat].sum += a.scorePercent;
-    map[cat].count++;
-  });
-  return Object.entries(map).map(([category, { sum, count }]) => ({
-    category,
-    avgScore: Math.round(sum / count),
-    count,
-  }));
-}
-
-/**
- * Builds concept analysis from assessment attempts.
- * Returns learning diagnosis data with concepts, performance, and recommendations.
- */
-function buildLearningDiagnosis(attempts, careerGoal) {
-  if (!attempts || attempts.length === 0) {
-    return {
-      hasDiagnosis: false,
-      concepts: [],
-      mistakes: [],
-      rootCauses: [],
-      missingPrerequisites: [],
-      recommendations: [],
-    };
-  }
-
-  const catStats = getCategoryStats(attempts);
-  
-  // Build concept analysis from category performance
-  const concepts = catStats.map((cat) => ({
-    name: cat.category,
-    performance: cat.avgScore,
-    status: scoreToStatus(cat.avgScore),
-    attemptCount: cat.count,
-  }));
-
-  // Build mistakes analysis from recent failed attempts
-  const recentFailures = attempts.filter((a) => a.scorePercent < 60).slice(0, 5);
-  const mistakes = recentFailures.map((attempt) => ({
-    id: String(attempt._id),
-    assessmentTitle: attempt.assessmentTitle,
-    category: attempt.assessmentCategory || "General",
-    scorePercent: attempt.scorePercent,
-    completedAt: attempt.completedAt,
-  }));
-
-  // Build root cause analysis based on weak areas
-  const weakAreas = catStats.filter((c) => c.avgScore < 60);
-  const rootCauses = weakAreas.map((area) => ({
-    concept: area.category,
-    currentPerformance: area.avgScore,
-    gap: 60 - area.avgScore,
-  }));
-
-  // Build missing prerequisites (concepts that need improvement before advancing)
-  const missingPrerequisites = weakAreas
-    .sort((a, b) => a.avgScore - b.avgScore)
-    .slice(0, 3)
-    .map((area) => ({
-      concept: area.category,
-      reason: `Performance at ${area.avgScore}% indicates foundational gaps`,
-      priority: area.avgScore < 50 ? "high" : "medium",
-    }));
-
-  // Build personalized recommendations
-  const recommendations = [];
-  
-  if (weakAreas.length > 0) {
-    const weakest = weakAreas[0];
-    recommendations.push({
-      type: "concept_improvement",
-      concept: weakest.category,
-      currentScore: weakest.avgScore,
-      targetScore: 75,
-      action: `Practice ${weakest.category} fundamentals`,
-      priority: "high",
-    });
-  }
-
-  if (attempts.length > 0) {
-    const avgScore = Math.round(attempts.reduce((s, a) => s + a.scorePercent, 0) / attempts.length);
-    if (avgScore >= 60) {
-      const strongAreas = catStats.filter((c) => c.avgScore >= 75);
-      if (strongAreas.length > 0) {
-        recommendations.push({
-          type: "advance",
-          concept: strongAreas[0].category,
-          currentScore: strongAreas[0].avgScore,
-          action: `Build on your strength in ${strongAreas[0].category}`,
-          priority: "medium",
+function buildStructuredEvidence(attempts, targetConceptId) {
+  const evidence = [];
+  attempts.forEach(attempt => {
+    (attempt.questionResults || []).forEach(q => {
+      if (q.canonicalConcept === targetConceptId && !q.isCorrect) {
+        evidence.push({
+          questionId: q.questionId,
+          questionText: q.questionText,
+          userAnswer: q.userAnswer,
+          correctAnswer: q.correctAnswer,
+          difficulty: q.difficulty
         });
       }
-    }
-  }
-
-  if (careerGoal) {
-    recommendations.push({
-      type: "career_alignment",
-      concept: careerGoal,
-      action: `Focus on skills relevant to ${careerGoal}`,
-      priority: "medium",
     });
-  }
-
-  return {
-    hasDiagnosis: true,
-    concepts,
-    mistakes,
-    rootCauses,
-    missingPrerequisites,
-    recommendations,
-  };
+  });
+  return evidence;
 }
 
+/**
+ * Deterministic confidence calculation based on evidence volume and error severity.
+ */
+function calculateConfidence(evidenceCount, errorType) {
+  if (evidenceCount === 0) return 0;
+  
+  // Base confidence on the number of failed attempts
+  let confidence = Math.min(evidenceCount * 25, 75); 
+  
+  // Specific error types indicate stronger signals
+  const highConfidenceErrors = ["invariant_violation", "boundary_error", "misapplied_rule"];
+  if (highConfidenceErrors.includes(errorType)) {
+    confidence += 15;
+  }
+  
+  return Math.min(confidence, 99);
+}
+
+function computeEvidenceHash(evidence) {
+  return crypto.createHash('sha256').update(JSON.stringify(evidence)).digest('hex');
+}
 
 /**
  * GET /api/concept-root
@@ -149,59 +60,92 @@ export async function getConceptRoot(req, res) {
       .sort({ completedAt: -1 })
       .lean();
 
-    const careerGoal = user.onboardingProfile?.careerGoal || user.selectedField || "";
-    
+    if (!attempts || attempts.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          user: { id: String(user._id), name: user.name, email: user.email },
+          learningDiagnosis: { hasDiagnosis: false }
+        }
+      });
+    }
+
+    // Determine the most failed concept (targetConceptId)
+    const failuresByConcept = {};
+    attempts.forEach(a => {
+      (a.questionResults || []).forEach(q => {
+        if (!q.isCorrect && q.canonicalConcept) {
+          failuresByConcept[q.canonicalConcept] = (failuresByConcept[q.canonicalConcept] || 0) + 1;
+        }
+      });
+    });
+
+    // Sort by failure count
+    const sortedConcepts = Object.keys(failuresByConcept).sort((a, b) => failuresByConcept[b] - failuresByConcept[a]);
+    const targetConceptId = sortedConcepts[0] || null;
+
+    if (!targetConceptId || !isValidConcept(targetConceptId)) {
+      return res.json({
+        success: true,
+        data: {
+          user: { id: String(user._id), name: user.name, email: user.email },
+          learningDiagnosis: { hasDiagnosis: false }
+        }
+      });
+    }
+
+    const latestAttemptId = attempts[0]._id;
+    const sourceAttemptIds = attempts.map(a => a._id);
+    const structuredEvidence = buildStructuredEvidence(attempts, targetConceptId);
+    const evidenceHash = computeEvidenceHash(structuredEvidence);
+    const candidateRoots = getCandidateRoots(targetConceptId);
+
+    // Check Cache
+    const cachedAnalysis = await ConceptRootAnalysis.findOne({ 
+      userId: user._id, 
+      targetConceptId,
+      evidenceHash
+    }).lean();
+
     let learningDiagnosis;
-    let hasDiagnosis = false;
 
-    if (attempts && attempts.length > 0) {
-      hasDiagnosis = true;
-      const latestAttemptId = attempts[0]._id;
+    if (cachedAnalysis) {
+      learningDiagnosis = { ...cachedAnalysis, hasDiagnosis: true };
+    } else if (structuredEvidence.length > 0) {
+      // Execute LLM Inference as an interpreter
+      const aiResponse = await analyzeConceptRootWithAI(targetConceptId, candidateRoots, structuredEvidence);
 
-      // Check cache
-      const cachedAnalysis = await ConceptRootAnalysis.findOne({ 
-        userId: user._id, 
-        latestAttemptId 
-      }).lean();
+      let finalStatus = aiResponse.status;
+      let finalErrorType = aiResponse.errorType;
+      
+      if (!isValidStatus(finalStatus)) finalStatus = "insufficient_evidence";
+      if (!isValidErrorType(finalErrorType)) finalErrorType = "unknown";
 
-      if (cachedAnalysis && cachedAnalysis.analysis) {
-        learningDiagnosis = cachedAnalysis.analysis;
-        learningDiagnosis.hasDiagnosis = true;
-      } else {
-        // Generate via AI
-        const rawDiagnosis = await analyzeConceptRootDashboardWithAI(attempts, careerGoal);
-        rawDiagnosis.hasDiagnosis = true;
-        
-        // Save to cache
-        await ConceptRootAnalysis.create({
-          userId: user._id,
-          latestAttemptId,
-          analysis: rawDiagnosis
-        });
-        
-        learningDiagnosis = rawDiagnosis;
-      }
+      const confidence = finalStatus === "diagnosed" 
+        ? calculateConfidence(structuredEvidence.length, finalErrorType)
+        : 0;
+
+      // Save analysis
+      const newAnalysis = await ConceptRootAnalysis.create({
+        userId: user._id,
+        latestAttemptId,
+        sourceAttemptIds,
+        targetConceptId,
+        status: finalStatus,
+        errorType: finalErrorType,
+        rootConceptId: aiResponse.rootConceptId,
+        alternativeConceptIds: aiResponse.alternativeConceptIds || [],
+        explanation: aiResponse.explanation,
+        recommendedDiagnostic: aiResponse.recommendedDiagnostic,
+        confidence,
+        evidenceHash,
+        analysisVersion: "2.0"
+      });
+
+      learningDiagnosis = { ...newAnalysis.toObject(), hasDiagnosis: true };
     } else {
       learningDiagnosis = { hasDiagnosis: false };
     }
-
-    // Compute overall performance metrics
-    const totalAttempts = attempts.length;
-    const avgScore = totalAttempts > 0
-      ? Math.round(attempts.reduce((s, a) => s + a.scorePercent, 0) / totalAttempts)
-      : 0;
-
-    const catStats = getCategoryStats(attempts);
-    
-    // Build performance summary
-    const performance = {
-      overallScore: avgScore,
-      totalAssessments: totalAttempts,
-      strongConcepts: catStats.filter((c) => c.avgScore >= 75).length,
-      improvingConcepts: catStats.filter((c) => c.avgScore >= 55 && c.avgScore < 75).length,
-      needsAttention: catStats.filter((c) => c.avgScore < 55).length,
-      categoryPerformance: catStats,
-    };
 
     return res.json({
       success: true,
@@ -210,9 +154,7 @@ export async function getConceptRoot(req, res) {
           id: String(user._id),
           name: user.name,
           email: user.email,
-          careerGoal,
         },
-        performance,
         learningDiagnosis,
       },
     });
@@ -240,27 +182,33 @@ export async function analyzeConceptRoot(req, res) {
   try {
     const { mode, question, userAnswer, code } = req.body;
 
-    if (mode === "normal" && !userAnswer && !question) {
-      return res.status(400).json({
-        success: false,
-        message: "Question and student answer are required for conceptual analysis.",
-      });
-    }
+    // A mock target concept and evidence for demo purposes since we don't have full assessment context here.
+    const targetConceptId = "dsa.binary-search";
+    const candidateRoots = getCandidateRoots(targetConceptId);
+    const structuredEvidence = [
+      {
+        questionText: question || "Demo Question",
+        userAnswer: mode === "code" ? code : userAnswer,
+      }
+    ];
 
-    if (mode === "code" && !code) {
-      return res.status(400).json({
-        success: false,
-        message: "Code submission is required for code diagnostic analysis.",
-      });
-    }
+    const aiResponse = await analyzeConceptRootWithAI(targetConceptId, candidateRoots, structuredEvidence);
 
-    const diagnosis = await analyzeConceptRootWithAI({
-      mode: mode || "normal",
-      question,
-      userAnswer,
-      text: userAnswer,
-      code,
-    });
+    let finalStatus = aiResponse.status;
+    let finalErrorType = aiResponse.errorType;
+    if (!isValidStatus(finalStatus)) finalStatus = "insufficient_evidence";
+    if (!isValidErrorType(finalErrorType)) finalErrorType = "unknown";
+
+    const diagnosis = {
+      status: finalStatus,
+      errorType: finalErrorType,
+      rootConceptId: aiResponse.rootConceptId,
+      alternativeConceptIds: aiResponse.alternativeConceptIds || [],
+      explanation: aiResponse.explanation,
+      recommendedDiagnostic: aiResponse.recommendedDiagnostic,
+      confidence: finalStatus === "diagnosed" ? calculateConfidence(1, finalErrorType) : 0,
+      targetConceptId
+    };
 
     return res.json({
       success: true,

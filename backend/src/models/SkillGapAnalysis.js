@@ -13,10 +13,31 @@ const skillGapAnalysisSchema = new mongoose.Schema(
       ref: "AttemptResult",
       required: true,
     },
-    analysis: {
+    careerGoal: {
+      type: String,
+      default: "",
+    },
+    calculationVersion: {
+      type: String,
+      default: "2B",
+    },
+    sourceAttemptCount: {
+      type: Number,
+      default: 0,
+    },
+    deterministicMetrics: {
       type: mongoose.Schema.Types.Mixed,
       required: true,
     },
+    aiInsights: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    aiStatus: {
+      type: String,
+      enum: ["completed", "unavailable", "pending"],
+      default: "completed",
+    }
   },
   { timestamps: true }
 );

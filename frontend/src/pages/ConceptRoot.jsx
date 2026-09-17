@@ -349,59 +349,6 @@ export default function ConceptRoot() {
     ) : (
       <div className="max-w-5xl mx-auto space-y-12">
         
-        {/* OVERALL CONCEPT HEALTH */}
-        <div className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-6">Overall Concept Health</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              {data.learningDiagnosis.conceptHealth?.filter(c => !c.isRoot).map((concept, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
-                  <span className="font-medium text-gray-700">{concept.concept} (Surface)</span>
-                  <span className={`font-bold ${concept.score >= 75 ? 'text-green-600' : concept.score >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>{concept.score}%</span>
-                </div>
-              ))}
-            </div>
-            <div className="space-y-4">
-              <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Root Concept Health</div>
-              {data.learningDiagnosis.conceptHealth?.filter(c => c.isRoot).map((concept, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-[var(--color-primary-50)] rounded-xl border border-[var(--color-primary-100)]">
-                  <span className="font-medium text-[var(--color-primary-900)]">{concept.concept}</span>
-                  <span className={`font-bold ${concept.score >= 75 ? 'text-green-600' : concept.score >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>{concept.score}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ROOT CAUSE ANALYSIS (VISUAL HIERARCHY) */}
-        <div className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm flex flex-col items-center text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[var(--color-primary-50)]/30 pointer-events-none"></div>
-          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-10">Root Cause Analysis</h3>
-          
-          <div className="space-y-8 relative z-10 w-full max-w-lg">
-            {data.learningDiagnosis.dependencyPath?.map((step, idx, arr) => (
-              <div key={idx} className="flex flex-col items-center group cursor-default">
-                <div className={`px-6 py-4 rounded-2xl border-2 transition-all duration-300 transform group-hover:scale-105 ${
-                  idx === arr.length - 1 
-                    ? 'border-red-400 bg-red-50 shadow-md text-red-900' 
-                    : 'border-[var(--color-primary-200)] bg-white shadow-sm text-[var(--color-text-h)]'
-                }`}>
-                  {idx === arr.length - 1 && <div className="text-xs font-bold text-red-600 mb-1">ROOT CAUSE 🔴</div>}
-                  {idx === 0 && <div className="text-xs font-bold text-gray-400 mb-1">SURFACE PROBLEM</div>}
-                  {idx !== 0 && idx !== arr.length - 1 && <div className="text-xs font-bold text-indigo-400 mb-1">PREREQUISITE</div>}
-                  <div className="font-semibold text-lg">{step}</div>
-                </div>
-                
-                {idx < arr.length - 1 && (
-                  <div className="h-12 w-0.5 bg-gradient-to-b from-gray-300 to-gray-400 my-2 rounded relative group-hover:from-[var(--color-primary-400)] group-hover:to-red-400 transition-colors duration-300">
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-3 h-3 bg-gray-400 rotate-45 transform group-hover:bg-red-400 transition-colors duration-300"></div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* AI ROOT DIAGNOSIS CARD */}
         <div className="rounded-3xl border-2 border-[var(--color-primary-500)] bg-gradient-to-br from-[var(--color-primary-50)] to-white p-8 shadow-md relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10">
@@ -416,47 +363,56 @@ export default function ConceptRoot() {
           </div>
           
           <div className="relative z-10 space-y-6">
-            <div>
-              <div className="text-sm font-semibold text-[var(--color-primary-700)] uppercase tracking-wide">Primary Root Concept</div>
-              <div className="flex items-end gap-4 mt-2">
-                <div className="text-3xl font-black text-gray-900">{data.learningDiagnosis.primaryRootCause?.concept}</div>
-                <div className="text-sm font-bold px-3 py-1 bg-green-100 text-green-800 rounded-full mb-1">
-                  Confidence: {data.learningDiagnosis.primaryRootCause?.confidence}%
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white/60 p-6 rounded-2xl border border-white/40 shadow-sm backdrop-blur-sm">
-              <div className="text-sm font-bold text-gray-700 mb-2">Explanation:</div>
-              <p className="text-gray-800 text-lg leading-relaxed">
-                "{data.learningDiagnosis.primaryRootCause?.explanation}"
-              </p>
-            </div>
-
-            <div className="bg-white/60 p-6 rounded-2xl border border-white/40 shadow-sm backdrop-blur-sm">
-              <div className="text-sm font-bold text-gray-700 mb-3">Why AI Thinks This:</div>
-              <ul className="space-y-3">
-                {data.learningDiagnosis.evidence?.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-gray-800">
-                    <span className="text-green-500 font-bold">✓</span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            {data.learningDiagnosis.secondaryRootCauses && data.learningDiagnosis.secondaryRootCauses.length > 0 && (
-              <div className="pt-4 border-t border-[var(--color-primary-200)]">
-                <div className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Secondary Root Causes</div>
-                <div className="flex flex-wrap gap-3">
-                  {data.learningDiagnosis.secondaryRootCauses.map((cause, idx) => (
-                    <div key={idx} className="px-4 py-2 bg-gray-100 rounded-xl text-sm font-medium text-gray-700 flex items-center gap-2">
-                      {cause.concept}
-                      <span className="text-xs text-gray-500">{cause.confidence}%</span>
+            {data.learningDiagnosis.status === "insufficient_evidence" ? (
+               <div className="bg-yellow-50 p-6 rounded-2xl border border-yellow-200">
+                 <div className="text-yellow-800 font-bold mb-2">⚠️ Insufficient Evidence</div>
+                 <p className="text-yellow-700">We need more assessment data to confidently diagnose a root cause for <strong>{data.learningDiagnosis.targetConceptId}</strong>. Continue practicing!</p>
+               </div>
+            ) : (
+              <>
+                <div>
+                  <div className="text-sm font-semibold text-[var(--color-primary-700)] uppercase tracking-wide">Target Concept</div>
+                  <div className="text-xl font-bold text-gray-700 mb-4">{data.learningDiagnosis.targetConceptId}</div>
+                  
+                  <div className="text-sm font-semibold text-[var(--color-primary-700)] uppercase tracking-wide">Missing Prerequisite / Root Concept</div>
+                  <div className="flex items-end gap-4 mt-2">
+                    <div className="text-3xl font-black text-gray-900">{data.learningDiagnosis.rootConceptId}</div>
+                    <div className="text-sm font-bold px-3 py-1 bg-green-100 text-green-800 rounded-full mb-1">
+                      Confidence: {data.learningDiagnosis.confidence}%
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
+
+                <div className="bg-white/60 p-6 rounded-2xl border border-white/40 shadow-sm backdrop-blur-sm">
+                  <div className="text-sm font-bold text-gray-700 mb-2">Error Taxonomy: <span className="text-red-600 font-mono bg-red-50 px-2 py-1 rounded">{data.learningDiagnosis.errorType}</span></div>
+                  <div className="text-sm font-bold text-gray-700 mb-2 mt-4">Explanation:</div>
+                  <p className="text-gray-800 text-lg leading-relaxed">
+                    "{data.learningDiagnosis.explanation}"
+                  </p>
+                </div>
+
+                {data.learningDiagnosis.recommendedDiagnostic && (
+                  <div className="bg-[var(--color-primary-50)] p-6 rounded-2xl border border-[var(--color-primary-200)] shadow-sm">
+                    <div className="text-sm font-bold text-[var(--color-primary-800)] mb-2">Recommended Targeted Practice:</div>
+                    <p className="text-[var(--color-text-h)]">
+                      {data.learningDiagnosis.recommendedDiagnostic}
+                    </p>
+                  </div>
+                )}
+                
+                {data.learningDiagnosis.alternativeConceptIds?.length > 0 && (
+                  <div className="pt-4 border-t border-[var(--color-primary-200)]">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Alternative Root Candidates</div>
+                    <div className="flex flex-wrap gap-2">
+                      {data.learningDiagnosis.alternativeConceptIds.map((c, idx) => (
+                        <div key={idx} className="px-3 py-1 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 shadow-sm">
+                          {c}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
