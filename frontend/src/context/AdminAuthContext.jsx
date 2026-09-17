@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { authApi } from "../services/api";
+import { clearStudentUserCache, notifyAuthChange } from "../utils/studentAuthStorage";
 
 const AdminAuthContext = createContext(null);
 
@@ -26,6 +27,9 @@ export function AdminAuthProvider({ children }) {
 
   useEffect(() => {
     fetchCurrentUser();
+    const onAuthChange = () => fetchCurrentUser();
+    window.addEventListener("authChange", onAuthChange);
+    return () => window.removeEventListener("authChange", onAuthChange);
   }, [fetchCurrentUser]);
 
   const login = async (email, password) => {
@@ -36,6 +40,8 @@ export function AdminAuthProvider({ children }) {
       if (res.user.role !== "admin") {
         await authApi.logout();
         setUser(null);
+        clearStudentUserCache();
+        notifyAuthChange();
         setLoading(false);
         return {
           user: null,
@@ -44,6 +50,8 @@ export function AdminAuthProvider({ children }) {
       }
 
       setUser(res.user);
+      clearStudentUserCache();
+      notifyAuthChange();
       setLoading(false);
       return { user: res.user, error: null };
     }
@@ -59,12 +67,17 @@ export function AdminAuthProvider({ children }) {
     try {
       const res = await authApi.logout();
       setUser(null);
+      clearStudentUserCache();
+      notifyAuthChange();
       setIsLoggingOut(false);
       if (res.success) {
         return { success: true };
       }
       return { success: false, error: res.error || "Logout failed" };
     } catch (err) {
+      setUser(null);
+      clearStudentUserCache();
+      notifyAuthChange();
       setIsLoggingOut(false);
       const errMsg = err.message || "Failed to sign out.";
       setLogoutError(errMsg);

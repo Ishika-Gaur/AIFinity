@@ -106,11 +106,11 @@ export default function AdminHeader({ onOpenSidebar }) {
         {/* Profile Card & Logout */}
         <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 font-bold text-white shadow-sm ring-2 ring-indigo-500/20 text-xs">
-            {user?.displayName ? user.displayName.substring(0, 2).toUpperCase() : (user?.email ? user.email.substring(0, 2).toUpperCase() : "AD")}
+            {user?.name ? user.name.substring(0, 2).toUpperCase() : (user?.displayName ? user.displayName.substring(0, 2).toUpperCase() : (user?.email ? user.email.substring(0, 2).toUpperCase() : "AD"))}
           </div>
           <div className="hidden flex-col sm:flex">
             <span className="text-xs font-bold text-slate-900 leading-tight">
-              {user?.displayName || user?.email || "System Admin"}
+              {user?.name || user?.displayName || user?.email || "System Admin"}
             </span>
             <span className="text-[10px] font-semibold text-slate-400 leading-tight">
               Authenticated Admin

@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import { authApi } from "../services/api";
+import { useStudentAuth } from "../context/StudentAuthContext";
+import { useAdminAuth } from "../context/AdminAuthContext";
 import logoImg from "../assets/logo.svg";
 
 const BENEFITS = [
@@ -30,6 +32,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { applySession } = useStudentAuth();
+  const { refreshUser: refreshAdminUser } = useAdminAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,17 +51,17 @@ export default function LoginPage() {
     setLoading(false);
 
     if (res && res.success) {
-      if (res.user) {
-        try {
-          localStorage.setItem("user", JSON.stringify(res.user));
-        } catch (_) {}
-      }
       if (res.user?.role === "admin") {
+        applySession(null);
+        await refreshAdminUser();
         navigate("/admin/dashboard");
-      } else if (!res.user?.onboardingCompleted) {
-        navigate("/onboardingpage");
       } else {
-        navigate("/dashboard");
+        applySession(res.user || null);
+        if (!res.user?.onboardingCompleted) {
+          navigate("/onboardingpage");
+        } else {
+          navigate("/dashboard");
+        }
       }
     } else {
       const networkUnavailable = res?.error && (
