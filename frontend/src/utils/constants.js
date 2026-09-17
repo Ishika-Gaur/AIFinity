@@ -271,10 +271,18 @@ export function getUserProfile() {
 
     if (sessionUser && sessionUser.selectedField) {
       const profile = sessionUser.onboardingProfile || {};
+      const field = sessionUser.selectedField;
+      const fieldGoals = CAREER_GOALS_BY_FIELD[field] || [];
+      const userSkills = Array.isArray(profile.skills) && profile.skills.length > 0
+        ? profile.skills
+        : fieldGoals.length > 0
+          ? fieldGoals.slice(0, 3)
+          : [field];
+
       return {
-        careerGoal: profile.careerGoal || sessionUser.selectedField,
-        field: sessionUser.selectedField,
-        skills: DEFAULT_PROFILE.skills,
+        careerGoal: profile.careerGoal || field,
+        field: field,
+        skills: userSkills,
         currentLevel: profile.level || DEFAULT_PROFILE.currentLevel,
       };
     }
@@ -284,10 +292,17 @@ export function getUserProfile() {
     const saved = JSON.parse(raw);
 
     if (saved.field && saved.careerGoal) {
+      const fieldGoals = CAREER_GOALS_BY_FIELD[saved.field] || [];
+      const userSkills = Array.isArray(saved.skills) && saved.skills.length > 0
+        ? saved.skills
+        : fieldGoals.length > 0
+          ? fieldGoals.slice(0, 3)
+          : [saved.field];
+
       return {
         careerGoal: saved.careerGoal,
         field: saved.field,
-        skills: DEFAULT_PROFILE.skills,
+        skills: userSkills,
         currentLevel: saved.level || DEFAULT_PROFILE.currentLevel,
       };
     }
@@ -295,10 +310,15 @@ export function getUserProfile() {
     const field =
       matchField(saved.customInput) || matchField(saved.interest) || DEFAULT_PROFILE.field;
     const careerGoal = saved.customInput || saved.goal || saved.interest || DEFAULT_PROFILE.careerGoal;
+    const fieldGoals = CAREER_GOALS_BY_FIELD[field] || [];
     return {
       careerGoal,
       field,
-      skills: saved.customInput ? [saved.customInput] : DEFAULT_PROFILE.skills,
+      skills: saved.customInput
+        ? [saved.customInput]
+        : fieldGoals.length > 0
+          ? fieldGoals.slice(0, 3)
+          : DEFAULT_PROFILE.skills,
       currentLevel: saved.level || DEFAULT_PROFILE.currentLevel,
     };
   } catch {

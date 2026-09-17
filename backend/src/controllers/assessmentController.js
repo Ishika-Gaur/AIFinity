@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 import Assessment from "../models/Assessment.js";
 import AttemptResult from "../models/AttemptResult.js";
+import UserRoadmap from "../models/UserRoadmap.js";
 import { generatePersonalizedRoadmap } from "./analyticsController.js";
 import { generateQuestions, evaluateAssessmentWithAI } from "../services/geminiService.js";
+import { getRecommendedTopicsForField } from "../utils/fieldCatalog.js";
 
 // Active in-memory attempt sessions cache for server-side evaluation
 const activeAttemptSessions = new Map();
@@ -771,17 +773,25 @@ export async function generateAIAssessment(req, res) {
 /**
  * FEATURE 4 & 6: PERSONALIZED ASSESSMENTS DASHBOARD
  */
+/**
+ * FEATURE 4 & 6: PERSONALIZED ASSESSMENTS DASHBOARD
+ * Fully personalized for every type of user (any field, career goal, level, past performance, and active roadmap).
+ */
 export async function getPersonalizedAssessments(req, res) {
   try {
     const userId = req.user._id;
-    const userField = req.user.selectedField || "Software Development";
+    const userField = req.user.selectedField || req.user.onboardingProfile?.field || "Software Development";
+    const careerGoal = req.user.onboardingProfile?.careerGoal || "";
+    const userLevel = req.user.onboardingProfile?.level || "Intermediate";
 
-    // 1. Get user's past attempts
+    // 1. Get user's past attempts to analyze performance
     const attempts = await AttemptResult.find({ userId }).sort({ completedAt: -1 }).lean();
     
-    // 2. Identify weak topics (average score < 60%)
+    // 2. Identify weak topics (average score < 60%) & mastered topics (>= 80%)
     const topicScores = {};
+    const completedAssessmentIds = new Set();
     attempts.forEach(attempt => {
+      if (attempt.assessmentId) completedAssessmentIds.add(String(attempt.assessmentId));
       const cat = attempt.assessmentCategory || "General";
       if (!topicScores[cat]) {
         topicScores[cat] = { total: 0, count: 0 };
@@ -791,12 +801,41 @@ export async function getPersonalizedAssessments(req, res) {
     });
 
     const weakTopics = [];
+    const strongTopics = [];
     for (const [topic, data] of Object.entries(topicScores)) {
-      const avg = data.total / data.count;
-      if (avg < 60) weakTopics.push(topic);
+      const avg = Math.round(data.total / data.count);
+      if (avg < 60) weakTopics.push({ topic, avgScore: avg });
+      else if (avg >= 80) strongTopics.push({ topic, avgScore: avg });
     }
 
-    // 3. Find relevant published assessments (excluding AI generated ones for other users)
+    // 3. Extract active topics from user's personalized roadmap (if exists)
+    let roadmapFocusTopics = [];
+    try {
+      const userRoadmap = await UserRoadmap.findOne({ userId }).lean();
+      if (userRoadmap) {
+        if (userRoadmap.shortRoadmap?.currentFocus) {
+          roadmapFocusTopics.push(userRoadmap.shortRoadmap.currentFocus);
+        }
+        if (Array.isArray(userRoadmap.shortRoadmap?.nextSteps)) {
+          roadmapFocusTopics.push(...userRoadmap.shortRoadmap.nextSteps);
+        }
+        if (Array.isArray(userRoadmap.phases)) {
+          for (const phase of userRoadmap.phases) {
+            for (const skill of (phase.skills || [])) {
+              if (skill.status === "IN_PROGRESS" || skill.status === "NOT_STARTED") {
+                roadmapFocusTopics.push(skill.name);
+              }
+            }
+          }
+        }
+      }
+    } catch (rmErr) {
+      console.warn("Could not query UserRoadmap for recommendations:", rmErr.message);
+    }
+    // Deduplicate roadmap topics
+    roadmapFocusTopics = Array.from(new Set(roadmapFocusTopics.filter(Boolean))).slice(0, 6);
+
+    // 4. Query published assessments matching user context
     const baseQuery = { 
       status: "published",
       $or: [
@@ -805,51 +844,123 @@ export async function getPersonalizedAssessments(req, res) {
       ]
     };
 
-    // First try to find assessments matching user's field OR weak topics
     const queryConds = [{ field: new RegExp(userField, "i") }];
+    if (careerGoal) {
+      queryConds.push({ category: new RegExp(careerGoal, "i") });
+      queryConds.push({ title: new RegExp(careerGoal, "i") });
+    }
     if (weakTopics.length > 0) {
-      queryConds.push({ category: { $in: weakTopics.map(t => new RegExp(t, "i")) } });
+      queryConds.push({ category: { $in: weakTopics.map(w => new RegExp(w.topic, "i")) } });
+    }
+    if (roadmapFocusTopics.length > 0) {
+      queryConds.push({ category: { $in: roadmapFocusTopics.map(t => new RegExp(t, "i")) } });
+      queryConds.push({ title: { $in: roadmapFocusTopics.map(t => new RegExp(t, "i")) } });
     }
 
-    let recommended = await Assessment.find({
+    let existingAssessments = await Assessment.find({
       ...baseQuery,
       $or: queryConds
-    }).limit(6).lean();
+    }).limit(12).lean();
 
-    // If not enough recommendations, fallback to general ones in the field
-    if (recommended.length < 3) {
+    // Fallback search if few matches
+    if (existingAssessments.length < 4) {
       const additional = await Assessment.find({
         ...baseQuery,
-        field: new RegExp(userField, "i"),
-        _id: { $nin: recommended.map(r => r._id) }
-      }).limit(6 - recommended.length).lean();
-      recommended = [...recommended, ...additional];
+        _id: { $nin: existingAssessments.map(r => r._id) }
+      }).limit(6 - existingAssessments.length).lean();
+      existingAssessments = [...existingAssessments, ...additional];
     }
 
-    // 4. Attach recommendation reasons
-    const formattedRecommendations = recommended.map(assessment => {
-      let reason = `Recommended based on your field: ${userField}`;
-      const isWeak = weakTopics.some(wt => 
-        new RegExp(wt, "i").test(assessment.category) || 
-        new RegExp(wt, "i").test(assessment.title)
+    // 5. Format & prioritize recommendations with personalized badges and reasons
+    const formattedRecommendations = existingAssessments.map(assessment => {
+      let reason = `Recommended based on your focus in ${userField}.`;
+      let badge = "Personalized";
+
+      const matchedWeak = weakTopics.find(wt => 
+        new RegExp(wt.topic, "i").test(assessment.category) || 
+        new RegExp(wt.topic, "i").test(assessment.title)
       );
-      
-      if (isWeak) {
-        reason = `Recommended because ${assessment.category} is one of your weak areas.`;
+
+      const matchedRoadmap = roadmapFocusTopics.find(rt =>
+        new RegExp(rt, "i").test(assessment.category) || 
+        new RegExp(rt, "i").test(assessment.title)
+      );
+
+      if (matchedWeak) {
+        reason = `Identified as an area for improvement (Avg score: ${matchedWeak.avgScore}%). Practice to master it.`;
+        badge = "Needs Improvement";
+      } else if (matchedRoadmap) {
+        reason = `Directly tests your active roadmap focus on "${matchedRoadmap}".`;
+        badge = "Roadmap Priority";
+      } else if (careerGoal && (new RegExp(careerGoal, "i").test(assessment.category) || new RegExp(careerGoal, "i").test(assessment.title))) {
+        reason = `Essential benchmark for your career goal as a ${careerGoal}.`;
+        badge = "Career Target";
       } else if (assessment.isAiGenerated) {
-        reason = `Your generated AI assessment.`;
+        reason = `Your custom AI-generated assessment.`;
+        badge = "AI Generated";
+      } else if (userLevel) {
+        reason = `Tailored for ${userLevel} learners pursuing ${careerGoal || userField}.`;
+        badge = "Skill Fit";
       }
 
       return {
         ...serialize(assessment, false),
-        recommendationReason: reason
+        recommendationReason: reason,
+        recommendationBadge: badge,
+        isCompleted: completedAssessmentIds.has(String(assessment._id))
       };
     });
+
+    // 6. If we have fewer than 6 recommendations (e.g. for non-software or niche fields),
+    // synthesize high-relevance domain assessment tracks from the user's field catalog & roadmap!
+    if (formattedRecommendations.length < 6) {
+      const fieldTopics = getRecommendedTopicsForField(userField, careerGoal);
+      const candidates = [
+        ...weakTopics.map(w => ({ topic: w.topic, reason: `Identified weak topic (Avg: ${w.avgScore}%). Instant AI practice quiz.`, badge: "Needs Improvement" })),
+        ...roadmapFocusTopics.map(t => ({ topic: t, reason: `Current active topic in your learning roadmap.`, badge: "Roadmap Priority" })),
+        ...fieldTopics.map(t => ({ topic: t, reason: careerGoal ? `Core competency required for ${careerGoal}s.` : `Essential knowledge milestone in ${userField}.`, badge: "Field Essential" }))
+      ];
+
+      const existingNames = new Set([
+        ...formattedRecommendations.map(r => (r.category || "").toLowerCase()),
+        ...formattedRecommendations.map(r => (r.title || "").toLowerCase()),
+      ]);
+
+      for (const cand of candidates) {
+        if (formattedRecommendations.length >= 6) break;
+        if (!cand.topic || existingNames.has(cand.topic.toLowerCase())) continue;
+        existingNames.add(cand.topic.toLowerCase());
+
+        formattedRecommendations.push({
+          id: `ai_rec_${encodeURIComponent(cand.topic)}`,
+          _id: `ai_rec_${encodeURIComponent(cand.topic)}`,
+          title: `${cand.topic} Mastery Challenge`,
+          description: `AI-customized assessment designed for ${userField}. Tests core concepts, problem-solving, and practical scenarios.`,
+          field: userField,
+          category: cand.topic,
+          difficulty: userLevel === "Advanced" ? "Hard" : userLevel === "Intermediate" ? "Medium" : "Easy",
+          duration: 10,
+          questions: [
+            { type: "mcq", difficulty: "Medium" },
+            { type: "mcq", difficulty: "Medium" },
+            { type: "mcq", difficulty: "Medium" },
+            { type: "mcq", difficulty: "Medium" },
+            { type: "mcq", difficulty: "Medium" },
+          ],
+          isReadyToGenerate: true,
+          recommendationReason: cand.reason,
+          recommendationBadge: cand.badge,
+          isCompleted: false,
+        });
+      }
+    }
 
     res.json({
       success: true,
       assessments: formattedRecommendations,
-      weakTopics
+      weakTopics: weakTopics.map(w => w.topic),
+      userField,
+      careerGoal
     });
   } catch (error) {
     console.error("Personalized Assessments Error:", error);
@@ -860,10 +971,10 @@ export async function getPersonalizedAssessments(req, res) {
 export async function generateDailyAIAssessment(req, res) {
   try {
     const userId = req.user._id;
-    const userField = req.user.selectedField || "Software Development";
+    const userField = req.user.selectedField || req.user.onboardingProfile?.field || "Software Development";
+    const careerGoal = req.user.onboardingProfile?.careerGoal || "";
     
     // Accept optional targetDate from body (for completing missed past days)
-    // Format: YYYY-MM-DD. Defaults to today if not provided.
     const todayStr = new Date().toISOString().split("T")[0];
     const requestedDate = req.body.targetDate || todayStr;
     
@@ -873,7 +984,6 @@ export async function generateDailyAIAssessment(req, res) {
     }
     
     const dailyCategory = `DailyChallenge-${requestedDate}`;
-
 
     // 1. Check if one already exists for today
     const existing = await Assessment.findOne({
@@ -886,7 +996,8 @@ export async function generateDailyAIAssessment(req, res) {
       return res.json({ success: true, assessmentId: existing._id });
     }
 
-    // 2. We need to generate one. Let's find weak topics to focus on.
+    // 2. Select the most relevant daily topic:
+    // First: weak topics (if any)
     const attempts = await AttemptResult.find({ userId }).lean();
     const topicScores = {};
     attempts.forEach(attempt => {
@@ -900,10 +1011,31 @@ export async function generateDailyAIAssessment(req, res) {
     for (const [topic, data] of Object.entries(topicScores)) {
       if ((data.total / data.count) < 60) weakTopics.push(topic);
     }
-    
-    const targetTopic = weakTopics.length > 0 ? weakTopics[0] : userField;
 
-    // 3. Generate 5 questions
+    let targetTopic = "";
+    if (weakTopics.length > 0) {
+      targetTopic = weakTopics[0];
+    } else {
+      // Second: check roadmap focus
+      try {
+        const roadmap = await UserRoadmap.findOne({ userId }).lean();
+        if (roadmap?.shortRoadmap?.currentFocus) {
+          targetTopic = roadmap.shortRoadmap.currentFocus;
+        } else if (roadmap?.phases?.[0]?.skills?.[0]?.name) {
+          targetTopic = roadmap.phases[0].skills[0].name;
+        }
+      } catch (rmErr) {
+        // ignore
+      }
+    }
+
+    // Third: check field catalog or career goal
+    if (!targetTopic) {
+      const fieldTopics = getRecommendedTopicsForField(userField, careerGoal);
+      targetTopic = fieldTopics[0] || careerGoal || userField;
+    }
+
+    // 3. Generate 5 questions with Gemini
     const generatedData = await generateQuestions(userField, targetTopic, "Medium", 5);
     
     if (!generatedData || !generatedData.questions || !Array.isArray(generatedData.questions) || generatedData.questions.length === 0) {
@@ -927,8 +1059,8 @@ export async function generateDailyAIAssessment(req, res) {
 
     // 4. Save
     const assessment = new Assessment({
-      title: `Daily Challenge - ${requestedDate}`,
-      description: `Your personalized daily challenge for ${targetTopic}.`,
+      title: `Daily Challenge - ${targetTopic}`,
+      description: `Your personalized daily challenge for ${targetTopic} in ${userField}.`,
       field: userField,
       category: dailyCategory,
       difficulty: "Mixed",

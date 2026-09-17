@@ -289,7 +289,17 @@ const DASHBOARD_CONCEPT_ROOT_SCHEMA = {
 // ---------------------------------------------------------------------------
 
 export const generateQuestions = async (field, topic, difficulty, count) => {
-  const prompt = `You are an expert technical assessor. Generate exactly ${count} multiple-choice questions for ${topic} (${field}) at ${difficulty} level.`;
+  const prompt = `You are an expert examiner and professional assessor specializing in ${field || "General Knowledge"}.
+Generate exactly ${count} realistic, high-quality multiple-choice questions testing knowledge of the topic "${topic}".
+Difficulty level: ${difficulty}.
+Domain / Field: ${field}.
+
+Guidelines:
+1. Formulate realistic scenario-based or conceptual questions tailored directly to ${field} and ${topic}.
+2. Provide exactly 4 clear options for each question.
+3. Make sure the correctAnswer is an exact string match with one of the options.
+4. Include a concise, illuminating explanation for why that answer is correct.
+5. Set difficulty to "${difficulty}" and topic to "${topic}".`;
   try {
     return await callAI(prompt, QUESTIONS_SCHEMA);
   } catch (err) {
@@ -523,3 +533,54 @@ ${JSON.stringify(fullContext.orderedSkills, null, 2)}
   }
 };
 
+const PROJECT_IDEAS_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    projects: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          id: { type: SchemaType.STRING },
+          title: { type: SchemaType.STRING },
+          level: { type: SchemaType.STRING },
+          difficulty: { type: SchemaType.STRING, enum: ["Beginner", "Intermediate", "Advanced", "Production Ready"] },
+          estimatedHours: { type: SchemaType.NUMBER },
+          tags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          description: { type: SchemaType.STRING },
+          features: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          architecture: { type: SchemaType.STRING },
+          whyForCareer: { type: SchemaType.STRING }
+        },
+        required: ["id", "title", "level", "difficulty", "estimatedHours", "tags", "description", "features", "architecture", "whyForCareer"]
+      }
+    }
+  },
+  required: ["projects"]
+};
+
+export const generateProjectIdeasWithAI = async (topic, field) => {
+  const prompt = `You are a career development expert and technical architect.
+Generate exactly 4 highly-detailed, realistic project ideas or practical application scenarios for the following topic and field.
+Topic: ${topic || "General"}
+Field: ${field || "General"}
+
+Requirements:
+- Project 1 must be Difficulty: "Beginner" (Foundational level)
+- Project 2 must be Difficulty: "Intermediate" (Core Competency)
+- Project 3 must be Difficulty: "Advanced" (Advanced Specialization)
+- Project 4 must be Difficulty: "Production Ready" (Career Capstone)
+- Provide a concrete "title" and a deep "description".
+- List exactly 4 "features".
+- Provide an "architecture" blueprint (e.g., code snippet, structural outline, or methodology framework depending on the field).
+- Explain "whyForCareer" (why recruiters or professionals value this project).
+- "tags" should be 3-4 key tools, methodologies, or concepts used.
+
+Return the response strictly matching the requested JSON schema.`;
+
+  try {
+    return await callAI(prompt, PROJECT_IDEAS_SCHEMA);
+  } catch (err) {
+    throw new Error("AI_SERVICE_UNAVAILABLE");
+  }
+};

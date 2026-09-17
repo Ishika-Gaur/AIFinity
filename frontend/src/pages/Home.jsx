@@ -266,13 +266,15 @@ export default function Home() {
                   <div className="rounded-xl bg-white/80 p-2.5 border border-[#2E4F42]/10 shadow-2xs">
                     <span className="block text-[10px] font-mono uppercase text-[#2E4F42] font-semibold">Readiness</span>
                     <span className="text-xs font-bold text-[#2E4F42] block mt-0.5">
-                      {dashboardData?.skillGap?.matchPercentage || 78}% Match
+                      {dashboardData?.skillGap?.matchPercentage != null
+                        ? `${dashboardData.skillGap.matchPercentage}% Match`
+                        : "Pending assessment"}
                     </span>
                   </div>
                   <div className="rounded-xl bg-white/80 p-2.5 border border-[#2E4F42]/10 shadow-2xs col-span-2 sm:col-span-1">
                     <span className="block text-[10px] font-mono uppercase text-[#C4952A] font-semibold">Streak</span>
                     <span className="text-xs font-bold text-[#1B332C] block mt-0.5">
-                      🔥 {dashboardData?.user?.streak ?? 7} Days
+                      🔥 {dashboardData?.user?.streak ?? 0} Days
                     </span>
                   </div>
                 </div>

@@ -5,6 +5,7 @@ import {
   getConceptRootAnalytics,
   getRoadmapAnalytics,
   updateUserRoadmap,
+  getProjectIdeas,
 } from "../controllers/analyticsController.js";
 import { authenticate } from "../middleware/authMiddleware.js";
 
@@ -18,5 +19,6 @@ router.get("/mistake-map", getMistakeMapAnalytics);
 router.get("/concept-root", getConceptRootAnalytics);
 router.get("/roadmap", getRoadmapAnalytics);
 router.put("/roadmap", updateUserRoadmap);
+router.get("/project-ideas", getProjectIdeas);
 
 export default router;

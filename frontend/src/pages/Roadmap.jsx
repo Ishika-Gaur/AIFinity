@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import Container from "../components/Container";
 import Section from "../components/Section";
 import SectionHeading from "../components/SectionHeading";
@@ -7,7 +7,11 @@ import Button from "../components/Button";
 import Card from "../components/Card";
 import CtaBanner from "../components/CtaBanner";
 import HeroSection from "../components/HeroSection";
-import { analyticsApi } from "../services/api";
+import { analyticsApi, assessmentApi } from "../services/api";
+import { getPrimaryDocUrl } from "../utils/docLinks";
+import { FIELDS } from "../utils/constants";
+
+
 
 /* =========================================================
    REUSABLE SVG ICONS
@@ -88,40 +92,13 @@ function SpinnerIcon({ className = "w-5 h-5 animate-spin" }) {
 /* =========================================================
    CAREER FIELD ROADMAP GENERATOR TEMPLATES
 ========================================================= */
-const PRESET_CAREERS = [
-  {
-    id: "software",
-    title: "Full-Stack Software Engineer",
-    field: "Technology",
-    icon: "⌘",
-    duration: "6 Months",
-  },
-  {
-    id: "data",
-    title: "Data Scientist & AI Specialist",
-    field: "Data & AI",
-    icon: "⚛",
-    duration: "6 Months",
-  },
-  {
-    id: "finance",
-    title: "Financial & Investment Analyst",
-    field: "Finance",
-    icon: "₹",
-    duration: "5 Months",
-  },
-];
-
-const CUSTOM_CAREER_OPTIONS = [
-  "Cybersecurity Engineer",
-  "Product Manager",
-  "Cloud Architect",
-  "UI/UX Designer",
-  "DevOps Engineer",
-  "Digital Marketing Specialist",
-  "Business Analyst",
-  "Mobile App Developer",
-];
+const PRESET_CAREERS = FIELDS.map(field => ({
+  id: field.toLowerCase().replace(/\s+/g, '-'),
+  title: field,
+  field: field,
+  icon: "🎯",
+  duration: "6 Months"
+}));
 
 /* =========================================================
    SUB-COMPONENTS
@@ -430,35 +407,116 @@ function EmptyRoadmapState() {
 ========================================================= */
 export default function Roadmap() {
   const [stages, setStages] = useState([]);
-  const [targetCareer, setTargetCareer] = useState("Full-Stack Software Engineer");
-  const [readinessScore, setReadinessScore] = useState(0);
-  const [hasHistory, setHasHistory] = useState(false);
+  const [targetCareer, setTargetCareer] = useState("Frontend Developer");
+  const [readinessScore, setReadinessScore] = useState(25);
+  const [hasHistory, setHasHistory] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [expandedStage, setExpandedStage] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  // UI States
+  const [activeTab, setActiveTab] = useState("roadmap"); // "roadmap" | "this_week" | "all_tasks" | "resources"
+  const [expandedPhases, setExpandedPhases] = useState({ 1: true }); // Phase 1 open by default
+  const [allExpanded, setAllExpanded] = useState(false);
+  const [notification, setNotification] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [customCareerInput, setCustomCareerInput] = useState("");
-  const [notification, setNotification] = useState("");
+  const [showCareerSelector, setShowCareerSelector] = useState(false);
+
+  const [completedTasks, setCompletedTasks] = useState({});
 
   const navigate = useNavigate();
 
-  // Load real personalized roadmap from backend database
+  // Track per-phase loading state for Continue Learning button
+  const [continueLearningLoading, setContinueLearningLoading] = useState(null);
+
+  /**
+   * Generates an AI assessment scoped to the phase's first topic + career field,
+   * then navigates directly into that assessment. Falls back to the
+   * assessment page with a topic query param if generation fails.
+   */
+  const handleTestKnowledge = async (phase) => {
+    const topic = phase.topics?.[0] || phase.title;
+    const field = targetCareer || "Software Development";
+    setContinueLearningLoading(phase.id);
+    try {
+      const res = await assessmentApi.generateAI({
+        field,
+        topic,
+        difficulty: phase.priority === "High" ? "Hard" : phase.priority === "Medium" ? "Medium" : "Easy",
+        count: 10,
+      });
+      if (res.success && res.assessmentId) {
+        window.location.href = `/assessment/${res.assessmentId}`;
+      } else {
+        // fallback — open assessment page pre-filtered
+        navigate(`/assessment?topic=${encodeURIComponent(topic)}&field=${encodeURIComponent(field)}`);
+      }
+    } catch {
+      navigate(`/assessment?topic=${encodeURIComponent(topic)}&field=${encodeURIComponent(field)}`);
+    } finally {
+      setContinueLearningLoading(null);
+    }
+  };
+
+
+  // Weekly Focus Checklist dynamically populated from Phase 1
+  const activePhases = stages.length > 0 ? stages : [];
+  const WEEKLY_FOCUS_ITEMS = activePhases[0]?.tasks?.slice(0, 4) || [];
+
+  // Resources list dynamically generated for the career
+  const HELPFUL_RESOURCES = [
+    { id: "res-1", title: `${targetCareer} Handbook`, type: "guide", icon: "📄", url: `/resources/handbook?topic=${encodeURIComponent(targetCareer)}` },
+    { id: "res-2", title: "Interactive Practice", type: "practice", icon: "💻", url: "/assessment" },
+    { id: "res-3", title: "Common Mistakes", type: "mistakes", icon: "🎥", url: "/mistake-map" },
+    { id: "res-4", title: "Project Ideas", type: "projects", icon: "💡", url: `/resources/project-ideas?topic=${encodeURIComponent(targetCareer)}` },
+  ];
+
+  // Load roadmap from backend API
   const fetchRoadmap = async () => {
     setIsLoading(true);
     setError(null);
     try {
       const res = await analyticsApi.getRoadmap();
       if (res && res.success && res.data) {
-        setHasHistory(res.data.hasHistory);
-        setTargetCareer(res.data.targetCareer || "Full-Stack Software Engineer");
-        setReadinessScore(res.data.readinessScore || 0);
-        setStages(res.data.stages || []);
+        setHasHistory(res.data.hasHistory ?? true);
+        const career = res.data.targetCareer || "Frontend Developer";
+        setTargetCareer(career);
+
+        if (Array.isArray(res.data.stages) && res.data.stages.length > 0) {
+          // Map backend stages into enriched interactive structure
+          const formatted = res.data.stages.map((st, idx) => {
+            const phaseNum = idx + 1;
+            const weekStart = (phaseNum - 1) * 2 + 1;
+            const weekEnd = phaseNum * 2;
+            const concepts = st.concepts || ["Core Theory", "Practical Patterns", "Project Application"];
+            return {
+              id: st.id || phaseNum,
+              phaseNum,
+              weeks: st.duration ? `Weeks ${weekStart}–${weekEnd}` : `Weeks ${weekStart}–${weekEnd}`,
+              title: st.title.replace(/^Phase\s*\d+:\s*/i, ""),
+              priority: st.priority === "High" || st.isWeakConcept ? "High" : st.priority === "Medium" ? "Medium" : "Low",
+              baseProgress: st.progress || (st.status === "completed" ? 100 : st.status === "current" ? 40 : 0),
+              description: st.description || `Master essential competencies for ${career}.`,
+              topics: concepts,
+              tasks: [
+                { id: `task-${phaseNum}-0`, text: `Revise ${concepts[0] || "core concepts"}` },
+                { id: `task-${phaseNum}-1`, text: `Solve 20+ ${concepts[1] || concepts[0] || "topic"} practice questions` },
+                { id: `task-${phaseNum}-2`, text: `Build a small ${concepts[2] || "hands-on"} project` },
+              ],
+              status: st.status || (idx === 0 ? "current" : "upcoming"),
+              why: st.why || "",
+            };
+          });
+          setStages(formatted);
+        } else {
+          setStages([]);
+        }
+      } else {
+        setStages([]);
       }
     } catch (err) {
-      console.error("Failed to load personalized roadmap:", err);
-      setError("Failed to load your personalized roadmap. Please try again.");
+      console.warn("Failed to load roadmap:", err);
+      setStages([]);
     } finally {
       setIsLoading(false);
     }
@@ -471,350 +529,927 @@ export default function Roadmap() {
   useEffect(() => {
     let timer;
     if (notification) {
-      timer = setTimeout(() => setNotification(""), 4500);
+      timer = setTimeout(() => setNotification(""), 4000);
     }
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
+    return () => timer && clearTimeout(timer);
   }, [notification]);
 
+  // Expand / Collapse all handler
+  const handleToggleExpandAll = () => {
+    if (allExpanded) {
+      setExpandedPhases({});
+      setAllExpanded(false);
+    } else {
+      const all = {};
+      activePhases.forEach((p) => {
+        all[p.id] = true;
+      });
+      setExpandedPhases(all);
+      setAllExpanded(true);
+    }
+  };
+
+  // Toggle single phase accordion
+  const handleTogglePhase = (id) => {
+    setExpandedPhases((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  // Toggle task checkbox
+  const handleToggleTask = (taskId) => {
+    setCompletedTasks((prev) => {
+      const updated = { ...prev, [taskId]: !prev[taskId] };
+      return updated;
+    });
+  };
+
+  // Select preset career
   const handleSelectPreset = async (careerTitle) => {
     setTargetCareer(careerTitle);
-    setCustomCareerInput("");
+    setShowCareerSelector(false);
     setIsGenerating(true);
-
     try {
       const res = await analyticsApi.updateRoadmap({ customCareer: careerTitle });
-      if (res && res.success && res.data) {
-        setStages(res.data.stages || []);
-        setReadinessScore(res.data.readinessScore || 0);
-        setNotification(`Loaded dynamic assessment-backed roadmap for ${careerTitle}.`);
+      if (res && res.success && res.data?.stages) {
+        setNotification(`Roadmap dynamically updated for "${careerTitle}".`);
+        fetchRoadmap();
+      } else {
+        setNotification(`Roadmap set to "${careerTitle}".`);
       }
     } catch {
-      setNotification(`Updated target career to ${careerTitle}.`);
+      setNotification(`Roadmap set to "${careerTitle}".`);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleGenerateCustom = async () => {
-    if (!customCareerInput.trim()) return;
-    const title = customCareerInput.trim();
-    setIsGenerating(true);
+  // Removed activePhases declaration as it was moved up before WEEKLY_FOCUS_ITEMS
 
-    try {
-      const res = await analyticsApi.updateRoadmap({ customCareer: title });
-      if (res && res.success && res.data) {
-        setTargetCareer(res.data.targetCareer || title);
-        setStages(res.data.stages || []);
-        setReadinessScore(res.data.readinessScore || 0);
-        setNotification(`Personalized end-to-end roadmap updated for "${title}".`);
-      }
-    } catch {
-      setNotification(`Roadmap generated for "${title}".`);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+  // Calculate dynamic progress based on tasks and base completion
+  const totalTasksCount = activePhases.reduce((acc, p) => acc + (p.tasks?.length || 0), 0);
+  const checkedTasksCount = activePhases.reduce(
+    (acc, p) => acc + (p.tasks?.filter((t) => completedTasks[t.id]).length || 0),
+    0
+  );
 
-  const handleToggle = (id) => {
-    setExpandedStage((current) => (current === id ? null : id));
-  };
+  // Dynamic overall progress (0% for new users with no completed tasks)
+  const dynamicOverallProgress = totalTasksCount > 0
+    ? Math.round((checkedTasksCount / totalTasksCount) * 100)
+    : 0;
 
-  const handleStart = (stage) => {
-    setNotification(`${stage.title} session is ready. Proceed with practice modules.`);
-  };
+  // Total topics count
+  const allTopics = activePhases.flatMap((p) => p.topics || []);
+  const totalTopicsCount = allTopics.length || 0;
+  const completedTopicsCount = Math.min(
+    totalTopicsCount,
+    Math.round((dynamicOverallProgress / 100) * totalTopicsCount)
+  );
 
-  const handleToggleCompletion = async (id) => {
-    // Optimistic UI update
-    setStages((prevStages) =>
-      prevStages.map((stage) => {
-        if (stage.id === id) {
-          const nextStatus = stage.status === "completed" ? "current" : "completed";
-          return { ...stage, status: nextStatus };
-        }
-        return stage;
-      })
-    );
-
-    try {
-      const res = await analyticsApi.updateRoadmap({ stageId: id });
-      if (res && res.success && res.data) {
-        setStages(res.data.stages || []);
-        setReadinessScore(res.data.readinessScore || 0);
-      }
-    } catch (err) {
-      console.error("Failed to persist stage completion:", err);
-    }
-  };
-
-  const filteredStages = useMemo(() => {
-    if (!searchQuery.trim()) return stages;
-    return stages.filter(
-      (s) =>
-        s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (s.concepts && s.concepts.some((c) => c.toLowerCase().includes(searchQuery.toLowerCase())))
-    );
-  }, [stages, searchQuery]);
+  // Focus areas summary
+  const focusAreasSummary = Array.from(new Set(allTopics)).slice(0, 5).join(", ") || "HTML, CSS, JavaScript, React, APIs";
 
   return (
-    <div className="min-h-screen">
+    <div
+      className="min-h-screen w-full bg-grid"
+      style={{
+        backgroundColor: "var(--color-bg)",
+        backgroundImage:
+          "linear-gradient(to right, rgba(27, 51, 44, 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(27, 51, 44, 0.04) 1px, transparent 1px), linear-gradient(to right, rgba(27, 51, 44, 0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(27, 51, 44, 0.08) 1px, transparent 1px)",
+        backgroundSize: "24px 24px, 24px 24px, 120px 120px, 120px 120px",
+      }}
+    >
       {/* Toast Notification */}
       {notification && (
         <div
           className="fixed right-4 top-20 z-50 w-[calc(100%-2rem)] max-w-md rounded-xl border p-4 shadow-2xl transition-all sm:right-6"
-          style={{ borderColor: "var(--color-primary-100)", background: "var(--color-surface)" }}
+          style={{ borderColor: "rgba(46, 79, 66, 0.2)", background: "var(--color-surface)", color: "var(--color-text-h)" }}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: "var(--color-primary-50)", color: "var(--color-primary-600)" }}>
-                <SparklesIcon className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-sm font-bold" style={{ color: "var(--color-text-h)" }}>AIFinity AI Dynamic Guidance</p>
-                <p className="mt-0.5 text-xs" style={{ color: "var(--color-text-muted)" }}>{notification}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setNotification("")}
-              className="font-bold text-sm transition"
-              style={{ color: "var(--color-text-light)" }}
-              aria-label="Dismiss notification"
-            >
-              ✕
-            </button>
+          <div className="flex items-center gap-3">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E8C547]/30 text-[#1B332C]">
+              <SparklesIcon className="w-4 h-4" />
+            </span>
+            <p className="text-xs font-semibold">{notification}</p>
           </div>
         </div>
       )}
 
-      {/* HERO SECTION */}
+      {/* HERO SECTION — UNTOUCHED AS REQUESTED */}
       <HeroSection
         variant="roadmap"
         eyebrow="End-to-End AI Assessment-Driven Guidance"
         title="Your complete path to"
         highlightWord="career readiness."
         description="AIFinity AI analyzes your real assessment scores, weak concepts, mistake patterns, and skill gaps to generate a personalized 0-to-100% sequential roadmap tailored to your performance."
-        primaryCta={{ label: "View My Roadmap", href: "#roadmap-stages" }}
+        primaryCta={{ label: "View My Roadmap", href: "#roadmap-content" }}
         secondaryCta={{ label: "Take Assessment", href: "/assessment" }}
       />
 
-      {/* LOADING STATE */}
-      {isLoading && (
-        <Section className="pt-8">
-          <div className="flex flex-col items-center justify-center p-12 text-center">
-            <SpinnerIcon className="h-10 w-10 text-primary-600 animate-spin" />
-            <p className="mt-4 text-sm font-semibold" style={{ color: "var(--color-text-h)" }}>
-              Fetching your personalized assessment-driven roadmap...
-            </p>
-          </div>
-        </Section>
-      )}
-
-      {/* EMPTY STATE (User has no completed assessments) */}
-      {!isLoading && !hasHistory && (
-        <EmptyRoadmapState />
-      )}
-
-      {/* DYNAMIC PERSONALIZED ROADMAP (User has completed assessments) */}
-      {!isLoading && hasHistory && (
-        <>
-          {/* PRESET SELECTOR + CUSTOM GENERATOR + ANALYTICS */}
-          <Section className="pt-0 sm:pt-0">
-            {/* Preset Career Dropdown */}
-            <div className="max-w-md">
-              <label htmlFor="career-select" className="mb-1.5 block text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-light)" }}>
-                Choose a target career path
-              </label>
-
-              <select
-                id="career-select"
-                value={PRESET_CAREERS.some((c) => c.title === targetCareer) ? PRESET_CAREERS.find((c) => c.title === targetCareer).id : ""}
-                onChange={(e) => {
-                  const chosen = PRESET_CAREERS.find((c) => c.id === e.target.value);
-                  if (chosen) handleSelectPreset(chosen.title);
-                }}
-                className="w-full rounded-xl border px-4 py-3 text-sm font-semibold outline-none transition-all duration-200 focus:ring-4"
-                style={{ borderColor: "var(--color-primary-600)", background: "var(--color-primary-50)", color: "var(--color-primary-700)" }}
-              >
-                {!PRESET_CAREERS.some((c) => c.title === targetCareer) && (
-                  <option value="" disabled>
-                    Custom roadmap active: {targetCareer}
-                  </option>
-                )}
-                {PRESET_CAREERS.map((career) => (
-                  <option key={career.id} value={career.id}>
-                    {career.icon} {career.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Custom Career Dropdown + Generate */}
-            <div className="mt-6 rounded-2xl border p-5 shadow-sm" style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}>
-              <label htmlFor="custom-career" className="mb-2 block text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-light)" }}>
-                Want a custom career roadmap? Choose a field or skill goal:
-              </label>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <select
-                  id="custom-career"
-                  value={customCareerInput}
-                  onChange={(e) => setCustomCareerInput(e.target.value)}
-                  className="w-full flex-1 rounded-xl border px-4 py-3 text-sm outline-none transition focus:ring-4"
-                  style={{ borderColor: "var(--color-border)", background: "var(--color-surface-secondary)", color: "var(--color-text-h)" }}
-                >
-                  <option value="" disabled>
-                    Select a career or skill goal
-                  </option>
-                  {CUSTOM_CAREER_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-
-                <Button
-                  size="md"
-                  disabled={!customCareerInput.trim() || isGenerating}
-                  onClick={handleGenerateCustom}
-                  icon={isGenerating ? <SpinnerIcon /> : <SparklesIcon className="w-4 h-4" />}
-                >
-                  {isGenerating ? "Updating Roadmap..." : "Generate Custom Roadmap"}
-                </Button>
+      {/* MAIN ROADMAP CONTAINER */}
+      <div id="roadmap-content" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {/* STAT OVERVIEW CARDS (Career Goal, Total Duration, Total Skills, Focus Areas) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {/* Card 1: Career Goal */}
+          <div
+            className="group relative rounded-2xl border p-4 sm:p-5 transition-all duration-300 hover:shadow-md cursor-pointer"
+            style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+            onClick={() => setShowCareerSelector((prev) => !prev)}
+            title="Click to switch career track"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FEE2E2] text-[#B91C1C]">
+                <span className="text-lg">🎯</span>
               </div>
-            </div>
-
-            {/* Career Readiness Analytics Bar */}
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              <Card hoverable={false} className="p-5">
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-light)" }}>Target Career Role</p>
-                <p className="mt-2 text-lg font-bold truncate" style={{ color: "var(--color-text-h)" }}>{targetCareer}</p>
-                <p className="mt-1 text-xs" style={{ color: "var(--color-text-muted)" }}>
-                  Personalized to real assessment results
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8B9690]">
+                  Career Goal
                 </p>
-              </Card>
-
-              <Card hoverable={false} className="p-5">
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-light)" }}>Career Readiness Score</p>
-                <div className="mt-2 flex items-end justify-between gap-3">
-                  <p className="text-3xl font-bold" style={{ fontFamily: "var(--font-display)", color: "var(--color-text-h)" }}>{readinessScore}%</p>
-                  <span className="rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: "var(--color-primary-50)", color: "var(--color-primary-700)" }}>
-                    {readinessScore >= 75 ? "Job Ready" : readinessScore >= 50 ? "Advanced Specialization" : readinessScore >= 25 ? "Building Competency" : "Foundations"}
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-sm sm:text-base font-bold text-[#1B332C] truncate">
+                    {targetCareer}
+                  </p>
+                  <span className="text-xs text-[#8B9690] group-hover:text-[#1B332C] transition-colors">
+                    ▼
                   </span>
                 </div>
-                <div className="mt-3">
-                  <ProgressBar value={readinessScore} />
-                </div>
-              </Card>
-
-              <Card hoverable={false} className="p-5">
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-light)" }}>Guidance Objective</p>
-                <p className="mt-2 text-xs font-medium leading-5" style={{ color: "var(--color-text-muted)" }}>
-                  From identified weak concepts to verified job readiness with dynamic remediation milestones.
-                </p>
-              </Card>
+              </div>
             </div>
-          </Section>
 
-          {/* END TO END ROADMAP STAGES */}
-          <Section id="roadmap-stages">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            {/* Quick Switch Dropdown */}
+            {showCareerSelector && (
+              <div
+                className="absolute left-0 right-0 top-full mt-2 z-30 rounded-xl border p-2 shadow-xl bg-[#FBF8F0] border-[#2E4F42]/20"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8B9690]">
+                  Choose Career Track
+                </p>
+                {PRESET_CAREERS.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(c.title)}
+                    className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-[#1B332C] hover:bg-[#EDE6D3] transition flex items-center justify-between"
+                  >
+                    <span>{c.icon} {c.title}</span>
+                    {targetCareer === c.title && <span className="text-[#2E4F42]">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Card 2: Total Duration */}
+          <div
+            className="rounded-2xl border p-4 sm:p-5 transition-all duration-300 hover:shadow-md"
+            style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#DBEAFE] text-[#1D4ED8]">
+                <ClockIcon className="w-5 h-5" />
+              </div>
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-primary-600)" }}>
-                  Dynamic Assessment-Driven Guidance
-                </span>
-                <h2 className="mt-2 text-3xl font-bold tracking-tight" style={{ fontFamily: "var(--font-display)", color: "var(--color-text-h)" }}>
-                  {targetCareer} Guidance Path
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8B9690]">
+                  Total Duration
+                </p>
+                <p className="text-sm sm:text-base font-bold text-[#1B332C]">
+                  8 Weeks
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Total Skills */}
+          <div
+            className="rounded-2xl border p-4 sm:p-5 transition-all duration-300 hover:shadow-md"
+            style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#D1FAE5] text-[#047857]">
+                <span className="text-lg">📖</span>
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8B9690]">
+                  Total Skills
+                </p>
+                <p className="text-sm sm:text-base font-bold text-[#1B332C]">
+                  {totalTopicsCount} Topics
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Focus Areas */}
+          <div
+            className="rounded-2xl border p-4 sm:p-5 transition-all duration-300 hover:shadow-md"
+            style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EDE9FE] text-[#6D28D9]">
+                <span className="text-lg">📊</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8B9690]">
+                  Focus Areas
+                </p>
+                <p className="text-xs sm:text-sm font-semibold text-[#1B332C] truncate">
+                  {focusAreasSummary}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* TAB NAVIGATION BAR (Roadmap | This Week | All Tasks | Resources) */}
+        <div className="mb-8 border-b border-[#2E4F42]/15">
+          <div className="flex items-center gap-2 sm:gap-6 overflow-x-auto pb-px">
+            {[
+              { id: "roadmap", label: "Roadmap" },
+              { id: "this_week", label: "This Week" },
+              { id: "all_tasks", label: "All Tasks" },
+              { id: "resources", label: "Resources" },
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative pb-3.5 px-3 text-sm font-bold transition-all duration-200 shrink-0 ${
+                    isActive
+                      ? "text-[#1B332C]"
+                      : "text-[#5B6B5F] hover:text-[#1B332C]"
+                  }`}
+                >
+                  {tab.label}
+                  {isActive && (
+                    <span
+                      className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full"
+                      style={{ background: "var(--color-confirm)" }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* TWO-COLUMN LAYOUT: LEFT ROADMAP TIMELINE + RIGHT WIDGETS */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* ================= LEFT MAIN CONTENT (8 COLS) ================= */}
+          <div className="lg:col-span-8 space-y-6">
+            {/* Header with Title & Expand All */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
+              <div>
+                <h2
+                  className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#1B332C]"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
+                  Your Learning Roadmap
                 </h2>
-                <p className="mt-1 max-w-2xl text-sm" style={{ color: "var(--color-text-muted)" }}>
-                  Click stage numbers to mark phases completed and update your Career Readiness Score.
+                <p className="mt-1 text-xs sm:text-sm text-[#5B6B5F]">
+                  Complete each phase step by step. Each phase builds on the previous one.
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="relative min-w-[220px]">
-                  <SearchIcon className="absolute left-3.5 top-1/2 w-4 h-4 -translate-y-1/2" style={{ color: "var(--color-text-light)" }} />
-                  <input
-                    type="text"
-                    placeholder="Filter milestones & tools..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-full border py-2 pl-9 pr-4 text-xs outline-none transition focus:ring-2"
-                    style={{ borderColor: "var(--color-border)", background: "var(--color-surface-secondary)", color: "var(--color-text-h)" }}
-                  />
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={handleToggleExpandAll}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold text-[#1B332C] transition-all hover:bg-[#EDE6D3] active:scale-95 shrink-0 self-start sm:self-auto"
+                style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+              >
+                <span>{allExpanded ? "↑ Collapse All" : "↓ Expand All"}</span>
+              </button>
             </div>
 
-            {/* Timeline */}
-            <div className="relative mt-10">
-              <div className="absolute bottom-8 left-5 top-8 hidden w-0.5 sm:block" style={{ background: "var(--color-border)" }} />
-
-              <div className="space-y-5">
-                {filteredStages.map((stage) => (
-                  <div key={stage.id} className="relative sm:pl-16">
-                    <div
-                      onClick={() => stage.status !== "locked" && handleToggleCompletion(stage.id)}
-                      className="absolute left-0 top-6 hidden h-10 w-10 cursor-pointer items-center justify-center rounded-full border-4 text-xs font-bold shadow-sm transition-all sm:flex hover:scale-110 active:scale-95"
-                      style={{
-                        borderColor: "var(--color-surface)",
-                        background: stage.status === "completed" ? "var(--color-confirm)" : stage.status === "current" ? "var(--color-primary-600)" : "var(--color-surface-secondary)",
-                        color: stage.status === "completed" || stage.status === "current" ? "#fff" : "var(--color-text-light)",
-                      }}
-                    >
-                      {stage.status === "completed" ? <CheckIcon className="w-4 h-4" /> : stage.id}
+            {/* TAB: ALL TASKS VIEW */}
+            {activeTab === "all_tasks" && (
+              <div
+                className="rounded-2xl border p-6 shadow-sm"
+                style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+              >
+                <h3 className="text-lg font-bold text-[#1B332C] mb-4">All Actionable Milestones</h3>
+                <div className="space-y-4">
+                  {activePhases.map((phase) => (
+                    <div key={phase.id} className="rounded-xl border p-4 bg-[#EDE6D3]/40 border-[#2E4F42]/10">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#2E4F42]">
+                          Phase {phase.phaseNum}: {phase.title}
+                        </span>
+                        <span className="text-[11px] font-mono text-[#5B6B5F]">{phase.weeks}</span>
+                      </div>
+                      <div className="space-y-2">
+                        {phase.tasks.map((task) => {
+                          const isDone = !!completedTasks[task.id];
+                          return (
+                            <label
+                              key={task.id}
+                              className="flex items-start gap-3 cursor-pointer group p-1.5 rounded-lg hover:bg-white/60 transition"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isDone}
+                                onChange={() => handleToggleTask(task.id)}
+                                className="mt-0.5 h-4 w-4 rounded accent-[#2E4F42] cursor-pointer"
+                              />
+                              <span
+                                className={`text-xs font-medium transition ${
+                                  isDone ? "line-through text-[#8B9690]" : "text-[#24413A] group-hover:text-[#1B332C]"
+                                }`}
+                              >
+                                {task.text}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                    <StageCard
-                      stage={stage}
-                      expanded={expandedStage === stage.id}
-                      onToggle={handleToggle}
-                      onStart={handleStart}
-                      onToggleCompletion={handleToggleCompletion}
+            {/* TAB: RESOURCES VIEW */}
+            {activeTab === "resources" && (
+              <div
+                className="rounded-2xl border p-6 shadow-sm"
+                style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+              >
+                <h3 className="text-lg font-bold text-[#1B332C] mb-2">Curated Roadmap Resources</h3>
+                <p className="text-xs text-[#5B6B5F] mb-6">
+                  Recommended documentation, interactive trainers, and cheat sheets for {targetCareer}.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {HELPFUL_RESOURCES.map((res) => (
+                    <Link
+                      key={res.id}
+                      to={res.url}
+                      className="flex items-center justify-between p-4 rounded-xl border border-[#2E4F42]/12 bg-[#EDE6D3]/40 hover:bg-[#EDE6D3] hover:scale-[1.01] transition-all duration-200"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">{res.icon}</span>
+                        <div>
+                          <p className="text-sm font-bold text-[#1B332C]">{res.title}</p>
+                          <p className="text-[11px] text-[#5B6B5F] capitalize">{res.type} material</p>
+                        </div>
+                      </div>
+                      <ArrowRightIcon className="w-4 h-4 text-[#2E4F42]" />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB: THIS WEEK VIEW */}
+            {activeTab === "this_week" && (
+              <div
+                className="rounded-2xl border p-6 shadow-sm"
+                style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-[#1B332C]">This Week's Sprints</h3>
+                    <p className="text-xs text-[#5B6B5F]">Focused tasks scheduled for Phase 1 execution.</p>
+                  </div>
+                  <span className="rounded-full bg-[#E8C547]/30 px-3 py-1 text-xs font-bold text-[#1B332C]">
+                    Sprint Active
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {WEEKLY_FOCUS_ITEMS.map((item) => {
+                    const isDone = !!completedTasks[item.id];
+                    return (
+                      <label
+                        key={item.id}
+                        className="flex items-center gap-3 p-3 rounded-xl border border-[#2E4F42]/10 bg-white/70 hover:bg-white cursor-pointer transition shadow-2xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isDone}
+                          onChange={() => handleToggleTask(item.id)}
+                          className="h-4 w-4 rounded accent-[#2E4F42] cursor-pointer"
+                        />
+                        <span
+                          className={`text-xs sm:text-sm font-medium ${
+                            isDone ? "line-through text-[#8B9690]" : "text-[#1B332C]"
+                          }`}
+                        >
+                          {item.text}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* TAB: ROADMAP VIEW (Main Stepper Timeline matching reference mockup) */}
+            {(activeTab === "roadmap" || activeTab === "this_week") && (
+              <div className="relative pl-0 sm:pl-2">
+                {/* Stepper Vertical Track */}
+                <div
+                  className="hidden sm:block absolute left-6 top-8 bottom-8 w-0.5 -z-0"
+                  style={{ background: "rgba(46, 79, 66, 0.15)" }}
+                />
+
+                <div className="space-y-8">
+                  {activePhases.map((phase, idx) => {
+                    const isExpanded = !!expandedPhases[phase.id];
+                    const isLast = idx === activePhases.length - 1;
+
+                    // Calculate phase task progress
+                    const phaseTasks = phase.tasks || [];
+                    const completedInPhase = phaseTasks.filter((t) => completedTasks[t.id]).length;
+                    const phaseProgress = phaseTasks.length > 0
+                      ? Math.round((completedInPhase / phaseTasks.length) * 100)
+                      : phase.baseProgress || 0;
+
+                    // Priority color mapping aligned to current theme
+                    const priorityConfig = {
+                      High: {
+                        bg: "#FEE2E2",
+                        text: "#B91C1C",
+                        border: "rgba(220, 38, 38, 0.25)",
+                        label: "High Priority",
+                      },
+                      Medium: {
+                        bg: "#FBF3DC",
+                        text: "#B9860F",
+                        border: "rgba(217, 166, 43, 0.35)",
+                        label: "Medium Priority",
+                      },
+                      Low: {
+                        bg: "#EDE6D3",
+                        text: "#5B6B5F",
+                        border: "rgba(46, 79, 66, 0.15)",
+                        label: "Low Priority",
+                      },
+                    }[phase.priority] || {
+                      bg: "#EDE6D3",
+                      text: "#5B6B5F",
+                      border: "rgba(46, 79, 66, 0.15)",
+                      label: "Standard Priority",
+                    };
+
+                    return (
+                      <div key={phase.id} className="relative flex flex-col sm:flex-row gap-4 sm:gap-6 group">
+                        {/* Step Marker on the Left */}
+                        <div className="relative z-10 flex sm:flex-col items-center sm:items-center gap-3 sm:gap-1.5 shrink-0">
+                          {/* Numbered Circle Badge */}
+                          <div
+                            className={`flex h-11 w-11 items-center justify-center rounded-full font-bold text-sm border-2 shadow-xs transition-transform duration-200 group-hover:scale-105 ${
+                              phaseProgress === 100
+                                ? "bg-[#2E4F42] text-white border-[#2E4F42]"
+                                : idx === 0
+                                ? "bg-[#D9A62B] text-[#1B332C] border-[#B9860F] ring-4 ring-[#E8C547]/25"
+                                : "bg-[#EDE6D3] text-[#5B6B5F] border-[#2E4F42]/20"
+                            }`}
+                          >
+                            {phaseProgress === 100 ? "✓" : phase.phaseNum}
+                          </div>
+
+                          {/* Phase Label & Weeks under step circle */}
+                          <div className="text-left sm:text-center sm:w-20">
+                            <p className="text-xs font-bold text-[#1B332C]">Phase {phase.phaseNum}</p>
+                            <p className="text-[11px] font-mono text-[#8B9690]">{phase.weeks}</p>
+                          </div>
+                        </div>
+
+                        {/* Phase Card */}
+                        <div
+                          className="flex-1 rounded-2xl border transition-all duration-300 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] overflow-hidden"
+                          style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+                        >
+                          {/* Phase Card Header / Toggle Row */}
+                          <div
+                            className="p-5 sm:p-6 cursor-pointer flex flex-col gap-3"
+                            onClick={() => handleTogglePhase(phase.id)}
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              {/* Title & Priority Badge */}
+                              <div className="flex flex-wrap items-center gap-2.5">
+                                <h3
+                                  className="text-lg sm:text-xl font-bold text-[#1B332C]"
+                                  style={{ fontFamily: "var(--font-display)" }}
+                                >
+                                  {phase.title}
+                                </h3>
+
+                                <span
+                                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider border"
+                                  style={{
+                                    backgroundColor: priorityConfig.bg,
+                                    color: priorityConfig.text,
+                                    borderColor: priorityConfig.border,
+                                  }}
+                                >
+                                  {priorityConfig.label}
+                                </span>
+                              </div>
+
+                              {/* Progress bar + percentage + Chevron */}
+                              <div className="flex items-center gap-3 self-end sm:self-auto">
+                                <div className="w-24 sm:w-32 flex items-center gap-2">
+                                  <div className="h-2 flex-1 rounded-full bg-[#EDE6D3] overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-500"
+                                      style={{
+                                        width: `${phaseProgress}%`,
+                                        background: phaseProgress > 0 ? "var(--color-confirm)" : "transparent",
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="text-xs font-bold text-[#1B332C] min-w-[28px] text-right font-mono">
+                                    {phaseProgress}%
+                                  </span>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="text-[#8B9690] hover:text-[#1B332C] transition-colors p-1"
+                                  aria-label={isExpanded ? "Collapse phase" : "Expand phase"}
+                                >
+                                  {isExpanded ? "▲" : "▼"}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Phase description */}
+                            <p className="text-xs sm:text-sm text-[#5B6B5F] leading-relaxed">
+                              {phase.description}
+                            </p>
+                          </div>
+
+                          {/* Expanded Content: Topics, Sample Tasks, CTA Button */}
+                          {isExpanded && (
+                            <div
+                              className="px-5 sm:px-6 pb-6 pt-2 border-t flex flex-col gap-5"
+                              style={{ borderColor: "rgba(46, 79, 66, 0.08)" }}
+                            >
+                              {/* Topics in this phase */}
+                              <div>
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8B9690] mb-2.5">
+                                  Topics in this phase:
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {phase.topics?.map((topic) => {
+                                    const docUrl = getPrimaryDocUrl(topic);
+                                    return (
+                                      <a
+                                        key={topic}
+                                        href={docUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        title={`Open official documentation for ${topic}`}
+                                        className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all duration-200 hover:bg-[#1B332C] hover:text-[#E8C547] hover:border-[#1B332C] hover:scale-105 group"
+                                        style={{
+                                          borderColor: "rgba(46, 79, 66, 0.12)",
+                                          background: "var(--color-surface-secondary)",
+                                          color: "var(--color-text-body)",
+                                        }}
+                                      >
+                                        <span>{topic}</span>
+                                        <span className="text-[10px] opacity-60 group-hover:opacity-100">↗</span>
+                                      </a>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Sample Tasks / Actionable Checklist */}
+                              <div>
+                                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8B9690] mb-2.5">
+                                  Sample Tasks:
+                                </p>
+                                <div className="space-y-2">
+                                  {phase.tasks?.map((task) => {
+                                    const isDone = !!completedTasks[task.id];
+                                    return (
+                                      <label
+                                        key={task.id}
+                                        className="flex items-start gap-3 p-2 rounded-lg hover:bg-[#EDE6D3]/50 cursor-pointer transition select-none"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isDone}
+                                          onChange={() => handleToggleTask(task.id)}
+                                          className="mt-0.5 h-4 w-4 rounded accent-[#2E4F42] cursor-pointer"
+                                        />
+                                        <span
+                                          className={`text-xs sm:text-sm font-medium transition ${
+                                            isDone
+                                              ? "line-through text-[#8B9690]"
+                                              : "text-[#24413A]"
+                                          }`}
+                                        >
+                                          {task.text}
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Assessment Why Insight */}
+                              {phase.why && (
+                                <div
+                                  className="rounded-xl border p-3.5 text-xs"
+                                  style={{
+                                    borderColor: "rgba(217, 166, 43, 0.3)",
+                                    background: "rgba(251, 243, 220, 0.6)",
+                                    color: "var(--color-text-h)",
+                                  }}
+                                >
+                                  <span className="font-bold text-[#B9860F] block mb-0.5">
+                                    💡 Why this milestone matters:
+                                  </span>
+                                  <p className="text-[#5B6B5F]">{phase.why}</p>
+                                </div>
+                              )}
+
+                              {/* ===== 3-STEP LEARNING FLOW CTA ===== */}
+                              <div className="pt-4 border-t border-[#2E4F42]/08 mt-2">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-[#8B9690] mb-3">Your Learning Path for This Phase</p>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {/* Step 1A: Official Documentation Link */}
+                                  <a
+                                    href={getPrimaryDocUrl(phase.topics?.[0] || phase.title)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs"
+                                    style={{ background: "#EDE6D3", color: "#1B332C", border: "1px solid rgba(46,79,66,0.18)" }}
+                                  >
+                                    <span>📖</span>
+                                    <span>1. Read Official Docs ↗</span>
+                                  </a>
+
+                                  {/* Step 1B: Study Hub & Resources */}
+                                  <Link
+                                    to={`/resources/handbook?topic=${encodeURIComponent(phase.topics?.[0] || phase.title)}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-200 hover:bg-[#E8C547]/20 text-[#1B332C] border border-[#2E4F42]/15"
+                                  >
+                                    <span>📚</span>
+                                    <span>Study Hub</span>
+                                  </Link>
+
+                                  {/* Step 2: Build */}
+                                  <Link
+                                    to={`/resources/project-ideas?topic=${encodeURIComponent(phase.topics?.[0] || phase.title)}&difficulty=${phase.priority === "High" ? "Beginner" : phase.priority === "Medium" ? "Intermediate" : "Advanced"}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95"
+                                    style={{ background: "#DBEAFE", color: "#1D4ED8", border: "1px solid rgba(29,78,216,0.15)" }}
+                                  >
+                                    <span>💡</span>
+                                    <span>2. Build a Project</span>
+                                  </Link>
+
+                                  {/* Step 3: Test */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); handleTestKnowledge(phase); }}
+                                    disabled={continueLearningLoading === phase.id}
+                                    className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
+                                    style={{ background: "#1B332C", color: "#E8C547", border: "1px solid rgba(46,79,66,0.3)" }}
+                                  >
+                                    {continueLearningLoading === phase.id ? (
+                                      <>
+                                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                        </svg>
+                                        <span>Preparing…</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span>⚡</span>
+                                        <span>3. Test Knowledge</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ================= RIGHT SIDEBAR WIDGETS (4 COLS) ================= */}
+          <div className="lg:col-span-4 space-y-6">
+            {/* Widget 1: Overall Progress */}
+            <div
+              className="rounded-2xl border p-6 shadow-[var(--shadow-card)]"
+              style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+            >
+              <h3 className="text-base font-bold text-[#1B332C] mb-6">Overall Progress</h3>
+
+              {/* Circular Progress Gauge */}
+              <div className="flex flex-col items-center justify-center">
+                <div className="relative w-36 h-36 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    {/* Background track */}
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      stroke="#EDE6D3"
+                      strokeWidth="8"
+                      fill="none"
+                    />
+                    {/* Active stroke */}
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      stroke="var(--color-confirm)"
+                      strokeWidth="8"
+                      strokeDasharray={2 * Math.PI * 40}
+                      strokeDashoffset={
+                        2 * Math.PI * 40 * (1 - dynamicOverallProgress / 100)
+                      }
+                      strokeLinecap="round"
+                      fill="none"
+                      className="transition-all duration-1000 ease-out"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center justify-center text-center">
+                    <span
+                      className="text-2xl font-extrabold text-[#1B332C]"
+                      style={{ fontFamily: "var(--font-display)" }}
+                    >
+                      {dynamicOverallProgress}%
+                    </span>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-xs font-semibold text-[#5B6B5F]">
+                  {completedTopicsCount} of {totalTopicsCount} topics completed
+                </p>
+
+                <div className="w-full mt-3">
+                  <div className="h-2 w-full rounded-full bg-[#EDE6D3] overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700 ease-out"
+                      style={{
+                        width: `${dynamicOverallProgress}%`,
+                        background: "var(--color-confirm)",
+                      }}
                     />
                   </div>
+                </div>
+
+                {/* Motivational Quote Block */}
+                <div
+                  className="w-full mt-6 rounded-xl border p-4 text-center transition-all"
+                  style={{
+                    borderColor: "rgba(46, 79, 66, 0.12)",
+                    background: "var(--color-surface-secondary)",
+                  }}
+                >
+                  <p className="text-xs sm:text-sm font-semibold italic text-[#1B332C]">
+                    {dynamicOverallProgress >= 80
+                      ? `🏆 You're almost there! ${targetCareer} mastery is within reach.`
+                      : dynamicOverallProgress >= 50
+                      ? `🔥 Halfway through your ${targetCareer} path — strong momentum!`
+                      : dynamicOverallProgress >= 25
+                      ? `✨ Great start on your ${targetCareer} journey. Keep building!`
+                      : stages.length > 0
+                      ? `🚀 Your personalised ${targetCareer} roadmap is ready. Let's go!`
+                      : `💡 Complete your first topic to unlock your ${targetCareer} roadmap insights.`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Widget 2: This Week's Focus */}
+            <div
+              className="rounded-2xl border p-6 shadow-[var(--shadow-card)]"
+              style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+            >
+              <div className="flex items-center gap-2.5 mb-4">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#E8C547]/30 text-[#1B332C] text-sm">
+                  🎯
+                </span>
+                <h3 className="text-base font-bold text-[#1B332C]">This Week's Focus</h3>
+              </div>
+
+              <div className="space-y-3">
+                {WEEKLY_FOCUS_ITEMS.map((item) => {
+                  const isDone = !!completedTasks[item.id];
+                  return (
+                    <label
+                      key={item.id}
+                      className="flex items-start gap-3 cursor-pointer group select-none"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isDone}
+                        onChange={() => handleToggleTask(item.id)}
+                        className="mt-0.5 h-4 w-4 rounded accent-[#2E4F42] cursor-pointer"
+                      />
+                      <span
+                        className={`text-xs font-medium transition ${
+                          isDone ? "line-through text-[#8B9690]" : "text-[#24413A] group-hover:text-[#1B332C]"
+                        }`}
+                      >
+                        {item.text}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="mt-5 pt-3 border-t border-[#2E4F42]/10">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("this_week")}
+                  className="text-xs font-bold text-[#2E4F42] hover:text-[#1B332C] flex items-center gap-1 transition"
+                >
+                  <span>View Full Plan</span>
+                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Widget 3: Helpful Resources */}
+            <div
+              className="rounded-2xl border p-6 shadow-[var(--shadow-card)]"
+              style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+            >
+              <div className="flex items-center gap-2.5 mb-4">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#DBEAFE] text-[#1D4ED8] text-sm">
+                  📖
+                </span>
+                <h3 className="text-base font-bold text-[#1B332C]">Helpful Resources</h3>
+              </div>
+
+              <div className="space-y-2.5">
+                {HELPFUL_RESOURCES.map((res) => (
+                  <Link
+                    key={res.id}
+                    to={res.url}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-[#2E4F42]/08 bg-[#EDE6D3]/40 hover:bg-[#EDE6D3] hover:translate-x-1 transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-base">{res.icon}</span>
+                      <span className="text-xs font-semibold text-[#1B332C] truncate">
+                        {res.title}
+                      </span>
+                    </div>
+                    <ArrowRightIcon className="w-3.5 h-3.5 text-[#2E4F42] shrink-0" />
+                  </Link>
                 ))}
               </div>
             </div>
-          </Section>
 
-          {/* JOB READINESS CHECKLIST SECTION */}
-          <Section>
-            <SectionHeading
-              eyebrow="JOB READINESS VERIFICATION"
-              title="What makes you job-ready?"
-              subtitle="AIFinity verifies your readiness through four essential career criteria derived from your assessment performance."
-            />
-
-            <div className="grid gap-6 md:grid-cols-4">
-              {[
-                { num: "01", title: "Foundational Theory", desc: "Master foundational concepts, terminology, and core principles of your domain.", done: readinessScore >= 25 },
-                { num: "02", title: "Applied Projects", desc: "Build real-world hands-on projects demonstrating practical problem solving.", done: readinessScore >= 50 },
-                { num: "03", title: "System Architecture", desc: "Understand enterprise design patterns, scaling trade-offs, and tool ecosystems.", done: readinessScore >= 75 },
-                { num: "04", title: "Portfolio & Interview", desc: "Complete technical case studies, portfolio showcase, and mock interviews.", done: readinessScore >= 100 },
-              ].map((item) => (
-                <Card key={item.num} hoverable className="p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold" style={{ color: "var(--color-primary-600)" }}>{item.num}</span>
-                    <span
-                      className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase"
-                      style={item.done ? { background: "var(--color-primary-50)", color: "var(--color-confirm)" } : { background: "var(--color-surface-secondary)", color: "var(--color-text-light)" }}
-                    >
-                      {item.done ? "Verified ✓" : "Pending"}
-                    </span>
-                  </div>
-                  <h4 className="mt-4 font-bold text-base" style={{ color: "var(--color-text-h)" }}>{item.title}</h4>
-                  <p className="mt-1 text-xs leading-5" style={{ color: "var(--color-text-muted)" }}>{item.desc}</p>
-                </Card>
-              ))}
+            {/* Widget 4: Motivational Mini Banner with Summit theme */}
+            <div
+              className="rounded-2xl border p-6 relative overflow-hidden transition-all duration-300 hover:shadow-md"
+              style={{
+                borderColor: "rgba(46, 79, 66, 0.15)",
+                background: "linear-gradient(145deg, #EDE6D3 0%, #FBF8F0 100%)",
+              }}
+            >
+              <div className="relative z-10">
+                <p className="text-sm font-semibold italic text-[#1B332C] leading-snug">
+                  "Consistent effort today, a better you tomorrow."
+                </p>
+                <div className="mt-4 flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#2E4F42]">
+                    Daily Momentum
+                  </span>
+                  <span className="text-2xl">🏔️ ⛳</span>
+                </div>
+              </div>
             </div>
-          </Section>
-        </>
-      )}
+          </div>
+        </div>
 
-      {/* FINAL CTA */}
+        {/* BOTTOM MOTIVATIONAL BANNER */}
+        <div
+          className="mt-12 rounded-2xl border p-6 text-center transition-all duration-300"
+          style={{
+            borderColor: "rgba(46, 79, 66, 0.12)",
+            background: "var(--color-surface)",
+          }}
+        >
+          <p className="text-xs sm:text-sm font-medium text-[#5B6B5F]">
+            "You don't have to be great to start, but you have to start to be great."{" "}
+            <span className="inline-block text-[#2E4F42]">💚</span>
+          </p>
+        </div>
+      </div>
+
+      {/* FINAL CTA SECTION */}
       <Section>
         <CtaBanner
           eyebrow="CAREER INTELLIGENCE"

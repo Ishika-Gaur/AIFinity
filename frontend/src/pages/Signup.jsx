@@ -86,7 +86,7 @@ export default function SignupPage() {
             WHY SIGN UP
           </span>
           <h2 className="mt-3 text-3xl font-bold leading-snug text-[var(--color-text-h)]" style={{ fontFamily: "var(--font-display)" }}>
-            Find your skill gaps before the interview does.
+            Find your skill gaps and build true mastery.
           </h2>
 
           <ul className="mt-8 flex flex-col gap-5">
