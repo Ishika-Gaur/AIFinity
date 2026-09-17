@@ -2,6 +2,7 @@ import AttemptResult from "../models/AttemptResult.js";
 import User from "../models/User.js";
 import UserRoadmap from "../models/UserRoadmap.js";
 import { generateProjectIdeasWithAI } from "../services/geminiService.js";
+import { buildMistakeMapAnalysis } from "../services/mistakeMapService.js";
 
 /**
  * Cleans raw internal topic/category names before showing to users.
@@ -530,8 +531,11 @@ export async function getMistakeMapAnalytics(req, res) {
   try {
     const userId = req.user._id;
     const attempts = await AttemptResult.find({ userId }).sort({ completedAt: -1 }).lean();
+    const analysis = buildMistakeMapAnalysis(attempts, {
+      careerGoal: req.user.onboardingProfile?.careerGoal || req.user.selectedField || "",
+    });
 
-    if (!attempts || attempts.length === 0) {
+    if (!analysis.hasData) {
       return res.json({
         success: true,
         data: {
@@ -541,63 +545,29 @@ export async function getMistakeMapAnalytics(req, res) {
           occurrences: 0,
           topicProgress: [],
           mistakePatterns: [],
+          ...analysis,
         },
       });
     }
-
-    // Extract all question results
-    const allQuestionResults = [];
-    attempts.forEach((a) => {
-      if (Array.isArray(a.questionResults)) {
-        a.questionResults.forEach((q) => {
-          allQuestionResults.push({
-            ...q,
-            assessmentCategory: a.assessmentCategory,
-            completedAt: a.completedAt,
-          });
-        });
-      }
-    });
-
-    const incorrectList = allQuestionResults.filter((q) => q.status === "incorrect" || q.status === "unanswered" || q.status === "partial");
-    const totalMistakes = incorrectList.length;
-
-    // Group mistakes by category
-    const catMistakeMap = {};
-    incorrectList.forEach((q) => {
-      const cat = q.assessmentCategory || "General";
-      if (!catMistakeMap[cat]) catMistakeMap[cat] = { count: 0, sampleQuestion: q.questionText, sampleExplanation: q.explanation };
-      catMistakeMap[cat].count++;
-    });
-
-    const sortedMistakes = Object.entries(catMistakeMap).sort((a, b) => b[1].count - a[1].count);
-    const topMistake = sortedMistakes[0];
-
-    const topicProgress = sortedMistakes.map(([concept, data]) => ({
-      concept,
-      before: data.count + 3,
-      after: data.count,
-      needsAttention: data.count > 2,
-      mistakePattern: `Recurring errors in ${concept} questions.`,
-      whyItHappened: data.sampleExplanation || "Core concepts need further practice.",
-      whatChanged: "Review recommended concept roots and attempt fresh practice questions.",
-    }));
 
     return res.json({
       success: true,
       data: {
         hasHistory: true,
-        totalMistakes,
-        mostCommonMistake: topMistake ? `Low accuracy in ${topMistake[0]}` : "None detected",
-        occurrences: topMistake ? topMistake[1].count : 0,
-        improvement: Math.max(0, 30 - totalMistakes * 2),
-        topicProgress,
-        mistakePatterns: sortedMistakes.map(([concept, data]) => ({
-          concept,
-          occurrences: data.count,
-          sampleQuestion: data.sampleQuestion,
-          explanation: data.sampleExplanation,
+        totalMistakes: analysis.summary.totalMistakes,
+        mostCommonMistake: analysis.summary.mostCommonWeakness,
+        occurrences: analysis.highPriorityConcepts.length > 0 ? analysis.highPriorityConcepts[0].mistakeCount : 0,
+        improvement: analysis.trends.improvedCount > 0 ? Math.round((analysis.trends.improvedCount / Math.max(1, analysis.concepts.length)) * 100) : 0,
+        topicProgress: analysis.trends.topicProgress,
+        mistakePatterns: analysis.concepts.map((c) => ({
+          concept: c.concept,
+          occurrences: c.mistakeCount,
+          accuracy: c.accuracy,
+          primaryMistakeType: c.primaryMistakeType,
+          learningPriority: c.learningPriority,
+          explanation: c.evidence,
         })),
+        ...analysis,
       },
     });
   } catch (err) {

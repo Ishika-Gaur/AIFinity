@@ -108,8 +108,9 @@ const QUESTIONS_SCHEMA = {
           explanation:   { type: SchemaType.STRING },
           difficulty:    { type: SchemaType.STRING },
           topic:         { type: SchemaType.STRING },
+          concept:       { type: SchemaType.STRING },
         },
-        required: ["question", "options", "correctAnswer", "explanation", "difficulty", "topic"],
+        required: ["question", "options", "correctAnswer", "explanation", "difficulty", "topic", "concept"],
       },
     },
   },
@@ -519,7 +520,11 @@ export const generateCurriculumQuestions = (field = "General Knowledge", topic =
   }
 
   return {
-    questions: templateBank.slice(0, Math.min(count, templateBank.length))
+    questions: templateBank.slice(0, Math.min(count, templateBank.length)).map((q) => ({
+      ...q,
+      topic: q.topic || topic,
+      concept: q.concept || topic,
+    }))
   };
 };
 
@@ -536,7 +541,7 @@ Guidelines:
 3. Provide exactly 4 clear options for each question.
 4. Make sure the correctAnswer is an exact string match with one of the options.
 5. Include a concise, illuminating explanation for why that answer is correct.
-6. Set difficulty to "${difficulty}" and topic to "${topic}".`;
+6. Set difficulty to "${difficulty}", topic to "${topic}", and identify the specific granular concept or skill being tested (e.g. "Frequency Map", "Binary Search", "Power Sharing", "Two Pointer") in "concept".`;
 
   try {
     const res = await callAI(prompt, QUESTIONS_SCHEMA);
@@ -838,3 +843,149 @@ Return the response strictly matching the requested JSON schema.`;
     throw new Error("AI_SERVICE_UNAVAILABLE");
   }
 };
+
+const MISTAKE_MAP_INSIGHTS_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    summaryHeadline: { type: SchemaType.STRING },
+    focusMore: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          concept: { type: SchemaType.STRING },
+          reason: { type: SchemaType.STRING },
+          suggestedAction: { type: SchemaType.STRING },
+          urgency: { type: SchemaType.STRING, enum: ["HIGH", "MEDIUM", "LOW"] },
+        },
+        required: ["concept", "reason", "suggestedAction", "urgency"],
+      },
+    },
+    lowerPriority: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          concept: { type: SchemaType.STRING },
+          reason: { type: SchemaType.STRING },
+        },
+        required: ["concept", "reason"],
+      },
+    },
+    why: { type: SchemaType.STRING },
+    recommendedPractice: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          topic: { type: SchemaType.STRING },
+          concept: { type: SchemaType.STRING },
+          problemType: { type: SchemaType.STRING },
+          practiceStrategy: { type: SchemaType.STRING },
+          expectedOutcome: { type: SchemaType.STRING },
+        },
+        required: ["topic", "concept", "problemType", "practiceStrategy", "expectedOutcome"],
+      },
+    },
+  },
+  required: ["summaryHeadline", "focusMore", "lowerPriority", "why", "recommendedPractice"],
+};
+
+export const generateMistakeMapInsightsWithAI = async (mistakeMapStats, userProfile = {}) => {
+  if (!mistakeMapStats || !mistakeMapStats.hasData || mistakeMapStats.totalAttempts === 0) {
+    return {
+      summaryHeadline: "Complete your first assessment to unlock personalized mistake pattern analysis.",
+      focusMore: [],
+      lowerPriority: [],
+      why: "No assessment attempts recorded yet. AI recommendations are dynamically generated once actual performance telemetry is available.",
+      recommendedPractice: [],
+      isInsufficientData: true,
+    };
+  }
+
+  const {
+    summary = {},
+    highPriorityConcepts = [],
+    needsPracticeConcepts = [],
+    strongConcepts = [],
+    mistakeDistribution = {},
+  } = mistakeMapStats;
+
+  const weakSummaries = [...highPriorityConcepts, ...needsPracticeConcepts].slice(0, 6).map((c) =>
+    `- Concept: ${c.concept} (Topic: ${c.topic}) | Accuracy: ${c.accuracy}% (${c.correctCount}/${c.totalAttempts} correct) | Mistakes: ${c.mistakeCount} | Primary Mistake Type: ${c.primaryMistakeType} | Recurring: ${c.isRecurringWeakness ? "YES" : "NO"} | Evidence: ${c.evidence}`
+  ).join("\n");
+
+  const strongSummaries = strongConcepts.slice(0, 4).map((c) =>
+    `- Concept: ${c.concept} (Topic: ${c.topic}) | Accuracy: ${c.accuracy}% (${c.correctCount}/${c.totalAttempts} correct) | Mistakes: ${c.mistakeCount}`
+  ).join("\n");
+
+  const distributionSummary = (mistakeDistribution.breakdown || [])
+    .filter((b) => b.count > 0)
+    .map((b) => `${b.label}: ${b.count} (${b.percentage}%)`)
+    .join(", ");
+
+  const prompt = `You are an expert diagnostic learning analytics engine.
+Analyze the following student's real Mistake Map statistical telemetry and produce actionable, grounded learning recommendations.
+
+CRITICAL INSTRUCTIONS:
+- You MUST base all insights strictly on the provided real performance data.
+- Do NOT invent performance statistics, numbers, or topics not present in the evidence.
+- "focusMore": List the high-priority concepts where error rates are high or recurring.
+- "lowerPriority": List the strong concepts where high accuracy is demonstrated.
+- "why": Provide a coherent explanation synthesizing the evidence behind why specific concepts are flagged as weaknesses.
+- "recommendedPractice": Suggest specific problem types and targeted practice strategies for the weak areas.
+- Target Field/Goal: ${userProfile?.careerGoal || userProfile?.selectedField || "General"}
+
+STUDENT PERFORMANCE DATA:
+Total Assessments: ${summary.totalAttempts || 0}
+Total Questions: ${summary.totalQuestions || 0}
+Overall Accuracy: ${summary.overallAccuracy || 0}%
+Total Mistakes: ${summary.totalMistakes || 0}
+Dominant Mistake Pattern: ${mistakeDistribution.dominantType || "NONE"} (${distributionSummary || "None"})
+
+CONCEPTS NEEDING ATTENTION / PRACTICE:
+${weakSummaries || "None flagged as weak."}
+
+DEMONSTRATED STRONG CONCEPTS:
+${strongSummaries || "No strong concepts recorded yet."}
+
+Return the response strictly matching the requested JSON schema.`;
+
+  try {
+    const result = await callAI(prompt, MISTAKE_MAP_INSIGHTS_SCHEMA);
+    return {
+      ...result,
+      isInsufficientData: false,
+    };
+  } catch (err) {
+    console.warn("[MistakeMap AI] Gemini insight generation failed, returning statistical fallback:", err.message);
+    return {
+      summaryHeadline: highPriorityConcepts.length > 0
+        ? `Focus on ${highPriorityConcepts.slice(0, 2).map((c) => c.concept).join(" and ")} to improve your overall accuracy.`
+        : "Consistent practice across baseline topics will help stabilize performance.",
+      focusMore: highPriorityConcepts.slice(0, 3).map((c) => ({
+        concept: c.concept,
+        reason: c.evidence,
+        suggestedAction: `Practice targeted ${c.concept} questions with focus on ${c.primaryMistakeType.toLowerCase().replace(/_/g, " ")} accuracy.`,
+        urgency: "HIGH",
+      })),
+      lowerPriority: strongConcepts.slice(0, 3).map((c) => ({
+        concept: c.concept,
+        reason: `Solid proficiency demonstrated with ${c.accuracy}% accuracy across ${c.totalAttempts} attempts.`,
+      })),
+      why: highPriorityConcepts.length > 0
+        ? `Analysis of ${summary.totalAttempts} assessments shows recurring error patterns in ${highPriorityConcepts.map((c) => c.concept).join(", ")}. Addressing these will provide the highest score impact.`
+        : `Overall accuracy is currently ${summary.overallAccuracy}% across ${summary.totalQuestions} questions.`,
+      recommendedPractice: highPriorityConcepts.slice(0, 3).map((c) => ({
+        topic: c.topic,
+        concept: c.concept,
+        problemType: `${c.concept} Diagnostic Practice`,
+        practiceStrategy: `Focus on step-by-step resolution of ${c.primaryMistakeType.toLowerCase().replace(/_/g, " ")} steps.`,
+        expectedOutcome: `Increase ${c.concept} accuracy to >= 75%.`,
+      })),
+      isInsufficientData: false,
+      isFallback: true,
+    };
+  }
+};
+
