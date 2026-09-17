@@ -108,7 +108,8 @@ export async function startAttempt(req, res) {
         const formattedQuestions = (generated.questions || []).map((q) => ({
           type: q.type || "mcq",
           difficulty: q.difficulty || "Medium",
-          concept: q.topic || topic,
+          topic: q.topic || topic,
+          concept: q.concept || q.topic || topic,
           question: q.question,
           options: Array.isArray(q.options) ? q.options : [],
           answer: q.correctAnswer || (Array.isArray(q.options) ? q.options[0] : ""),
@@ -160,13 +161,16 @@ export async function startAttempt(req, res) {
         type: q.type,
         answer: originalAnswer,
         options: originalOptions,
+        topic: q.topic || assessment.field || assessment.category || "General",
         concept: q.concept || assessment.category || "General",
+        difficulty: q.difficulty || assessment.difficulty || "Medium",
       });
 
       const questionItem = {
         id: qId,
         type: q.type,
-        difficulty: q.difficulty,
+        difficulty: q.difficulty || assessment.difficulty || "Medium",
+        topic: q.topic || assessment.field || assessment.category || "General",
         concept: q.concept || assessment.category || "General",
         question: q.question,
         context: q.context,
@@ -241,6 +245,65 @@ function getNormalizedType(q) {
     return "mcq";
   }
   return "short_answer";
+}
+
+/**
+ * Deterministically classifies a mistake based on available assessment evidence.
+ * Only assigns specific categories when clear deterministic signals exist.
+ * Otherwise returns "UNKNOWN" without fabricating reasons.
+ */
+export function classifyMistakeDeterministically(q, evalResult, sessionQ, userResp, elapsedSeconds, totalQuestions) {
+  // If correct, there is no mistake
+  if (evalResult?.isCorrect || evalResult?.status === "correct") {
+    return "";
+  }
+
+  // 1. Unanswered / Timeout check
+  if (evalResult?.status === "unanswered" || userResp === undefined || userResp === null || String(userResp).trim() === "") {
+    if (elapsedSeconds && totalQuestions && (Number(elapsedSeconds) / Number(totalQuestions)) >= 60) {
+      return "TIME_MANAGEMENT";
+    }
+    return "UNKNOWN";
+  }
+
+  const qType = String(q?.type || sessionQ?.type || evalResult?.type || "").toLowerCase();
+  const qPrompt = String(q?.question || q?.questionText || evalResult?.questionText || "").toLowerCase();
+  const rubric = String(q?.rubric || "").toLowerCase();
+  const userText = String(userResp != null ? userResp : evalResult?.userAnswer || "").trim();
+  const targetAnswer = String(sessionQ?.answer || q?.answer || evalResult?.correctAnswer || "").trim();
+
+  // 2. Implementation / Syntax / Coding errors
+  if (qType.includes("coding") || qType.includes("implementation") || q?.codeSnippet || qType === "problem-solving") {
+    return "IMPLEMENTATION";
+  }
+
+  // 3. Careless errors (near-miss short answers, off-by-one difference)
+  if (evalResult?.type === "short_answer" && userText && targetAnswer) {
+    const userClean = userText.toLowerCase().replace(/[^\w]/g, "");
+    const targetClean = targetAnswer.toLowerCase().replace(/[^\w]/g, "");
+    if (!isNaN(Number(userText)) && !isNaN(Number(targetAnswer))) {
+      const numDiff = Math.abs(Number(userText) - Number(targetAnswer));
+      if (numDiff === 1) return "CARELESS";
+    }
+    if (userClean.length >= 3 && targetClean.length >= 3) {
+      if (userClean.includes(targetClean) || targetClean.includes(userClean)) {
+        return "CARELESS";
+      }
+    }
+  }
+
+  // 4. Logical reasoning / algorithmic logic
+  if (qType.includes("logical") || qType.includes("reasoning") || qType.includes("scenario") || qPrompt.includes("what is the output") || qPrompt.includes("trace the")) {
+    return "LOGICAL";
+  }
+
+  // 5. Conceptual / Definition / Theoretical principle
+  if (qType.includes("conceptual") || rubric.includes("concept") || qPrompt.includes("which of the following defines") || qPrompt.includes("definition") || qPrompt.includes("fundamental principle")) {
+    return "CONCEPTUAL";
+  }
+
+  // 6. Default to UNKNOWN when data does not provide definitive evidence
+  return "UNKNOWN";
 }
 
 function evaluateSingleQuestion(q, userResp, sessionQ) {
@@ -496,7 +559,11 @@ export async function submitAttempt(req, res) {
       const sessionQ = session && session.answersMap ? session.answersMap.get(qId) : null;
 
       const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
+      evalResult.topic = q.topic || sessionQ?.topic || assessment?.field || assessment?.category || bodyField || bodyCategory || "General";
       evalResult.concept = q.concept || sessionQ?.concept || assessment?.category || bodyCategory || "General";
+      evalResult.difficulty = q.difficulty || sessionQ?.difficulty || assessment?.difficulty || "Medium";
+      evalResult.timeTaken = rawQuestions.length > 0 ? Math.round(Number(elapsedSeconds || 0) / rawQuestions.length) : 0;
+      evalResult.mistakeType = classifyMistakeDeterministically(q, evalResult, sessionQ, userResp, elapsedSeconds, rawQuestions.length);
       questionResults.push(evalResult);
 
       totalScore += evalResult.marksAwarded;
@@ -513,9 +580,18 @@ export async function submitAttempt(req, res) {
   } else if (req.body.questionResults && Array.isArray(req.body.questionResults)) {
     // If client supplied evaluated question results directly
     req.body.questionResults.forEach((q) => {
+      const topic = q.topic || bodyField || bodyCategory || "General";
+      const concept = q.concept || bodyCategory || "General";
+      const difficulty = q.difficulty || "Medium";
+      const isCorrect = q.isCorrect || q.status === "correct";
+      const mistakeType = q.mistakeType || (isCorrect ? "" : classifyMistakeDeterministically(q, q, null, q.userAnswer, elapsedSeconds, req.body.questionResults.length));
       questionResults.push({
         ...q,
-        concept: q.concept || bodyCategory || "General",
+        topic,
+        concept,
+        difficulty,
+        timeTaken: q.timeTaken || (req.body.questionResults.length > 0 ? Math.round(Number(elapsedSeconds || 0) / req.body.questionResults.length) : 0),
+        mistakeType,
       });
       const marks = q.marksAwarded || (q.isCorrect ? 10 : 0);
       const maxM = q.maxMarks || 10;
@@ -615,6 +691,22 @@ export async function syncAttemptResult(req, res) {
       questionResults = [],
     } = req.body;
 
+    const enrichedResults = (questionResults || []).map((q) => {
+      const topic = q.topic || assessmentField || assessmentCategory || "General";
+      const concept = q.concept || assessmentCategory || "General";
+      const difficulty = q.difficulty || "Medium";
+      const isCorrect = q.isCorrect || q.status === "correct";
+      const mistakeType = q.mistakeType || (isCorrect ? "" : classifyMistakeDeterministically(q, q, null, q.userAnswer, elapsedSeconds, questionResults.length));
+      return {
+        ...q,
+        topic,
+        concept,
+        difficulty,
+        timeTaken: q.timeTaken || (questionResults.length > 0 ? Math.round(Number(elapsedSeconds || 0) / questionResults.length) : 0),
+        mistakeType,
+      };
+    });
+
     const attempt = await AttemptResult.create({
       userId,
       assessmentTitle,
@@ -629,7 +721,7 @@ export async function syncAttemptResult(req, res) {
       gradableCount: Number(totalQuestions),
       totalQuestions: Number(totalQuestions),
       elapsedSeconds: Number(elapsedSeconds),
-      questionResults,
+      questionResults: enrichedResults,
       completedAt: new Date(),
     });
 
@@ -791,10 +883,12 @@ export async function generateAIAssessment(req, res) {
       // Ensure all required fields exist
       const qDifficulty = q.difficulty || difficulty;
       const qTopic = q.topic || topic;
+      const qConcept = q.concept || q.topic || topic;
       return {
         type: q.type || "mcq",
         difficulty: ["Easy", "Medium", "Hard"].includes(qDifficulty) ? qDifficulty : "Medium",
-        concept: qTopic,
+        topic: qTopic,
+        concept: qConcept,
         question: q.question,
         options: Array.isArray(q.options) ? q.options : [],
         answer: q.correctAnswer || (Array.isArray(q.options) ? q.options[0] : ""),
@@ -1105,7 +1199,8 @@ export async function generateDailyAIAssessment(req, res) {
       return {
         type: q.type || "mcq",
         difficulty: ["Easy", "Medium", "Hard"].includes(q.difficulty) ? q.difficulty : "Medium",
-        concept: q.topic || targetTopic,
+        topic: q.topic || targetTopic,
+        concept: q.concept || q.topic || targetTopic,
         question: q.question,
         options: Array.isArray(q.options) ? q.options : [],
         answer: q.correctAnswer || (Array.isArray(q.options) ? q.options[0] : ""),
@@ -1218,7 +1313,11 @@ export async function evaluateAttemptWithAI(req, res) {
       const sessionQ = session?.answersMap?.get(qId) ?? null;
 
       const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
+      evalResult.topic = q.topic || sessionQ?.topic || assessment?.field || assessment?.category || bodyField || bodyCategory || "General";
       evalResult.concept = q.concept || sessionQ?.concept || assessment?.category || bodyCategory || "General";
+      evalResult.difficulty = q.difficulty || sessionQ?.difficulty || assessment?.difficulty || "Medium";
+      evalResult.timeTaken = rawQuestions.length > 0 ? Math.round(Number(elapsedSeconds || 0) / rawQuestions.length) : 0;
+      evalResult.mistakeType = classifyMistakeDeterministically(q, evalResult, sessionQ, userResp, elapsedSeconds, rawQuestions.length);
       questionResults.push(evalResult);
 
       totalScore += evalResult.marksAwarded;

@@ -192,9 +192,30 @@ export const conceptRootApi = {
 export const mistakeMapApi = {
   /**
    * GET /api/mistake-map
-   * Returns fully personalized Mistake Map analysis data.
+   * Returns fully personalized Mistake Map analysis data with AI recommendations.
    */
   get: () => request("/mistake-map"),
+
+  /**
+   * GET /api/mistake-map/statistics
+   * Returns telemetry statistics without AI latency.
+   */
+  getStatistics: () => request("/mistake-map/statistics"),
+
+  /**
+   * GET /api/mistake-map/patterns
+   * Returns recurring weaknesses and before/now trends.
+   */
+  getPatterns: () => request("/mistake-map/patterns"),
+
+  /**
+   * POST /api/mistake-map/ai-insights
+   * Generates or refreshes on-demand AI recommendations.
+   */
+  getAIInsights: () =>
+    request("/mistake-map/ai-insights", {
+      method: "POST",
+    }),
 };
 
 export const skillGapApi = {

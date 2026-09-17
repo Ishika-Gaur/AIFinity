@@ -4,6 +4,7 @@ const questionSchema = new mongoose.Schema(
   {
     type: { type: String, required: true, trim: true },
     difficulty: { type: String, enum: ["Easy", "Medium", "Hard"], default: "Medium" },
+    topic: { type: String, trim: true, default: "" },
     concept: { type: String, trim: true, default: "" },
     question: { type: String, required: true, trim: true },
     context: { type: String, trim: true },
