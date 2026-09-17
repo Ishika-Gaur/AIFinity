@@ -1,53 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { authApi } from "../../services/api";
+import { useStudentAuth } from "../../context/StudentAuthContext";
 
 import { LogOut } from 'lucide-react';
 import DashboardLogo from "./DashboardLogo";
 
 export default function DashboardHeader({ user, quotes = [] }) {
   const navigate = useNavigate();
-
-  // Retrieve authenticated user from localStorage cache or authApi.getMe()
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const cached = localStorage.getItem("user");
-      return cached ? JSON.parse(cached) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  useEffect(() => {
-    let isMounted = true;
-    authApi
-      .getMe()
-      .then((res) => {
-        if (isMounted && res.success && res.user) {
-          setCurrentUser(res.user);
-          try {
-            localStorage.setItem("user", JSON.stringify(res.user));
-          } catch {}
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const { user: sessionUser, logout } = useStudentAuth();
+  const currentUser = sessionUser;
 
   const handleLogout = async () => {
-    try {
-      localStorage.removeItem("user");
-    } catch {}
-    const res = await authApi.logout();
-    if (res.success) {
-      navigate('/login');
-    } else {
-      console.error('Logout failed', res.error);
-      navigate('/login');
-    }
+    await logout();
+    navigate("/login");
   };
 
   const dynamicName = currentUser?.name?.trim() || (user?.name && user.name.trim() !== "Learner" ? user.name.trim() : "");

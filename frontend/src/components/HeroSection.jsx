@@ -147,7 +147,7 @@ function ChalkVisual({ variant }) {
           <text x="82" y="418">Start</text>
           <text x="192" y="326" textAnchor="end">Skills</text>
           <text x="92" y="268">Projects</text>
-          <text x="202" y="150" textAnchor="end">Interview</text>
+          <text x="202" y="150" textAnchor="end">Mastery</text>
         </g>
         <text x="112" y="26" textAnchor="middle" fill={gold} fontSize="17" fontFamily="Kalam" fontStyle="italic">Job Ready</text>
       </svg>

@@ -145,7 +145,13 @@ AIFinity focuses on one central question:
 
 ---
 
-## 🏗️ System Architecture
+## � Live Demo
+
+Check out the live demo: **[https://aifinity-frontend.onrender.com/](https://aifinity-frontend.onrender.com/)**
+
+---
+
+## �🏗️ System Architecture
 
 ```text
 ┌───────────────────────────────────────────────┐
@@ -176,15 +182,22 @@ AIFinity focuses on one central question:
 
 | Layer              | Technology           |
 | ------------------ | -------------------- |
-| Frontend           | React.js             |
-| Styling            | Tailwind CSS         |
-| Backend            | Node.js + Express.js |
-| Authentication     | JWT                  |
+| Frontend           | React.js 19.2.8     |
+| Styling            | Tailwind CSS 4.3.3   |
+| Build Tool         | Vite 8.2.0           |
+| Routing            | React Router DOM 7.18.2 |
+| Icons              | Lucide React 1.33.0  |
+| 3D Graphics        | Three.js 0.185.1     |
+| Email Service      | EmailJS 4.4.1        |
+| Charts             | Recharts 3.10.1      |
+| Backend            | Node.js + Express.js 5.0.1 |
+| Authentication     | JWT (jsonwebtoken 9.0.2) |
+| Password Hashing   | bcryptjs 3.0.2       |
 | API                | REST API             |
-| AI                 | Google Gemini API    |
-| Database           | MongoDB Atlas        |
-| Resume Parsing     | pdf-parse            |
-| Data Visualization | Recharts             |
+| AI                 | Google Generative AI 0.24.1 |
+| AI                 | Groq SDK 1.6.0       |
+| Database           | MongoDB (Mongoose 8.12.1) |
+| Email              | Nodemailer 9.0.5     |
 | Deployment         | Vercel + Render      |
 
 ---
@@ -195,25 +208,73 @@ AIFinity focuses on one central question:
 AIFinity/
 │
 ├── frontend/
+│   ├── public/
 │   ├── src/
 │   │   ├── components/
+│   │   │   ├── admin/
+│   │   │   └── dashboard/
 │   │   ├── pages/
+│   │   │   └── admin/
+│   │   ├── context/
 │   │   ├── services/
-│   │   ├── hooks/
-│   │   └── utils/
+│   │   ├── utils/
+│   │   ├── assets/
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   └── index.css
+│   ├── index.html
+│   ├── vite.config.js
+│   ├── .oxlintrc.json
+│   ├── .env.example
 │   └── package.json
 │
 ├── backend/
-│   ├── controllers/
-│   ├── models/
-│   ├── routes/
-│   ├── middleware/
-│   ├── services/
-│   ├── utils/
-│   └── server.js
+│   ├── src/
+│   │   ├── controllers/
+│   │   │   ├── adminController.js
+│   │   │   ├── analyticsController.js
+│   │   │   ├── assessmentController.js
+│   │   │   ├── authController.js
+│   │   │   ├── conceptRootController.js
+│   │   │   ├── dashboardController.js
+│   │   │   ├── mistakeMapController.js
+│   │   │   ├── personalIntelligenceController.js
+│   │   │   ├── roadmapController.js
+│   │   │   └── skillGapController.js
+│   │   ├── models/
+│   │   │   ├── AdminSettings.js
+│   │   │   ├── Assessment.js
+│   │   │   ├── AttemptResult.js
+│   │   │   ├── ChatMessage.js
+│   │   │   ├── ChatSession.js
+│   │   │   ├── ConceptRootAnalysis.js
+│   │   │   ├── LearningContent.js
+│   │   │   ├── SkillGapAnalysis.js
+│   │   │   ├── User.js
+│   │   │   └── UserRoadmap.js
+│   │   ├── routes/
+│   │   │   ├── adminRoutes.js
+│   │   │   ├── analyticsRoutes.js
+│   │   │   ├── assessmentRoutes.js
+│   │   │   ├── authRoutes.js
+│   │   │   ├── conceptRootRoutes.js
+│   │   │   ├── dashboardRoutes.js
+│   │   │   ├── mistakeMapRoutes.js
+│   │   │   ├── personalIntelligenceRoutes.js
+│   │   │   ├── roadmapRoutes.js
+│   │   │   └── skillGapRoutes.js
+│   │   ├── middleware/
+│   │   ├── services/
+│   │   ├── utils/
+│   │   ├── scripts/
+│   │   │   └── createAdmin.js
+│   │   └── server.js
+│   ├── .env.example
+│   └── package.json
 │
 ├── README.md
-└── .gitignore
+├── .gitignore
+└── package-lock.json
 ```
 
 ---
@@ -225,6 +286,103 @@ AIFinity uses **JWT-based authentication** to provide secure access to user-spec
 Application data, including users and assessments, is managed through **MongoDB Atlas**.
 
 The platform is designed around real application data rather than relying on hard-coded mock users.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Node.js** (v18 or higher)
+- **npm** or **yarn**
+- **MongoDB** (local or MongoDB Atlas account)
+- **Groq API Key** (for AI features)
+- **EmailJS credentials** (for contact form)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd project
+   ```
+
+2. **Backend Setup**
+   ```bash
+   cd backend
+   npm install
+   cp .env.example .env
+   ```
+   Configure your `.env` file with the following variables:
+   ```env
+   PORT=5000
+   MONGODB_URI=mongodb://localhost:27017/aifinity
+   JWT_SECRET=your_jwt_secret_key_here_change_in_production
+   JWT_EXPIRES_IN=7d
+   NODE_ENV=development
+   CLIENT_URL=http://localhost:5173
+   COOKIE_SECRET=your_cookie_secret_key_here
+   SMTP_HOST=smtp.example.com
+   SMTP_PORT=587
+   SMTP_USER=your_smtp_username
+   SMTP_PASS=your_smtp_password
+   MAIL_FROM=AIFinity <no-reply@example.com>
+   GROQ_API_KEY=your_groq_api_key_here
+   ```
+
+3. **Frontend Setup**
+   ```bash
+   cd frontend
+   npm install
+   cp .env.example .env
+   ```
+   Configure your `.env` file with the following variables:
+   ```env
+   VITE_API_BASE_URL=http://localhost:5000/api
+   VITE_EMAILJS_SERVICE_ID=your_service_id_here
+   VITE_EMAILJS_TEMPLATE_ID=your_template_id_here
+   VITE_EMAILJS_PUBLIC_KEY=your_public_key_here
+   ```
+
+### Running the Application
+
+1. **Start the Backend Server**
+   ```bash
+   cd backend
+   npm run dev
+   ```
+   The backend will run on `http://localhost:5000`
+
+2. **Start the Frontend Development Server**
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+   The frontend will run on `http://localhost:5173`
+
+### Creating an Admin User
+
+To create an admin user, run:
+```bash
+cd backend
+npm run create-admin
+```
+
+Follow the prompts to enter admin credentials.
+
+### Build for Production
+
+**Frontend:**
+```bash
+cd frontend
+npm run build
+```
+
+**Backend:**
+```bash
+cd backend
+npm start
+```
 
 ---
 
@@ -246,6 +404,135 @@ Current Skills ──────────┘    Gap Analysis
 ```
 
 AIFinity combines learning performance and career information to move beyond simple assessment scores and provide **actionable guidance**.
+
+---
+
+## 🔌 API Endpoints
+
+### Authentication
+- `POST /api/auth/signup` - User registration
+- `POST /api/auth/login` - User login
+- `POST /api/auth/logout` - User logout
+- `POST /api/auth/forgot-password` - Request password reset
+- `POST /api/auth/reset-password` - Reset password
+- `GET /api/auth/verify` - Verify authentication status
+
+### Admin
+- `GET /api/admin/users` - Get all users
+- `POST /api/admin/create-admin` - Create admin user
+- `GET /api/admin/test` - Test admin authorization
+- `GET /api/admin/settings` - Get admin settings
+- `PUT /api/admin/settings` - Update admin settings
+
+### Assessments
+- `GET /api/assessments` - Get all assessments
+- `GET /api/assessments/:id` - Get assessment by ID
+- `POST /api/assessments` - Create assessment (Admin)
+- `PUT /api/assessments/:id` - Update assessment (Admin)
+- `DELETE /api/assessments/:id` - Delete assessment (Admin)
+- `POST /api/assessments/:id/attempt` - Submit assessment attempt
+- `GET /api/assessments/:id/results` - Get assessment results
+
+### Dashboard
+- `GET /api/dashboard/stats` - Get dashboard statistics
+- `GET /api/dashboard/recent-activity` - Get recent activity
+
+### Analytics
+- `GET /api/analytics/performance` - Get performance analytics
+- `GET /api/analytics/trends` - Get learning trends
+
+### ConceptRoot AI
+- `POST /api/concept-root/analyze` - Analyze conceptual weaknesses
+- `GET /api/concept-root/history` - Get analysis history
+
+### MistakeMap AI
+- `POST /api/mistake-map/analyze` - Analyze mistake patterns
+- `GET /api/mistake-map/patterns` - Get mistake patterns
+
+### SkillGap AI
+- `POST /api/skill-gap/analyze` - Analyze skill gaps
+- `GET /api/skill-gap/report` - Get skill gap report
+
+### Personal Intelligence
+- `POST /api/personal-intelligence/chat` - AI chat interaction
+- `GET /api/personal-intelligence/sessions` - Get chat sessions
+
+### Roadmap
+- `GET /api/roadmap` - Get personalized roadmap
+- `POST /api/roadmap/generate` - Generate new roadmap
+
+---
+
+## 🗄️ Database Models
+
+### User
+- `name` - User's full name
+- `email` - User's email (unique)
+- `password` - Hashed password
+- `role` - User role (student/admin)
+- `careerGoal` - Target career goal
+- `resume` - Resume file path
+- `skills` - Array of skills
+- `projects` - Array of projects
+
+### Assessment
+- `title` - Assessment title
+- `description` - Assessment description
+- `category` - Assessment category
+- `questions` - Array of questions
+- `duration` - Time limit (minutes)
+- `createdBy` - Admin user ID
+
+### AttemptResult
+- `userId` - User who attempted
+- `assessmentId` - Assessment attempted
+- `score` - Score obtained
+- `totalScore` - Maximum possible score
+- `answers` - User's answers
+- `timeTaken` - Time taken to complete
+- `completedAt` - Completion timestamp
+
+### ConceptRootAnalysis
+- `userId` - User ID
+- `assessmentId` - Assessment ID
+- `questionId` - Question ID
+- `conceptGap` - Identified concept gap
+- `rootCause` - Root cause analysis
+- `prerequisites` - Missing prerequisites
+- `recommendations` - Learning recommendations
+
+### SkillGapAnalysis
+- `userId` - User ID
+- `careerGoal` - Target career
+- `missingSkills` - Array of missing skills
+- `recommendations` - Skill development recommendations
+- `roadmap` - Learning roadmap
+
+### UserRoadmap
+- `userId` - User ID
+- `careerGoal` - Career goal
+- `milestones` - Learning milestones
+- `resources` - Recommended resources
+- `progress` - Progress tracking
+
+---
+
+## 📝 Available Scripts
+
+### Backend
+```bash
+npm start          # Start production server
+npm run dev        # Start development server with nodemon
+npm run create-admin  # Create admin user interactively
+```
+
+### Frontend
+```bash
+npm run dev        # Start development server with Vite
+npm run build      # Build for production
+npm run preview    # Preview production build
+npm run lint       # Run oxlint for code linting
+```
 
 ---
 

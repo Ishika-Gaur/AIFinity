@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import Section from "../components/Section";
 import SectionHeading from "../components/SectionHeading";
 import Button from "../components/Button";
@@ -10,6 +10,7 @@ import {
   DIFFICULTY_FILTERS,
   getUserProfile,
   formatType,
+  CAREER_GOALS_BY_FIELD,
 } from "../utils/constants";
 import { assessmentApi, dashboardApi } from "../services/api";
 
@@ -208,23 +209,46 @@ function AssessmentProgressCard({ completedCount, availableCount, inProgressCoun
 }
 
 /* One assessment, shown the same way in "Recommended" and "Explore".
-   Gradient banner on top (colored per category, like LeetCode's Explore /
-   Study Plan tiles) with a plain white footer for stats + CTA below. */
-function AssessmentCard({ assessment }) {
+   Gradient banner on top with personalized badge and recommendation reasons. */
+function AssessmentCard({ assessment, onStart, isGenerating }) {
   const questionTypes = useMemo(
-    () => Array.from(new Set(assessment.questions.map((q) => q.type))),
+    () => Array.from(new Set((assessment.questions || []).map((q) => q.type))),
     [assessment]
   );
-  const gradient = CATEGORY_GRADIENTS[getCategoryIndex(assessment.category)];
+  const gradient = CATEGORY_GRADIENTS[getCategoryIndex(assessment.category || "General")];
+
+  const badgeColorClass = useMemo(() => {
+    switch (assessment.recommendationBadge) {
+      case "Needs Improvement":
+        return "bg-amber-100 text-amber-900 border-amber-300";
+      case "Roadmap Priority":
+        return "bg-emerald-100 text-emerald-900 border-emerald-300";
+      case "Career Target":
+        return "bg-blue-100 text-blue-900 border-blue-300";
+      case "Field Essential":
+        return "bg-indigo-100 text-indigo-900 border-indigo-300";
+      case "AI Generated":
+        return "bg-purple-100 text-purple-900 border-purple-300";
+      default:
+        return "bg-white/90 text-slate-800 border-slate-200";
+    }
+  }, [assessment.recommendationBadge]);
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white shadow-sm transition-shadow hover:shadow-md">
       <div className={`relative flex aspect-[4/3] flex-col justify-between bg-gradient-to-br ${gradient} p-5 text-white`}>
         <div>
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
-            {assessment.category}
-          </span>
-          <h3 className="mt-1 text-lg font-bold leading-snug">{assessment.title}</h3>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
+              {assessment.category}
+            </span>
+            {assessment.recommendationBadge && (
+              <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider shadow-xs ${badgeColorClass}`}>
+                {assessment.recommendationBadge}
+              </span>
+            )}
+          </div>
+          <h3 className="mt-2 text-lg font-bold leading-snug">{assessment.title}</h3>
         </div>
         <div className="flex items-end justify-between">
           <span
@@ -248,23 +272,42 @@ function AssessmentCard({ assessment }) {
           {assessment.description}
         </p>
         {assessment.recommendationReason && (
-          <p className="mt-2 text-xs font-semibold text-[var(--color-primary-600)]">
-            {assessment.recommendationReason}
-          </p>
+          <div className="mt-2.5 rounded-xl bg-slate-50 p-2.5 border border-slate-100">
+            <p className="text-xs text-slate-700 leading-relaxed">
+              <span className="font-bold text-[var(--color-primary-600)]">Why recommended: </span>
+              {assessment.recommendationReason}
+            </p>
+          </div>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--color-text-muted)]">
-          <span>{assessment.questions.length} questions</span>
+          <span>{(assessment.questions || []).length} questions</span>
           <span>·</span>
-          <span>~{assessment.duration} min</span>
+          <span>~{assessment.duration || 10} min</span>
           {questionTypes.slice(0, 2).map((t) => (
             <span key={t} className="rounded-md bg-[var(--color-surface-secondary)] px-2 py-0.5 font-medium">
               {formatType(t)}
             </span>
           ))}
+          {assessment.isCompleted && (
+            <span className="ml-auto rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+              Completed ✓
+            </span>
+          )}
         </div>
-        <Button as={Link} to={`/assessment/${assessment.id}`} size="sm" className="mt-4 w-full">
-          Start Assessment
-        </Button>
+        {onStart ? (
+          <Button
+            onClick={() => onStart(assessment)}
+            disabled={isGenerating}
+            size="sm"
+            className="mt-4 w-full"
+          >
+            {isGenerating ? "Generating Assessment..." : assessment.isCompleted ? "Retake Assessment" : "Start Assessment"}
+          </Button>
+        ) : (
+          <Button as={Link} to={`/assessment/${assessment.id}`} size="sm" className="mt-4 w-full">
+            Start Assessment
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -512,6 +555,8 @@ function StreakSidebar({ profile, dailyAssessments, completedDays, onDailyClick 
 }
 
 export default function AssessmentPage() {
+  const profile = useMemo(() => getUserProfile(), []);
+
   const [category, setCategory] = useState("All");
   const [difficulty, setDifficulty] = useState("All");
   const [type, setType] = useState("All");
@@ -533,6 +578,29 @@ export default function AssessmentPage() {
   const [aiError, setAiError] = useState("");
   const [isGeneratingDaily, setIsGeneratingDaily] = useState(false);
   const [generatingCategory, setGeneratingCategory] = useState(null);
+  const [generatingCardId, setGeneratingCardId] = useState(null);
+
+  // URL Search Parameters from Roadmap / Handbook / Projects
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const incomingTopic = searchParams.get("topic") || "";
+  const incomingField = searchParams.get("field") || "";
+  const incomingDifficulty = searchParams.get("difficulty") || "";
+
+  useEffect(() => {
+    if (incomingTopic) {
+      setAiTopic(incomingTopic);
+    }
+    if (incomingField) {
+      setAiField(incomingField);
+    } else if (profile?.careerGoal || profile?.field) {
+      setAiField(profile?.careerGoal || profile?.field || "");
+    }
+    if (incomingDifficulty) {
+      const diffMap = { High: "Hard", Medium: "Medium", Low: "Easy" };
+      setAiDifficulty(diffMap[incomingDifficulty] || incomingDifficulty || "Medium");
+    }
+  }, [incomingTopic, incomingField, incomingDifficulty, profile]);
 
   const [userStats, setUserStats] = useState({
     completedCount: 0,
@@ -540,8 +608,6 @@ export default function AssessmentPage() {
     history: [],
     loading: true,
   });
-
-  const profile = useMemo(() => getUserProfile(), []);
 
   useEffect(() => {
     let isMounted = true;
@@ -628,19 +694,23 @@ export default function AssessmentPage() {
     };
   }, []);
 
-  const DEFAULT_TRACK_CATEGORIES = [
-    "Frontend Development",
-    "Data Structures & Algorithms",
-    "Backend Development",
-    "System Design",
-    "Database Systems"
-  ];
+  // Categories: seed with the career-specific goals for this user's field,
+  // then merge with any categories from the actual published assessments.
+  const userFieldCategories = useMemo(() => {
+    const field = profile?.field || "Software Development";
+    // Get career goals for this field as category seeds
+    const fieldGoals = CAREER_GOALS_BY_FIELD[field] || [];
+    // Also include core sub-topics from similar fields if goals is sparse
+    return fieldGoals.length >= 3
+      ? fieldGoals.slice(0, 6)
+      : [...fieldGoals, field];
+  }, [profile]);
 
   const categories = useMemo(() => {
     const existingCats = assessments.map((assessment) => assessment.category).filter(Boolean);
-    const combined = Array.from(new Set([...DEFAULT_TRACK_CATEGORIES, ...existingCats]));
+    const combined = Array.from(new Set([...userFieldCategories, ...existingCats]));
     return ["All", ...combined];
-  }, [assessments]);
+  }, [assessments, userFieldCategories]);
   
   // Removed static recommended logic since we fetch it from backend now
 
@@ -675,7 +745,7 @@ export default function AssessmentPage() {
   const handleCategorySelect = async (categoryName) => {
     setGeneratingCategory(categoryName);
     try {
-      const userField = profile?.field || "Software Development";
+      const userField = profile?.field || "General";
       const res = await assessmentApi.generateAI({
         field: userField,
         topic: categoryName,
@@ -683,7 +753,7 @@ export default function AssessmentPage() {
         count: 5
       });
       if (res.success && res.assessmentId) {
-        window.location.href = `/assessment/${res.assessmentId}`;
+        navigate(`/assessment/${res.assessmentId}`);
       } else {
         alert(res.error || res.message || `Failed to generate AI assessment for ${categoryName}`);
       }
@@ -691,6 +761,32 @@ export default function AssessmentPage() {
       alert(`An error occurred while generating AI assessment for ${categoryName}`);
     } finally {
       setGeneratingCategory(null);
+    }
+  };
+
+  const handleStartAssessment = async (assessment) => {
+    if (assessment.isReadyToGenerate || assessment.id?.startsWith("ai_rec_")) {
+      setGeneratingCardId(assessment.id);
+      try {
+        const userField = profile?.field || assessment.field || "General";
+        const res = await assessmentApi.generateAI({
+          field: userField,
+          topic: assessment.category || assessment.title,
+          difficulty: assessment.difficulty || "Medium",
+          count: 5
+        });
+        if (res.success && res.assessmentId) {
+          navigate(`/assessment/${res.assessmentId}`);
+        } else {
+          alert(res.error || res.message || `Failed to generate assessment for ${assessment.title}`);
+        }
+      } catch (err) {
+        alert("An error occurred while generating AI assessment. Please try again.");
+      } finally {
+        setGeneratingCardId(null);
+      }
+    } else {
+      navigate(`/assessment/${assessment.id}`);
     }
   };
 
@@ -829,12 +925,12 @@ export default function AssessmentPage() {
 
   return (
     <div
-      className="w-full"
+      className="w-full bg-grid"
       style={{
-        backgroundColor: "#F5F1E7",
+        backgroundColor: "var(--color-bg)",
         backgroundImage:
-          "linear-gradient(rgba(90,74,58,0.14) 1px, transparent 1px), linear-gradient(90deg, rgba(90,74,58,0.14) 1px, transparent 1px)",
-        backgroundSize: "24px 24px",
+          "linear-gradient(to right, rgba(27, 51, 44, 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(27, 51, 44, 0.04) 1px, transparent 1px), linear-gradient(to right, rgba(27, 51, 44, 0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(27, 51, 44, 0.08) 1px, transparent 1px)",
+        backgroundSize: "24px 24px, 24px 24px, 120px 120px, 120px 120px",
       }}
     >
       <div className="mx-auto flex items-start max-w-[1400px] gap-6 px-4 pb-16 lg:px-8">
@@ -848,6 +944,50 @@ export default function AssessmentPage() {
 
         {/* ---------------- MAIN CONTENT ---------------- */}
         <div className="min-w-0 flex-1">
+          {/* Contextual Roadmap Milestone Banner */}
+          {incomingTopic && (
+            <div className="pt-6">
+              <div className="relative overflow-hidden rounded-2xl border border-[#E8C547]/50 bg-gradient-to-r from-[#FBF8F0] via-[#FFF9E6] to-[#FBF8F0] p-5 shadow-sm">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="rounded-full bg-[#1B332C] text-[#E8C547] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                        Roadmap Assessment Step
+                      </span>
+                      <span className="text-xs text-[#5B6B5F] font-medium">Step 3: Test Knowledge</span>
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-extrabold text-[#1B332C]">
+                      Assessment for: <span className="text-[#C4952A] underline decoration-wavy underline-offset-4">{incomingTopic}</span>
+                    </h2>
+                    <p className="mt-1 text-xs text-[#5B6B5F] max-w-xl">
+                      Haven't finished studying or building the practice project yet? Follow the recommended 3-step learning order:
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <Link
+                      to={`/resources/handbook?topic=${encodeURIComponent(incomingTopic)}`}
+                      className="rounded-xl border border-[#2E4F42]/20 bg-white px-3.5 py-2 text-xs font-bold text-[#1B332C] hover:bg-[#EDE6D3] transition-all"
+                    >
+                      📖 1. Study Concepts
+                    </Link>
+                    <Link
+                      to={`/resources/project-ideas?topic=${encodeURIComponent(incomingTopic)}`}
+                      className="rounded-xl border border-[#2E4F42]/20 bg-white px-3.5 py-2 text-xs font-bold text-[#1B332C] hover:bg-[#EDE6D3] transition-all"
+                    >
+                      💡 2. Build Project
+                    </Link>
+                    <a
+                      href="#generate-ai"
+                      className="rounded-xl bg-[#1B332C] text-[#E8C547] px-4 py-2 text-xs font-extrabold hover:bg-[#2E4F42] transition-all shadow-xs"
+                    >
+                      ⚡ 3. Take Quiz Now
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* HEADER / HERO SECTION — two-column: pitch + live diagnostic preview */}
           <Section id="overview" className="scroll-mt-24 pt-8 pb-8 sm:pt-12 sm:pb-10">
             <div className="relative overflow-hidden rounded-3xl border border-[#2E4F42]/15 bg-[#FBF8F0] p-6 sm:p-8 lg:p-10 shadow-[var(--shadow-card)] transition-all duration-300">
@@ -1031,7 +1171,12 @@ export default function AssessmentPage() {
                 </div>
               ))}
               {recommended.map((assessment) => (
-                <AssessmentCard key={assessment.id} assessment={assessment} />
+                <AssessmentCard
+                  key={assessment.id}
+                  assessment={assessment}
+                  onStart={handleStartAssessment}
+                  isGenerating={generatingCardId === assessment.id}
+                />
               ))}
               {recommended.length === 0 && weakTopics.length === 0 && (
                 <p className="col-span-full text-center text-sm text-[var(--color-text-muted)]">
@@ -1213,13 +1358,22 @@ export default function AssessmentPage() {
 
             <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {paginatedList.map((assessment) => (
-                <AssessmentCard key={assessment.id} assessment={assessment} />
+                <AssessmentCard
+                  key={assessment.id}
+                  assessment={assessment}
+                  onStart={handleStartAssessment}
+                  isGenerating={generatingCardId === assessment.id}
+                />
               ))}
               {paginatedList.length === 0 && (
                 <div className="col-span-full rounded-2xl border border-dashed border-[var(--color-border)] p-10 text-center">
                   <p className="text-sm font-medium text-[var(--color-text-h)]">No public assessments match these filters yet.</p>
                   <p className="mt-1 text-sm text-[var(--color-text-muted)]">Use the AI Generator above to create a customized assessment!</p>
-                  <Button onClick={() => handleCategorySelect(category === "All" ? "Node.js" : category)} className="mt-6" variant="outline">
+                  <Button
+                    onClick={() => handleCategorySelect(category === "All" ? (profile?.careerGoal || profile?.field || "Core Principles") : category)}
+                    className="mt-6"
+                    variant="outline"
+                  >
                     Generate AI Assessment
                   </Button>
                 </div>

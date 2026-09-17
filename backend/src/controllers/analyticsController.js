@@ -1,6 +1,7 @@
 import AttemptResult from "../models/AttemptResult.js";
 import User from "../models/User.js";
 import UserRoadmap from "../models/UserRoadmap.js";
+import { generateProjectIdeasWithAI } from "../services/geminiService.js";
 
 /**
  * Role to required skills dictionary
@@ -14,6 +15,29 @@ const ROLE_SKILLS_MAP = {
   "Machine Learning Engineer": ["Python", "Machine Learning", "Deep Learning", "NLP & LLMs", "MLOps & Model Deployment"],
   "Frontend Engineer": ["HTML & CSS", "JavaScript ES6", "React Architecture", "State Management", "Web Performance"],
   "Backend Engineer": ["Node.js & Express", "Database Design", "API Security", "Caching & Architecture", "System Design"],
+  "Class 10 Social Science (SST)": ["Nationalism & Historical Timelines", "Resources, Agriculture & Map Skills", "Democratic Politics & Federalism", "Economic Sectors & Money Credit", "Board Exam Case-Based & Answer Writing"],
+  "SST": ["Nationalism & Historical Timelines", "Resources, Agriculture & Map Skills", "Democratic Politics & Federalism", "Economic Sectors & Money Credit", "Board Exam Case-Based & Answer Writing"],
+  "Software Development": ["Problem Solving", "Data Structures", "System Design", "Web APIs", "Version Control"],
+  "Data Science & Analytics": ["Python", "Pandas", "Statistics", "Machine Learning", "Data Visualization"],
+  "Web Development": ["HTML & CSS", "JavaScript", "React", "Node.js", "Databases"],
+  "Mobile App Development": ["React Native", "Flutter", "Swift", "Kotlin", "Mobile UI"],
+  "AI & Machine Learning": ["Neural Networks", "NLP", "TensorFlow", "MLOps", "Deep Learning"],
+  "Cybersecurity": ["Network Security", "Cryptography", "Ethical Hacking", "Risk Assessment", "Incident Response"],
+  "Cloud Computing & DevOps": ["AWS/Azure", "Docker", "Kubernetes", "CI/CD", "Infrastructure as Code"],
+  "Graphic Design & UI/UX": ["Figma", "Typography", "User Research", "Wireframing", "Prototyping"],
+  "Digital Marketing": ["SEO", "Content Marketing", "Social Media", "Analytics", "Paid Advertising"],
+  "Business & Management": ["Strategic Planning", "Leadership", "Financial Basics", "Operations", "Project Management"],
+  "Finance & Accounting": ["Financial Statements", "Corporate Finance", "Taxation", "Auditing", "Financial Modeling"],
+  "Mechanical Engineering": ["Thermodynamics", "Fluid Mechanics", "CAD", "Manufacturing", "Material Science"],
+  "Electrical & Electronics": ["Circuit Design", "Microcontrollers", "Signals & Systems", "Power Systems", "Electromagnetics"],
+  "Civil Engineering": ["Structural Analysis", "Geotechnical", "Surveying", "Construction Management", "Transportation"],
+  "Medicine & Healthcare": ["Anatomy", "Pathology", "Patient Care", "Medical Ethics", "Pharmacology"],
+  "Law & Legal Studies": ["Constitutional Law", "Contracts", "Criminal Law", "Legal Writing", "Corporate Law"],
+  "Psychology & Counseling": ["Cognitive Psychology", "Behavioral Therapy", "Research Methods", "Counseling Techniques", "Abnormal Psychology"],
+  "Education & Teaching": ["Pedagogy", "Curriculum Design", "Classroom Management", "Educational Psychology", "Assessment Techniques"],
+  "Media & Communication": ["Journalism", "Public Relations", "Media Ethics", "Broadcasting", "Digital Media"],
+  "Architecture & Interior Design": ["Architectural Design", "Building Materials", "AutoCAD/Revit", "Urban Planning", "3D Rendering"],
+  "Clinical Psychologist": ["Cognitive Behavioral Therapy", "Psychological Assessment", "Clinical Interviewing", "Abnormal Psychology", "Research Methodology"],
 };
 
 function getRequiredSkillsForRole(role) {
@@ -295,15 +319,81 @@ export async function generatePersonalizedRoadmap(userId, customTargetCareer = n
   const targetCareer = customTargetCareer || existingRoadmap?.targetCareer || user?.onboardingProfile?.careerGoal || selectedField;
 
   if (!attempts || attempts.length === 0) {
-    return {
+    const requiredRoleSkills = getRequiredSkillsForRole(targetCareer);
+    
+    // Generate 4 baseline phases tailored to the career
+    const stages = [
+      {
+        id: 1,
+        title: `Phase 1: ${targetCareer} Foundations`,
+        phase: "Foundations (0-25% Readiness)",
+        status: "current",
+        duration: "4 Weeks",
+        priority: "High",
+        why: `Master baseline concepts, terminology, and core prerequisites for ${targetCareer}.`,
+        progress: 0,
+        concepts: [requiredRoleSkills[0] || "Foundations", requiredRoleSkills[1] || "Core Theory"],
+        description: `Begin your journey into ${targetCareer} by understanding the foundational concepts.`,
+        questions: 20,
+        isWeakConcept: false,
+      },
+      {
+        id: 2,
+        title: `Phase 2: Core Competencies`,
+        phase: "Core Competency (25-50% Readiness)",
+        status: "upcoming",
+        duration: "6 Weeks",
+        priority: "Medium",
+        why: `Build hands-on competencies in essential ${targetCareer} topics.`,
+        progress: 0,
+        concepts: requiredRoleSkills.slice(0, 3),
+        description: `Build hands-on competencies in essential ${targetCareer} topics.`,
+        questions: 25,
+        isWeakConcept: false,
+      },
+      {
+        id: 3,
+        title: `Phase 3: Applied Execution`,
+        phase: "Advanced Specialization (50-75% Readiness)",
+        status: "upcoming",
+        duration: "6 Weeks",
+        priority: "Standard",
+        why: `Practice applied execution in ${targetCareer} scenarios.`,
+        progress: 0,
+        concepts: requiredRoleSkills.slice(2, 4),
+        description: `Practice the concepts in practical scenarios.`,
+        questions: 30,
+        isWeakConcept: false,
+      },
+      {
+        id: 4,
+        title: `Phase 4: Advanced Skills & Portfolio`,
+        phase: "Career Readiness (75-100% Job Ready)",
+        status: "locked",
+        duration: "8 Weeks",
+        priority: "Standard",
+        why: `Advance through the remaining ${targetCareer} skills.`,
+        progress: 0,
+        concepts: requiredRoleSkills.slice(3, 5),
+        description: `Advance through the remaining ${targetCareer} skills.`,
+        questions: 25,
+        isWeakConcept: false,
+      }
+    ];
+
+    const roadmapData = {
       hasHistory: false,
       userId,
       targetCareer,
       selectedField,
       readinessScore: 0,
       completedStageIds: [],
-      stages: [],
+      stages: stages,
+      lastEvaluatedAt: new Date(),
     };
+    
+    await UserRoadmap.findOneAndUpdate({ userId }, roadmapData, { upsert: true, new: true });
+    return roadmapData;
   }
 
   const totalAttempts = attempts.length;
@@ -597,5 +687,30 @@ export async function updateUserRoadmap(req, res) {
   } catch (err) {
     console.error("[Analytics] Error in updateUserRoadmap:", err);
     return res.status(500).json({ success: false, message: "Failed to update roadmap." });
+  }
+}
+
+// ─────────────────────────────────────────────
+// 6. GET /api/analytics/project-ideas
+// Fetches personalized project ideas via AI based on target career and topic
+// ─────────────────────────────────────────────
+export async function getProjectIdeas(req, res) {
+  try {
+    const { topic, field } = req.query;
+    
+    // Check if topic and field exist, default to something if not.
+    const requestedTopic = topic || "General Concepts";
+    const requestedField = field || "General Field";
+
+    // Call AI to generate project ideas
+    const aiResponse = await generateProjectIdeasWithAI(requestedTopic, requestedField);
+
+    return res.json({
+      success: true,
+      data: aiResponse,
+    });
+  } catch (err) {
+    console.error("[Analytics] Error in getProjectIdeas:", err);
+    return res.status(500).json({ success: false, message: "Failed to generate project ideas." });
   }
 }

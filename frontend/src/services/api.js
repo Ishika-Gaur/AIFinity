@@ -143,6 +143,7 @@ export const analyticsApi = {
       method: "PUT",
       body: JSON.stringify(payload),
     }),
+  getProjectIdeas: (topic, field) => request(`/analytics/project-ideas?topic=${encodeURIComponent(topic)}&field=${encodeURIComponent(field)}`),
 };
 
 export const dashboardApi = {

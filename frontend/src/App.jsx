@@ -14,6 +14,8 @@ import ConceptRoot from './pages/ConceptRoot';
 import MistakeMap from './pages/MistakeMap';
 import SkillGap from './pages/SkillGap';
 import Roadmap from './pages/Roadmap';
+import Handbook from './pages/Handbook';
+import ProjectIdeas from './pages/ProjectIdeas';
 import Contact from './pages/Contact';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -29,6 +31,7 @@ import StudentAuthGuard from './components/StudentAuthGuard';
 
 // Admin Auth & Protection
 import { AdminAuthProvider } from './context/AdminAuthContext';
+import { StudentAuthProvider } from './context/StudentAuthContext';
 import ProtectedRoute from './components/admin/ProtectedRoute';
 
 // Admin Auth Pages
@@ -46,7 +49,7 @@ import AssessmentManagement from './pages/admin/AssessmentManagement';
 
 function PublicLayout() {
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col min-h-screen bg-grid">
       <Navbar />
 
       <main className="flex-1">
@@ -74,6 +77,7 @@ function AssessmentLoading() {
 function App() {
   return (
     <AdminAuthProvider>
+      <StudentAuthProvider>
       <Router>
         <Routes>
 
@@ -215,10 +219,45 @@ function App() {
               }
             />
 
+            <Route
+              path="/resources/handbook"
+              element={
+                <StudentAuthGuard requireOnboardingCompleted>
+                  <Handbook />
+                </StudentAuthGuard>
+              }
+            />
+            <Route
+              path="/handbook"
+              element={
+                <StudentAuthGuard requireOnboardingCompleted>
+                  <Handbook />
+                </StudentAuthGuard>
+              }
+            />
+
+            <Route
+              path="/resources/project-ideas"
+              element={
+                <StudentAuthGuard requireOnboardingCompleted>
+                  <ProjectIdeas />
+                </StudentAuthGuard>
+              }
+            />
+            <Route
+              path="/project-ideas"
+              element={
+                <StudentAuthGuard requireOnboardingCompleted>
+                  <ProjectIdeas />
+                </StudentAuthGuard>
+              }
+            />
+
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </Router>
+      </StudentAuthProvider>
     </AdminAuthProvider>
   );
 }

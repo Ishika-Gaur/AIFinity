@@ -7,6 +7,8 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import ImageCard from "../components/ImageCard";
 import { FIELDS, FIELD_ICONS, CAREER_GOALS_BY_FIELD } from "../utils/constants";
+import { useStudentAuth } from "../context/StudentAuthContext";
+import { isStudentUser } from "../utils/studentAuthStorage";
 import { authApi } from "../services/api";
 
 const WELCOME_ILLUSTRATION =
@@ -49,6 +51,7 @@ const ONBOARDING_STORAGE_KEY = "aifinity_onboarding_profile";
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  const { user, applySession } = useStudentAuth();
   const [step, setStep] = useState(1);
   const [field, setField] = useState(null);
   const [level, setLevel] = useState(null);
@@ -62,49 +65,24 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // 1. Authenticated Routing & One-Time Onboarding Check
+  // Resume from the authenticated student session (guard already verified /auth/me).
   useEffect(() => {
-    async function checkAuthAndOnboarding() {
-      let localUser = null;
-      try {
-        localUser = JSON.parse(localStorage.getItem("user") || "null");
-      } catch (_) {}
+    if (!user) return;
 
-      // Fetch fresh authenticated user state from backend if available
-      const res = await authApi.getMe();
-      const currentUser = res && res.success && res.user ? res.user : localUser;
-
-      // Requirement 3: Redirect unauthenticated users to login
-      if (!currentUser) {
-        navigate("/login", { replace: true });
-        return;
-      }
-
-      // Sync backend user state to local storage
-      try {
-        localStorage.setItem("user", JSON.stringify(currentUser));
-      } catch (_) {}
-
-      // Requirement 1: If onboarding is already completed, redirect to Dashboard
-      if (currentUser.onboardingCompleted) {
-        navigate("/dashboard", { replace: true });
-        return;
-      }
-
-      // Requirement 2: Choose career field only once. If field is already set, lock field choice.
-      const savedField = currentUser.selectedField || currentUser.onboardingProfile?.field;
-      if (savedField) {
-        setField(savedField);
-        setIsFieldLocked(true);
-        // Requirement 7: Resume at step 3 if interrupted after field selection
-        setStep(3);
-      }
-
-      setLoadingCheck(false);
+    if (user.onboardingCompleted) {
+      navigate("/dashboard", { replace: true });
+      return;
     }
 
-    checkAuthAndOnboarding();
-  }, [navigate]);
+    const savedField = user.selectedField || user.onboardingProfile?.field;
+    if (savedField) {
+      setField(savedField);
+      setIsFieldLocked(true);
+      setStep(3);
+    }
+
+    setLoadingCheck(false);
+  }, [user, navigate]);
 
   // Keep career goals synced with selected field
   useEffect(() => {
@@ -152,25 +130,20 @@ export default function OnboardingPage() {
     const res = await authApi.completeOnboarding(payload);
 
     let updatedUser = null;
-    if (res && res.success && res.user) {
+    if (res && res.success && isStudentUser(res.user)) {
       updatedUser = res.user;
     } else {
-      let localUser = null;
-      try {
-        localUser = JSON.parse(localStorage.getItem("user") || "{}");
-      } catch (_) {}
-
       updatedUser = {
-        ...localUser,
+        ...(user || {}),
+        role: "student",
         onboardingCompleted: true,
         selectedField: field,
         onboardingProfile: payload,
       };
     }
 
-    // 2. Persist updated user & onboarding profile locally
+    applySession(updatedUser);
     try {
-      localStorage.setItem("user", JSON.stringify(updatedUser));
       window.localStorage.setItem(
         ONBOARDING_STORAGE_KEY,
         JSON.stringify(payload)
