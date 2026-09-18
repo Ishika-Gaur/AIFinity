@@ -213,6 +213,31 @@ const CONCEPT_ROOT_SCHEMA = {
   ]
 };
 
+const EXPLAIN_CONCEPT_ROOT_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    explanation: { type: SchemaType.STRING, description: "Concise evidence-based explanation." },
+    misconception: { type: SchemaType.STRING, description: "Likely misconception, or null when evidence is insufficient." },
+    conceptRelationship: { type: SchemaType.STRING, description: "Explain how the root concept relates to the observed weakness." },
+    recommendedRevision: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING }
+    },
+    recommendedPractice: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING }
+    },
+    confidenceNote: { type: SchemaType.STRING, description: "Explain why confidence is high, medium, or low." }
+  },
+  required: [
+    "explanation",
+    "conceptRelationship",
+    "recommendedRevision",
+    "recommendedPractice",
+    "confidenceNote"
+  ]
+};
+
 const DASHBOARD_CONCEPT_ROOT_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
@@ -592,24 +617,41 @@ Code: ${submission.code || 'N/A'}`;
   }
 };
 
-export const analyzeConceptRootDashboardWithAI = async (attempts, careerGoal) => {
-  const attemptSummaries = attempts.slice(0, 10).map(a => 
-    'Assessment: ' + a.assessmentTitle + ', Score: ' + a.scorePercent + '%, Correct: ' + a.correctCount + ', Incorrect: ' + a.incorrectCount + '. ' +
-    'Questions: ' + (a.questionResults || []).map(q => q.status === 'incorrect' ? ('Q: ' + q.questionText + ' | Concept: ' + q.concept + ' | Answer: ' + q.userAnswer) : '').filter(Boolean).join('; ')
-  ).join('\n');
+export const explainConceptRootWithAI = async (deterministicData) => {
+  if (!deterministicData || !deterministicData.hasData || !deterministicData.conceptId) {
+    throw new Error("No data provided to explain.");
+  }
 
-  const prompt = 'Perform a deep Root Cause Analysis on these recent student assessment attempts. Career Goal: ' + (careerGoal || 'None') + '.\n' +
-'Identify the true underlying prerequisite concept they are struggling with, going below the surface topic.\n' +
-'Return structured JSON with dependencyPath from surface to root, evidence, mistake patterns, and a learning recovery path.\n\n' +
-'Recent attempts context:\n' + attemptSummaries;
+  const prompt = `You are the ConceptRoot reasoning component of an educational platform.
+Your purpose is to explain the underlying concept or misconception associated with a student's repeated mistakes.
+You are NOT the primary scoring engine. The backend has already calculated the metrics.
+You must reason ONLY from the supplied evidence.
+
+## DO NOT
+- Never invent questions, answers, scores, attempts, concepts, or evidence.
+- Never override backend-calculated scores.
+- Never claim certainty when evidence is weak.
+
+## INPUT EVIDENCE
+Observed Concept: ${deterministicData.canonicalConcept} (Attempts: ${deterministicData.mastery.attempts}, Accuracy: ${(deterministicData.mastery.accuracy * 100).toFixed(0)}%, Trend: ${deterministicData.mastery.trend})
+Root Concept Candidate: ${deterministicData.rootCause.rootConceptName}
+Diagnosed Error Type: ${deterministicData.rootCause.type}
+Confidence: ${deterministicData.rootCause.confidence}
+Diagnosis Status: ${deterministicData.diagnosis.status}
+Concept Dependency Path: ${deterministicData.dependencies.map(p => p.name || p.id).join(' -> ')}
+
+Evidence Questions (${deterministicData.evidence.length} provided):
+${deterministicData.evidence.map(q => `- Question ID: ${q.questionId}\n  User Answer: ${q.studentAnswer}\n  Correct: ${q.correctAnswer}\n  Detected Error Type: ${q.errorType}\n  Is Edge Case: ${q.isEdgeCase}`).join('\n')}
+
+Based on this evidence, explain WHY the student is struggling, what misconception they likely have, and recommend a targeted revision/practice plan.`;
 
   try {
-    return await callAI(prompt, DASHBOARD_CONCEPT_ROOT_SCHEMA);
+    return await callAI(prompt, EXPLAIN_CONCEPT_ROOT_SCHEMA);
   } catch (err) {
-    throw { success: false, error: "AI_SERVICE_UNAVAILABLE", message: "AI analysis is temporarily unavailable." };
+    console.error("[Gemini] explainConceptRootWithAI Error:", err.message);
+    throw new Error("AI_SERVICE_UNAVAILABLE");
   }
 };
-
 
 const SKILL_GAP_SCHEMA = {
   type: SchemaType.OBJECT,
