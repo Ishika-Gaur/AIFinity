@@ -77,62 +77,6 @@ const HERO_STEPS = [
 const ONBOARDING_STORAGE_KEY = "aifinity_onboarding_profile";
 
 /* =========================================================
-   ANALYSIS ENGINE (SIMULATED AI)
-========================================================= */
-function generateAnalysis(question, answer, domain, goal) {
-  const text = `${question} ${answer}`.toLowerCase();
-  const wordCount = answer.trim().split(/\s+/).filter(Boolean).length;
-
-  let baseScore = 60;
-  if (wordCount >= 25) baseScore += 8;
-  if (wordCount >= 50) baseScore += 7;
-  if (answer.includes("=")) baseScore += 3;
-  if (text.includes("because") || text.includes("since")) baseScore += 4;
-  if (text.includes("therefore") || text.includes("thus")) baseScore += 3;
-  if (text.includes("example") || text.includes("such as")) baseScore += 4;
-  if (text.includes("however") || text.includes("whereas")) baseScore += 3;
-
-  const score = Math.min(baseScore, 92);
-
-  const strengthsByDomain = {
-    technology: ["Problem decomposition", "Technical reasoning", "Modular thinking"],
-    mathematics: ["Analytical reasoning", "Pattern recognition", "Quantitative rigor"],
-    science: ["Conceptual depth", "Cause-and-effect reasoning", "Evidence analysis"],
-    business: ["Strategic alignment", "Decision trade-offs", "Commercial awareness"],
-    finance: ["Financial logic", "Risk awareness", "Quantitative interpretation"],
-    communication: ["Clarity of thought", "Structured expression", "Audience orientation"],
-    design: ["User-centric reasoning", "Visual hierarchy", "Contextual empathy"],
-    other: ["Critical thinking", "Structured decomposition", "Practical application"],
-  };
-
-  const gapsByDomain = {
-    technology: [
-      { name: "System Architecture", current: Math.min(95, 60 + Math.floor((score - 60) / 3)), target: 88, priority: "High", description: "Practice connecting isolated code modules into scalable end-to-end architectures." },
-      { name: "Algorithm Efficiency", current: Math.min(95, 54 + Math.floor((score - 60) / 4)), target: 82, priority: "Medium", description: "Focus on time and space complexity trade-offs under high-scale scenarios." },
-      { name: "Testing & Resilience", current: Math.min(95, 48 + Math.floor((score - 60) / 4)), target: 78, priority: "Medium", description: "Build robust error handling, automated tests, and edge case coverage." },
-    ],
-    finance: [
-      { name: "Valuation Frameworks", current: Math.min(95, 58 + Math.floor((score - 60) / 3)), target: 87, priority: "High", description: "Connect financial statements to discounted cash flow (DCF) models." },
-      { name: "Risk Sensitivity", current: Math.min(95, 52 + Math.floor((score - 60) / 4)), target: 82, priority: "Medium", description: "Evaluate macroeconomic shifts and scenario modeling for portfolio safety." },
-      { name: "Capital Allocation", current: Math.min(95, 46 + Math.floor((score - 60) / 4)), target: 76, priority: "Medium", description: "Analyze debt vs equity financing decisions for corporate growth." },
-    ],
-  };
-
-  const gaps = gapsByDomain[domain] || [
-    { name: "Advanced Critical Reasoning", current: Math.min(95, 56 + Math.floor((score - 60) / 3)), target: 86, priority: "High", description: "Strengthen written justifications and step-by-step logic proof." },
-    { name: "Domain Synthesis", current: Math.min(95, 52 + Math.floor((score - 60) / 4)), target: 80, priority: "Medium", description: "Apply theoretical principles to multi-faceted real-world cases." },
-    { name: "Structured Execution", current: Math.min(95, 47 + Math.floor((score - 60) / 4)), target: 75, priority: "Medium", description: "Improve execution speed while maintaining high quality standards." },
-  ];
-
-  const strengths = strengthsByDomain[domain] || strengthsByDomain.other;
-  const averageGap = Math.round(
-    gaps.reduce((sum, gap) => sum + Math.max(gap.target - gap.current, 0), 0) / gaps.length
-  );
-
-  return { score, averageGap, strengths, gaps, goal, domain, question, answer };
-}
-
-/* =========================================================
    SUB-COMPONENTS (theme tokens instead of hardcoded colors)
 ========================================================= */
 function ScoreRing({ score }) {
@@ -252,7 +196,7 @@ function GoalCard({ item, active, isRecommended, onClick }) {
   );
 }
 
-import { analyticsApi } from "../services/api";
+import { skillGapApi } from "../services/api";
 
 /* =========================================================
    MAIN SKILL GAP COMPONENT
@@ -267,30 +211,41 @@ export default function SkillGap() {
   const [priorityFilter, setPriorityFilter] = useState("All");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [prefilledFromOnboarding, setPrefilledFromOnboarding] = useState(false);
+  const canAnalyze = question.trim().length >= 8 && answer.trim().length >= 10;
+  const wordCount = answer.trim().split(/\s+/).filter(Boolean).length;
 
   useEffect(() => {
-    analyticsApi.getSkillGap().then((res) => {
-      if (res && res.success && res.data && res.data.hasHistory) {
-        setAnalysis({
-          score: res.data.demonstratedCapability,
-          averageGap: res.data.averageGap,
-          strengths: res.data.strengths,
-          goal: res.data.targetCareer,
-          recommendations: res.data.recommendations,
-          gaps: (res.data.weakSkills || []).map((w) => ({
-            id: w.name,
-            skill: w.name,
-            current: w.avgScore,
-            required: 100,
-            gap: w.gapPoints,
-            priority: w.gapPoints >= 40 ? "High" : "Medium",
-            why: `Accuracy is currently ${w.avgScore}%.`,
-            recommendation: `Complete additional assessments in ${w.name}.`,
-          })),
-        });
-      }
-    }).catch(() => {});
-  }, []);
+    skillGapApi
+      .get()
+      .then((res) => {
+        if (res && res.success && res.data) {
+          const sourceSkills = Array.isArray(res.data.skills) ? res.data.skills : [];
+          const mappedAnalysis = {
+            score: res.data.overallProficiency ?? 0,
+            averageGap: res.data.averageGap ?? 0,
+            strengths: res.data.strongAreas?.map((item) => item.skillName) || [],
+            goal: res.data.targetCareer || goal,
+            recommendations: res.data.recommendations || [],
+            gaps: sourceSkills.map((skill) => ({
+              id: skill.skillId || skill.skillName,
+              name: skill.skillName,
+              current: skill.currentProficiency,
+              target: skill.requiredProficiency,
+              required: skill.requiredProficiency,
+              gap: skill.gap,
+              priority: (skill.priority || "medium").toLowerCase() === "high" ? "High" : "Medium",
+              description: skill.aiExplanation || "Evidence-based skill review.",
+              recommendation: (skill.recommendations && skill.recommendations[0]) || "Continue practicing the weaker concept clusters.",
+            })),
+            hasData: res.data.hasData,
+          };
+          setAnalysis(mappedAnalysis);
+        }
+      })
+      .catch(() => {
+        setAnalysis(null);
+      });
+  }, [goal]);
 
   // On first load, silently pick up whatever the user already told us
   // during onboarding (field + career goal) so they don't have to
@@ -346,24 +301,6 @@ export default function SkillGap() {
     return matched.length > 0 ? matched : GOALS;
   }, [selectedDomain]);
 
-  const canAnalyze = question.trim().length >= 8 && answer.trim().length >= 10;
-  const wordCount = answer.trim().split(/\s+/).filter(Boolean).length;
-
-  const handleAnalyze = () => {
-    if (!canAnalyze) return;
-    setIsAnalyzing(true);
-
-    setTimeout(() => {
-      const result = generateAnalysis(question, answer, domain, selectedGoal.title);
-      setAnalysis(result);
-      setIsAnalyzing(false);
-
-      setTimeout(() => {
-        document.getElementById("analysis-result")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 150);
-    }, 850);
-  };
-
   const handleDomainChange = (id) => {
     setDomain(id);
     setAnalysis(null);
@@ -379,11 +316,6 @@ export default function SkillGap() {
     setGoal(value);
     setAnalysis(null);
     setPrefilledFromOnboarding(false);
-  };
-
-  const handleLoadPreset = () => {
-    setQuestion(selectedDomain.sampleQuestion);
-    setAnswer(selectedDomain.sampleAnswer);
   };
 
   const resetAssessment = () => {
@@ -514,11 +446,11 @@ export default function SkillGap() {
             <Button
               size="sm"
               variant="subtle"
-              onClick={handleLoadPreset}
+              onClick={() => setAnalysis(null)}
               icon={<SparklesIcon className="w-4 h-4" style={{ color: "var(--color-primary-600)" }} />}
               iconPosition="left"
             >
-              Load {selectedDomain.label} Sample
+              Refresh skill data
             </Button>
           </div>
 
@@ -573,12 +505,11 @@ export default function SkillGap() {
 
               <Button
                 size="lg"
-                disabled={!canAnalyze || isAnalyzing}
-                icon={isAnalyzing ? <SpinnerIcon /> : <ArrowRightIcon />}
-                onClick={handleAnalyze}
-                className="w-full sm:w-auto"
+                disabled
+                icon={<SpinnerIcon />}
+                className="w-full sm:w-auto opacity-60 cursor-not-allowed"
               >
-                {isAnalyzing ? "Analyzing..." : "Analyze Skill Gap"}
+                Uses assessment history
               </Button>
             </div>
           </div>

@@ -330,7 +330,7 @@ export default function ConceptRoot() {
           Sign In
         </Link>
       </div>
-    ) : !hasData ? (
+    ) : (!data || !data.hasData || !data.conceptId) ? (
       <div className="max-w-4xl mx-auto text-center py-12">
         <div className="text-[var(--color-primary-600)] mb-4">
           <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -338,7 +338,7 @@ export default function ConceptRoot() {
           </svg>
         </div>
         <h3 className="text-xl font-semibold text-gray-900 mb-2">Complete an assessment to see your personalized ConceptRoot analysis</h3>
-        <p className="text-gray-600 mb-6">Take an assessment to unlock your personalized learning diagnosis and recommendations.</p>
+        <p className="text-gray-600 mb-6">We need more data! Take an assessment so we can detect any underlying concept gaps.</p>
         <Link
           to="/assessment"
           className="inline-block px-6 py-3 bg-[var(--color-primary-600)] text-white rounded-lg font-medium hover:bg-[var(--color-primary-700)] transition-colors"
@@ -348,153 +348,106 @@ export default function ConceptRoot() {
       </div>
     ) : (
       <div className="max-w-4xl mx-auto space-y-8">
-        {/* Performance Overview */}
-        {data.performance && (
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--color-text-h)] mb-4">Your Performance</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-[var(--color-primary-50)] rounded-xl">
-                <div className="text-3xl font-bold text-[var(--color-primary-600)]">{data.performance.overallScore}%</div>
-                <div className="text-sm text-gray-600 mt-1">Overall Score</div>
-              </div>
-              <div className="text-center p-4 bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)]">
-                <div className="text-3xl font-bold text-gray-900">{data.performance.totalAssessments}</div>
-                <div className="text-sm text-gray-600 mt-1">Assessments</div>
-              </div>
-              <div className="text-center p-4 bg-green-50 rounded-xl border border-green-200">
-                <div className="text-3xl font-bold text-green-600">{data.performance.strongConcepts}</div>
-                <div className="text-sm text-gray-600 mt-1">Strong Concepts</div>
-              </div>
-              <div className="text-center p-4 bg-orange-50 rounded-xl border border-orange-200">
-                <div className="text-3xl font-bold text-orange-600">{data.performance.needsAttention}</div>
-                <div className="text-sm text-gray-600 mt-1">Needs Attention</div>
-              </div>
+        {/* Core Diagnosis Card */}
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+            <div>
+              <h3 className="text-2xl font-bold text-[var(--color-text-h)]">
+                Root Cause Detected
+              </h3>
+              <p className="text-gray-600 mt-1">
+                Based on <span className="font-semibold">{data.rootCause.evidenceCount}</span> pieces of primary evidence across {data.sourceAttemptCount} attempts.
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-sm text-gray-500 uppercase tracking-wide block mb-1">Confidence Score</span>
+              <span className="text-3xl font-bold text-[var(--color-primary-600)]">
+                {Math.round(data.rootCause.confidence * 100)}%
+              </span>
             </div>
           </div>
-        )}
 
-        {/* Concept Analysis */}
-        {data.learningDiagnosis.concepts && data.learningDiagnosis.concepts.length > 0 && (
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--color-text-h)] mb-4">Your Concept Analysis</h3>
-            <div className="space-y-3">
-              {data.learningDiagnosis.concepts.map((concept, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)]">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${
-                      concept.status === 'strong' ? 'bg-green-500' :
-                      concept.status === 'improving' ? 'bg-yellow-500' :
-                      'bg-red-500'
-                    }`}></div>
-                    <span className="font-medium text-[var(--color-text-h)]">{concept.name}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-600">{concept.attemptCount} attempts</span>
-                    <span className={`font-semibold ${
-                      concept.performance >= 75 ? 'text-green-600' :
-                      concept.performance >= 55 ? 'text-yellow-600' :
-                      'text-red-600'
-                    }`}>{concept.performance}%</span>
-                  </div>
+          <div className="flex flex-col md:flex-row gap-4 items-center bg-[var(--color-primary-50)] p-4 rounded-xl border border-[var(--color-primary-100)]">
+            <div className="flex-1 text-center md:text-left">
+              <span className="text-xs text-gray-500 uppercase font-bold block mb-1">Observed Weakness</span>
+              <span className="text-lg font-bold text-red-600">{data.canonicalConcept}</span>
+            </div>
+            
+            <div className="hidden md:flex flex-col items-center flex-1 px-4 text-[var(--color-primary-400)]">
+              <span className="text-xs font-mono mb-1">TRACED TO</span>
+              <span className="text-2xl">←</span>
+            </div>
+
+            <div className="flex-1 text-center md:text-right">
+              <span className="text-xs text-[var(--color-primary-600)] uppercase font-bold block mb-1">Prerequisite Root Cause ({data.rootCause.type.replace(/_/g, ' ')})</span>
+              <span className="text-lg font-bold text-[var(--color-primary-900)]">{data.rootCause.rootConceptName}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* AI Explanations */}
+        {data.explanation && data.aiStatus === "completed" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
+              <h4 className="text-lg font-semibold text-[var(--color-text-h)] mb-4">Why is this happening?</h4>
+              <p className="text-gray-700 text-sm leading-relaxed mb-4">{data.explanation.explanation}</p>
+              
+              {data.explanation.misconception && (
+                <div className="bg-red-50 p-4 rounded-lg border border-red-100">
+                  <span className="text-xs font-bold text-red-600 uppercase mb-1 block">Likely Misconception</span>
+                  <span className="text-sm text-gray-800">{data.explanation.misconception}</span>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        )}
 
-        {/* Mistakes */}
-        {data.learningDiagnosis.mistakes && data.learningDiagnosis.mistakes.length > 0 && (
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--color-text-h)] mb-4">Recent Mistakes</h3>
-            <div className="space-y-3">
-              {data.learningDiagnosis.mistakes.map((mistake, idx) => (
-                <div key={idx} className="p-4 bg-red-50 rounded-xl border border-red-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-900">{mistake.assessmentTitle}</span>
-                    <span className="text-red-600 font-semibold">{mistake.scorePercent}%</span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {mistake.category} • {new Date(mistake.completedAt).toLocaleDateString()}
-                  </div>
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
+              <h4 className="text-lg font-semibold text-[var(--color-text-h)] mb-4">Recommended Plan</h4>
+              
+              <div className="space-y-4">
+                <div>
+                  <span className="text-xs font-bold text-[var(--color-primary-600)] uppercase mb-2 block">1. Revise First</span>
+                  <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
+                    {data.explanation.recommendedRevision.map((rev, i) => <li key={i}>{rev}</li>)}
+                  </ul>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Root Causes */}
-        {data.learningDiagnosis.rootCauses && data.learningDiagnosis.rootCauses.length > 0 && (
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--color-text-h)] mb-4">Root Cause Analysis</h3>
-            <div className="space-y-4">
-              {data.learningDiagnosis.rootCauses.map((cause, idx) => (
-                <div key={idx} className="p-4 bg-[var(--color-primary-50)] rounded-xl border border-[var(--color-primary-200)]">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-lg">🧠</span>
-                    <span className="font-semibold text-[var(--color-text-h)]">{cause.concept}</span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Current performance: {cause.currentPerformance}% • Gap to target: {cause.gap}%
-                  </div>
+                <div>
+                  <span className="text-xs font-bold text-green-600 uppercase mb-2 block">2. Then Practice</span>
+                  <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
+                    {data.explanation.recommendedPractice.map((prac, i) => <li key={i}>{prac}</li>)}
+                  </ul>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         )}
 
-        {/* Missing Prerequisites */}
-        {data.learningDiagnosis.missingPrerequisites && data.learningDiagnosis.missingPrerequisites.length > 0 && (
+        {/* Evidence Logs */}
+        {data.evidence && data.evidence.length > 0 && (
           <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--color-text-h)] mb-4">Missing Prerequisites</h3>
+            <h4 className="text-lg font-semibold text-[var(--color-text-h)] mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              Supporting Evidence
+            </h4>
             <div className="space-y-3">
-              {data.learningDiagnosis.missingPrerequisites.map((prereq, idx) => (
-                <div key={idx} className={`p-4 rounded-xl border ${
-                  prereq.priority === 'high' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'
-                }`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-900">{prereq.concept}</span>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                      prereq.priority === 'high' ? 'bg-red-200 text-red-800' : 'bg-yellow-200 text-yellow-800'
-                    }`}>
-                      {prereq.priority} priority
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600">{prereq.reason}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Recommendations */}
-        {data.learningDiagnosis.recommendations && data.learningDiagnosis.recommendations.length > 0 && (
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-            <h3 className="text-lg font-semibold text-[var(--color-text-h)] mb-4">Personalized Recommendations</h3>
-            <div className="space-y-3">
-              {data.learningDiagnosis.recommendations.map((rec, idx) => (
-                <div key={idx} className="p-4 bg-[var(--color-primary-50)] rounded-xl border border-[var(--color-primary-200)]">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl">🎯</span>
-                    <div className="flex-1">
-                      <div className="font-medium text-[var(--color-text-h)] mb-1">{rec.action}</div>
-                      {rec.concept && (
-                        <div className="text-sm text-gray-600">
-                          {rec.type === 'concept_improvement' && `Current: ${rec.currentScore}% → Target: ${rec.targetScore}%`}
-                          {rec.type === 'advance' && `Current: ${rec.currentScore}%`}
-                        </div>
-                      )}
+              {data.evidence.map((sq, idx) => (
+                <div key={idx} className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm">
+                  <div className="font-medium text-gray-900 mb-2">Question ID: {sq.questionId}</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-gray-500">Your Answer:</span>
+                      <span className="block mt-1 font-mono text-red-600">{sq.studentAnswer}</span>
                     </div>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                      rec.priority === 'high' ? 'bg-red-200 text-red-800' : 'bg-gray-200 text-gray-800'
-                    }`}>
-                      {rec.priority}
-                    </span>
+                    <div>
+                      <span className="text-gray-500">Correct Answer:</span>
+                      <span className="block mt-1 font-mono text-green-600">{sq.correctAnswer}</span>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         )}
+
       </div>
     )}
   </Section>

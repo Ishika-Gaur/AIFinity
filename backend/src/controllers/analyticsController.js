@@ -1,6 +1,7 @@
 import AttemptResult from "../models/AttemptResult.js";
 import User from "../models/User.js";
 import UserRoadmap from "../models/UserRoadmap.js";
+import { buildConceptRootAnalysis, buildSkillGapAnalysis } from "../services/evidenceService.js";
 import { generateProjectIdeasWithAI } from "../services/geminiService.js";
 import { buildMistakeMapAnalysis } from "../services/mistakeMapService.js";
 
@@ -13,7 +14,7 @@ export function cleanTopicName(name) {
   let str = String(name);
   try {
     str = decodeURIComponent(str);
-  } catch (_) {}
+  } catch (_) { }
 
   // Strip internal artificial prefixes globally
   str = str.replace(/ai_rec_/gi, "");
@@ -41,7 +42,7 @@ export function cleanTopicName(name) {
  */
 export function getAcademicCurriculum(goal = "", field = "") {
   const combined = `${goal} ${field}`.toLowerCase();
-  
+
   const isSocialScience = /social science|sst|history|geography|civics|economics/i.test(combined);
   const isScience = /science/i.test(combined) && !isSocialScience && !/data science/i.test(combined);
   const isMath = /math|algebra|geometry|calculus/i.test(combined);
@@ -425,97 +426,34 @@ export async function getSkillGapAnalytics(req, res) {
     const user = await User.findById(userId).lean();
     const attempts = await AttemptResult.find({ userId }).sort({ completedAt: -1 }).lean();
 
-    const targetCareer = user?.onboardingProfile?.careerGoal || user?.selectedField || "Full-Stack Software Engineer";
-    const requiredSkills = getRequiredSkillsForRole(targetCareer);
-
-    if (!attempts || attempts.length === 0) {
-      return res.json({
-        success: true,
-        data: {
-          hasHistory: false,
-          targetCareer,
-          demonstratedCapability: 0,
-          averageGap: 40,
-          matchPercentage: 0,
-          strengths: [],
-          weakSkills: requiredSkills.map((name) => ({ name, status: "attention", avgScore: 0 })),
-          requiredSkills: requiredSkills.map((name) => ({ name, required: true, status: "upcoming" })),
-          recommendations: [
-            "Take your first assessment to calculate your personalized skill gap",
-            `Complete assessments in ${targetCareer} topics`,
-            "Review concept root causes for any missed questions",
-          ],
-        },
-      });
-    }
-
-    const totalAttempts = attempts.length;
-    const overallAvgScore = Math.round(attempts.reduce((s, a) => s + a.scorePercent, 0) / totalAttempts);
-    const averageGap = Math.max(0, 100 - overallAvgScore);
-
-    // Group scores by category
-    const catMap = {};
-    attempts.forEach((a) => {
-      const cat = a.assessmentCategory || "General";
-      if (!catMap[cat]) catMap[cat] = { sum: 0, count: 0 };
-      catMap[cat].sum += a.scorePercent;
-      catMap[cat].count++;
-    });
-
-    const categoryStats = Object.entries(catMap).map(([category, { sum, count }]) => ({
-      category,
-      avgScore: Math.round(sum / count),
-      count,
-    }));
-
-    const strengths = categoryStats.filter((c) => c.avgScore >= 75).map((c) => c.category);
-    if (strengths.length === 0 && overallAvgScore >= 60) {
-      strengths.push("Core Reasoning", "Basic Concepts");
-    }
-
-    const weakSkills = categoryStats.filter((c) => c.avgScore < 70).map((c) => ({
-      name: c.category,
-      avgScore: c.avgScore,
-      gapPoints: 100 - c.avgScore,
-      status: c.avgScore >= 55 ? "improving" : "attention",
-    }));
-
-    const skillsBreakdown = categoryStats.map((c) => ({
-      name: c.category,
-      avgScore: c.avgScore,
-      status: c.avgScore >= 75 ? "strong" : c.avgScore >= 55 ? "improving" : "attention",
-    }));
-
-    const recommendations = [];
-    if (weakSkills.length > 0) {
-      weakSkills.forEach((w) => {
-        recommendations.push(`Improve accuracy in ${w.name} (currently ${w.avgScore}%) to close the ${w.gapPoints}-point gap.`);
-      });
-    } else {
-      recommendations.push("Your performance is strong across evaluated areas. Challenge yourself with advanced assessments.");
-    }
-    recommendations.push(`Align remaining milestones with your target career goal: ${targetCareer}.`);
+    const targetCareer = user?.onboardingProfile?.careerGoal || user?.selectedField || "";
+    const result = buildSkillGapAnalysis({ attempts, careerGoal: targetCareer, user });
 
     return res.json({
       success: true,
       data: {
-        hasHistory: true,
-        targetCareer,
-        demonstratedCapability: overallAvgScore,
-        averageGap,
-        matchPercentage: overallAvgScore,
-        strengths,
-        weakSkills,
-        skillsBreakdown,
-        requiredSkills: requiredSkills.map((name) => {
-          const match = categoryStats.find((c) => c.category.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(c.category.toLowerCase()));
-          return {
-            name,
-            status: match ? (match.avgScore >= 75 ? "strong" : match.avgScore >= 55 ? "improving" : "attention") : "upcoming",
-            score: match ? match.avgScore : null,
-          };
-        }),
-        recommendations: recommendations.slice(0, 4),
+        ...result,
+        hasHistory: result.hasData,
+        demonstratedCapability: result.overallProficiency,
+        averageGap: result.averageGap,
+        matchPercentage: result.overallProficiency,
+        strengths: result.strongAreas.map((item) => item.skillName),
+        weakSkills: result.weakAreas.map((item) => ({
+          name: item.skillName,
+          avgScore: item.currentProficiency,
+          gapPoints: item.gap,
+          status: item.currentProficiency >= 55 ? "improving" : "attention",
+        })),
+        skillsBreakdown: result.skills.map((skill) => ({
+          name: skill.skillName,
+          avgScore: skill.currentProficiency,
+          status: skill.currentProficiency >= 75 ? "strong" : skill.currentProficiency >= 55 ? "improving" : "attention",
+        })),
+        requiredSkills: result.skills.map((skill) => ({
+          name: skill.skillName,
+          status: skill.currentProficiency >= skill.requiredProficiency ? "strong" : skill.currentProficiency >= 55 ? "improving" : "attention",
+          score: skill.currentProficiency,
+        })),
       },
     });
   } catch (err) {
@@ -582,57 +520,19 @@ export async function getMistakeMapAnalytics(req, res) {
 export async function getConceptRootAnalytics(req, res) {
   try {
     const userId = req.user._id;
+    const user = await User.findById(userId).lean();
     const attempts = await AttemptResult.find({ userId }).sort({ completedAt: -1 }).lean();
-
-    if (!attempts || attempts.length === 0) {
-      return res.json({
-        success: true,
-        data: {
-          hasHistory: false,
-          analyzedCount: 0,
-          strongCount: 0,
-          attentionCount: 0,
-          concepts: [],
-        },
-      });
-    }
-
-    let totalQuestionsAnalyzed = 0;
-    const catMap = {};
-
-    attempts.forEach((a) => {
-      totalQuestionsAnalyzed += a.totalQuestions || 0;
-      const cat = a.assessmentCategory || "General";
-      if (!catMap[cat]) catMap[cat] = { sum: 0, count: 0 };
-      catMap[cat].sum += a.scorePercent;
-      catMap[cat].count++;
-    });
-
-    const concepts = Object.entries(catMap).map(([name, { sum, count }]) => {
-      const avgScore = Math.round(sum / count);
-      return {
-        name,
-        avgScore,
-        status: avgScore >= 75 ? "strong" : avgScore >= 55 ? "improving" : "attention",
-        rootCause: avgScore >= 75
-          ? "Solid conceptual foundation demonstrated."
-          : avgScore >= 55
-          ? "Good grasp of basic syntax and definitions; needs practice on complex edge cases."
-          : "Gaps identified in core mechanics. Review foundational prerequisites.",
-      };
-    });
-
-    const strongCount = concepts.filter((c) => c.status === "strong").length;
-    const attentionCount = concepts.filter((c) => c.status === "attention").length;
+    const data = buildConceptRootAnalysis({ attempts, careerGoal: user?.onboardingProfile?.careerGoal || user?.selectedField || "", user });
 
     return res.json({
       success: true,
       data: {
-        hasHistory: true,
-        analyzedCount: totalQuestionsAnalyzed,
-        strongCount,
-        attentionCount,
-        concepts,
+        hasHistory: data.hasData,
+        analyzedCount: data.summary ? data.summary.totalEvidence : 0,
+        strongCount: 0,
+        attentionCount: data.learningDiagnosis?.rootCauses?.length || 0,
+        concepts: data.learningDiagnosis?.concepts || [],
+        ...data,
       },
     });
   } catch (err) {
@@ -819,7 +719,7 @@ export async function generatePersonalizedRoadmap(userId, customTargetCareer = n
       stages: stages,
       lastEvaluatedAt: new Date(),
     };
-    
+
     await UserRoadmap.findOneAndUpdate({ userId }, roadmapData, { upsert: true, new: true });
     return roadmapData;
   }
@@ -1234,7 +1134,7 @@ export async function updateUserRoadmap(req, res) {
 export async function getProjectIdeas(req, res) {
   try {
     const { topic, field } = req.query;
-    
+
     // Check if topic and field exist, default to something if not.
     const requestedTopic = topic || "General Concepts";
     const requestedField = field || "General Field";

@@ -8,9 +8,27 @@ const conceptRootAnalysisSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    analysis: {
+    latestAttemptId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AttemptResult",
+      required: true,
+    },
+    calculationVersion: {
+      type: String,
+      default: "3A",
+    },
+    deterministicRoot: {
       type: mongoose.Schema.Types.Mixed,
-      default: {},
+      required: true,
+    },
+    aiInsights: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    aiStatus: {
+      type: String,
+      enum: ["completed", "unavailable", "pending"],
+      default: "completed",
     },
   },
   { timestamps: true }
