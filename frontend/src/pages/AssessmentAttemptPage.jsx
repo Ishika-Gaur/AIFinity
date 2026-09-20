@@ -465,74 +465,109 @@ export default function AssessmentAttemptPage() {
 
   /* ---------------- RESULTS VIEW ---------------- */
   if (completed && resultData) {
-    const totalQuestions = resultData.totalQuestions || (assessment?.questions?.length || 1);
-    const attemptedCount =
-      resultData.attemptedCount ??
-      resultData.answeredCount ??
-      Math.max(0, totalQuestions - (resultData.unansweredCount || 0));
+    const totalQuestions =
+      resultData.totalQuestions ||
+      (Array.isArray(assessment?.questions) ? assessment.questions.length : 0) ||
+      1;
     const correctCount = resultData.correctCount ?? 0;
-    const incorrectCount = resultData.incorrectCount ?? 0;
-    const unansweredCount = resultData.unansweredCount ?? Math.max(0, totalQuestions - attemptedCount);
-    const unansweredTotalCount = resultData.unansweredTotalCount ?? unansweredCount;
-    const scorePercent = resultData.scorePercent ?? resultData.percentage ?? 0;
+    const wrongCount = Math.max(0, totalQuestions - correctCount);
+    const scorePercent =
+      totalQuestions > 0
+        ? Math.round((correctCount / totalQuestions) * 100)
+        : (resultData.scorePercent ?? resultData.percentage ?? 0);
     const autoSubmitted = Boolean(resultData.autoSubmitted);
     const overallFeedback = resultData.overallFeedback;
     const overallRating = resultData.overallRating;
     const strengths = Array.isArray(resultData.strengths) ? resultData.strengths : [];
     const areasToImprove = Array.isArray(resultData.areasToImprove) ? resultData.areasToImprove : [];
+    const hasAiEvaluation = Boolean(overallFeedback || overallRating || strengths.length > 0 || areasToImprove.length > 0);
 
     return (
-      <Section className="py-16 bg-[#FBF8F0] min-h-screen">
+      <Section className="py-12 sm:py-16 bg-[#FBF8F0] min-h-screen">
         <Container>
-          <div className="mx-auto flex max-w-lg flex-col items-center gap-6 text-center">
-            <span
-              className={`flex h-16 w-16 items-center justify-center rounded-full text-3xl shadow-md ${
-                autoSubmitted
-                  ? "bg-red-100 text-red-600 border border-red-200"
-                  : "bg-emerald-100 text-emerald-700 border border-emerald-200"
-              }`}
-            >
-              {autoSubmitted ? "⚠️" : "✓"}
-            </span>
+          <div className="mx-auto flex max-w-2xl flex-col items-center gap-6 text-center">
+            {/* Header Section */}
+            <div className="flex flex-col items-center gap-3">
+              <div
+                className={`flex h-16 w-16 items-center justify-center rounded-full text-2xl shadow-sm ${
+                  autoSubmitted
+                    ? "bg-red-100 text-red-600 border border-red-200"
+                    : "bg-[#D1FAE5] text-[#059669] border border-[#A7F3D0]"
+                }`}
+              >
+                {autoSubmitted ? (
+                  "⚠️"
+                ) : (
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
 
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-[#1B332C] sm:text-4xl">
-                {autoSubmitted ? "Assessment Auto-Submitted" : "Assessment Completed!"}
-              </h1>
-              {autoSubmitted && (
-                <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200 inline-block">
-                  Auto-Submitted due to 3 Security Violations
-                </p>
-              )}
+              <div>
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#1B332C] sm:text-4xl">
+                  {autoSubmitted ? "Assessment Auto-Submitted" : "Assessment Completed!"}
+                </h1>
+                {autoSubmitted && (
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200 inline-block">
+                    Auto-Submitted due to Security Violations
+                  </p>
+                )}
+              </div>
             </div>
 
-            <div className="mt-2 grid w-full grid-cols-2 gap-4 sm:grid-cols-4">
-              <StatBlock label="Score" value={`${scorePercent}%`} />
-              <StatBlock label="Attempted" value={`${attemptedCount}/${totalQuestions}`} />
-              <StatBlock label="Correct" value={`${correctCount}/${attemptedCount > 0 ? attemptedCount : totalQuestions}`} />
-              <StatBlock label="Time Taken" value={formatTime(elapsedSeconds)} />
+            {/* Result Summary - 3 Cards */}
+            <div className="grid w-full grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-[#E5DEC7] bg-[#F5EEDC]/80 px-4 py-4 sm:py-5 shadow-xs">
+                <span className="text-2xl sm:text-3xl font-extrabold text-[#1B332C] tracking-tight">
+                  {correctCount} / {totalQuestions}
+                </span>
+                <span className="text-xs sm:text-sm font-medium text-[#5B6B5F] mt-1">Correct</span>
+              </div>
+
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-[#E5DEC7] bg-[#F5EEDC]/80 px-4 py-4 sm:py-5 shadow-xs">
+                <span className="text-2xl sm:text-3xl font-extrabold text-[#1B332C] tracking-tight">
+                  {wrongCount}
+                </span>
+                <span className="text-xs sm:text-sm font-medium text-[#5B6B5F] mt-1">Wrong</span>
+              </div>
+
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-[#E5DEC7] bg-[#F5EEDC]/80 px-4 py-4 sm:py-5 shadow-xs">
+                <span className="text-2xl sm:text-3xl font-extrabold text-[#1B332C] tracking-tight">
+                  {totalQuestions}
+                </span>
+                <span className="text-xs sm:text-sm font-medium text-[#5B6B5F] mt-1">Total Questions</span>
+              </div>
             </div>
 
-            {/* AI Evaluation Diagnostic Card */}
-            {overallFeedback && (
-              <div className="w-full text-left rounded-2xl border border-[var(--color-primary-200)] bg-[var(--color-primary-50)]/40 p-5 shadow-sm">
-                <div className="flex items-center justify-between border-b border-[var(--color-primary-100)] pb-3 mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--color-primary-600)] text-white text-xs font-bold shadow-xs">
+            {/* Main Result Visualization - Donut Chart */}
+            <DonutResultChart
+              correctCount={correctCount}
+              wrongCount={wrongCount}
+              totalQuestions={totalQuestions}
+              scorePercent={scorePercent}
+            />
+
+            {/* AI Diagnostic Evaluation Card */}
+            {hasAiEvaluation && (
+              <div className="w-full text-left rounded-2xl border border-[#F0D58C] bg-[#FAF6EB] p-5 sm:p-6 shadow-sm">
+                <div className="flex items-center justify-between border-b border-[#EBD79B]/60 pb-3 mb-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#C4952A] text-white text-xs font-bold shadow-xs">
                       AI
                     </span>
-                    <h3 className="text-sm font-bold text-[var(--color-text-h)]">
+                    <h3 className="text-base sm:text-lg font-bold text-[#1B332C]">
                       AI Diagnostic Evaluation
                     </h3>
                   </div>
                   {overallRating && (
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-bold ${
+                      className={`rounded-full px-3.5 py-1 text-xs font-bold border ${
                         overallRating === "Excellent" || overallRating === "Good"
-                          ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                          ? "bg-[#D1FAE5] text-[#065F46] border-[#A7F3D0]"
                           : overallRating === "Average"
-                          ? "bg-amber-100 text-amber-800 border border-amber-200"
-                          : "bg-rose-100 text-rose-800 border border-rose-200"
+                          ? "bg-amber-100 text-amber-800 border-amber-200"
+                          : "bg-rose-100 text-rose-800 border-rose-200"
                       }`}
                     >
                       {overallRating}
@@ -540,19 +575,21 @@ export default function AssessmentAttemptPage() {
                   )}
                 </div>
 
-                <p className="text-xs leading-relaxed text-[var(--color-text-body)] mb-4">
-                  {overallFeedback}
-                </p>
+                {overallFeedback && (
+                  <p className="text-xs sm:text-sm leading-relaxed text-[#24413A] mb-4">
+                    {overallFeedback}
+                  </p>
+                )}
 
                 {strengths.length > 0 && (
-                  <div className="mb-3">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 block mb-1.5">
+                  <div className="mb-3.5">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#065F46] flex items-center gap-1.5 mb-2">
                       ✓ Key Strengths
                     </span>
-                    <ul className="space-y-1 text-xs text-emerald-900">
+                    <ul className="space-y-1.5 text-xs sm:text-sm text-[#24413A]">
                       {strengths.map((s, idx) => (
-                        <li key={idx} className="flex items-start gap-1.5">
-                          <span className="text-emerald-600 font-bold">•</span>
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-[#059669] font-bold shrink-0">•</span>
                           <span>{s}</span>
                         </li>
                       ))}
@@ -562,13 +599,13 @@ export default function AssessmentAttemptPage() {
 
                 {areasToImprove.length > 0 && (
                   <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 block mb-1.5">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#92400E] flex items-center gap-1.5 mb-2">
                       🎯 Recommended Focus
                     </span>
-                    <ul className="space-y-1 text-xs text-amber-900">
+                    <ul className="space-y-1.5 text-xs sm:text-sm text-[#24413A]">
                       {areasToImprove.map((area, idx) => (
-                        <li key={idx} className="flex items-start gap-1.5">
-                          <span className="text-amber-600 font-bold">•</span>
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-[#D97706] font-bold shrink-0">•</span>
                           <span>{area}</span>
                         </li>
                       ))}
@@ -578,132 +615,53 @@ export default function AssessmentAttemptPage() {
               </div>
             )}
 
-            {/* Result Breakdown */}
-            <div className="w-full text-left rounded-xl border border-[var(--color-border)] bg-white p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
-                Result Breakdown
-              </p>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Total Questions</span>
-                  <span className="font-semibold text-[var(--color-text-h)]">{totalQuestions}</span>
+            {/* Learning Action Section */}
+            <div className="grid w-full grid-cols-1 md:grid-cols-2 gap-4 text-left">
+              {/* Concept Root Card */}
+              <div className="flex flex-col justify-between rounded-2xl border border-[#E5DEC7] bg-[#FAF6EB] p-5 sm:p-6 shadow-xs transition-all duration-200 hover:border-[#D9A62B] hover:shadow-md">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-[#1B332C] mb-1.5">
+                    Concept Root
+                  </h3>
+                  <p className="text-xs sm:text-sm leading-relaxed text-[#5B6B5F]">
+                    Understand the concepts behind your assessment performance.
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Attempted</span>
-                  <span className="font-semibold text-[var(--color-text-h)]">{attemptedCount}</span>
+                <Link
+                  to="/concept-root"
+                  className="mt-4 inline-flex items-center justify-between rounded-xl bg-[#1B332C] px-4 py-2.5 text-xs sm:text-sm font-semibold text-white transition-all hover:bg-[#24413A] shadow-xs hover:shadow"
+                >
+                  <span>Explore Concept Root</span>
+                  <span className="text-base">→</span>
+                </Link>
+              </div>
+
+              {/* Mistake Map Card */}
+              <div className="flex flex-col justify-between rounded-2xl border border-[#E5DEC7] bg-[#FAF6EB] p-5 sm:p-6 shadow-xs transition-all duration-200 hover:border-[#D9A62B] hover:shadow-md">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-[#1B332C] mb-1.5">
+                    Mistake Map
+                  </h3>
+                  <p className="text-xs sm:text-sm leading-relaxed text-[#5B6B5F]">
+                    Identify your mistakes, patterns, and weak areas.
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Correct</span>
-                  <span className="font-semibold text-green-600">{correctCount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Incorrect</span>
-                  <span className="font-semibold text-red-600">{incorrectCount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Unanswered (Gradable)</span>
-                  <span className="font-semibold text-amber-600">{unansweredCount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--color-text-muted)]">Unanswered (Total)</span>
-                  <span className="font-semibold text-[var(--color-text-muted)]">{unansweredTotalCount}</span>
-                </div>
+                <Link
+                  to="/mistake-map"
+                  className="mt-4 inline-flex items-center justify-between rounded-xl bg-[#1B332C] px-4 py-2.5 text-xs sm:text-sm font-semibold text-white transition-all hover:bg-[#24413A] shadow-xs hover:shadow"
+                >
+                  <span>View Mistake Map</span>
+                  <span className="text-base">→</span>
+                </Link>
               </div>
             </div>
 
-            {/* Violation History Summary */}
-            {violations.length > 0 && (
-              <div className="w-full text-left rounded-xl border border-amber-200 bg-amber-50/70 p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-amber-800 mb-2">
-                  Security Log ({violations.length} Warning{violations.length > 1 ? "s" : ""})
-                </p>
-                <ul className="space-y-1 text-xs text-amber-900">
-                  {violations.map((v, i) => (
-                    <li key={i} className="flex justify-between border-b border-amber-200/50 pb-1">
-                      <span>• {v.reason}</span>
-                      <span className="font-mono text-amber-700">{v.timestamp}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Question-by-Question Review with AI Feedback */}
-            {Array.isArray(resultData.questionResults) && resultData.questionResults.length > 0 && (
-              <div className="w-full text-left rounded-xl border border-[var(--color-border)] bg-white p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-3">
-                  Question Review & AI Feedback
-                </p>
-                <div className="space-y-3">
-                  {resultData.questionResults.map((qr, idx) => (
-                    <div
-                      key={qr.questionId || idx}
-                      className={`p-3 rounded-lg border text-xs ${
-                        qr.status === "correct"
-                          ? "border-emerald-200 bg-emerald-50/40"
-                          : qr.status === "partial"
-                          ? "border-amber-200 bg-amber-50/40"
-                          : "border-rose-200 bg-rose-50/40"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-[var(--color-text-h)]">
-                          Q{idx + 1}. {qr.concept ? `[${qr.concept}]` : ""}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded font-bold uppercase text-[10px] ${
-                            qr.status === "correct"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : qr.status === "partial"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-rose-100 text-rose-800"
-                          }`}
-                        >
-                          {qr.status} ({qr.marksAwarded ?? 0}/10)
-                        </span>
-                      </div>
-                      <p className="text-[var(--color-text-body)] mb-2 font-medium">
-                        {qr.questionText}
-                      </p>
-                      <div className="space-y-1 text-[11px]">
-                        <div>
-                          <span className="font-semibold text-[var(--color-text-muted)]">Your Answer: </span>
-                          <span className="font-mono text-[var(--color-text-h)]">{qr.userAnswer || "[Unanswered]"}</span>
-                        </div>
-                        {qr.correctAnswer && qr.correctAnswer !== "N/A" && qr.status !== "correct" && (
-                          <div>
-                            <span className="font-semibold text-emerald-700">Correct Answer: </span>
-                            <span className="font-mono text-emerald-900">{qr.correctAnswer}</span>
-                          </div>
-                        )}
-                        {(qr.aiFeedback || qr.explanation) && (
-                          <div className="mt-1 pt-1 border-t border-[var(--color-border)]/50 text-[var(--color-text-muted)]">
-                            <span className="font-semibold text-[var(--color-primary-700)]">AI Feedback: </span>
-                            {qr.aiFeedback || qr.explanation}
-                          </div>
-                        )}
-                        {Array.isArray(qr.keyPointsMissed) && qr.keyPointsMissed.length > 0 && (
-                          <div className="text-amber-800">
-                            <span className="font-semibold">Key Points Missed: </span>
-                            {qr.keyPointsMissed.join(", ")}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <p className="mt-2 max-w-sm text-sm leading-relaxed text-[#5B6B5F]">
-              Your performance telemetry has been evaluated securely. Answers were validated on the server.
-            </p>
-
-            <div className="flex flex-wrap justify-center gap-3 w-full">
-              <Button onClick={initAttempt} variant="outline" size="md">
+            {/* Secondary Actions */}
+            <div className="flex flex-wrap items-center justify-center gap-3 w-full pt-2">
+              <Button onClick={initAttempt} variant="outline" size="sm">
                 🔄 Start Fresh Attempt
               </Button>
-              <Button as={Link} to="/dashboard" size="md">
+              <Button as={Link} to="/dashboard" variant="subtle" size="sm">
                 Go to Dashboard
               </Button>
             </div>
@@ -960,6 +918,80 @@ export default function AssessmentAttemptPage() {
   );
 }
 
+function DonutResultChart({ correctCount, wrongCount, totalQuestions, scorePercent }) {
+  const [animatedPercent, setAnimatedPercent] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAnimatedPercent(scorePercent);
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [scorePercent]);
+
+  const radius = 68;
+  const circumference = 2 * Math.PI * radius;
+  // Calculate stroke-dashoffset for SVG circle
+  const strokeDashoffset = circumference - (animatedPercent / 100) * circumference;
+
+  return (
+    <div className="flex flex-col items-center justify-center w-full my-2">
+      <div className="relative flex items-center justify-center">
+        <svg className="w-48 h-48 sm:w-52 sm:h-52 transform -rotate-90" viewBox="0 0 170 170">
+          {/* Background circle / Wrong segment */}
+          <circle
+            cx="85"
+            cy="85"
+            r={radius}
+            fill="none"
+            stroke={totalQuestions > 0 ? (wrongCount > 0 ? "#E06A55" : "#1B332C") : "#E5DEC7"}
+            strokeWidth="15"
+            className="transition-colors duration-500"
+          />
+          {/* Correct segment */}
+          {totalQuestions > 0 && correctCount > 0 && (
+            <circle
+              cx="85"
+              cy="85"
+              r={radius}
+              fill="none"
+              stroke="#1B332C"
+              strokeWidth="15"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap={scorePercent === 100 ? "butt" : "round"}
+              style={{
+                transition: "stroke-dashoffset 1s cubic-bezier(0.16, 1, 0.3, 1)",
+              }}
+            />
+          )}
+        </svg>
+
+        {/* Center label */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none pointer-events-none">
+          <span className="text-3xl sm:text-4xl font-extrabold text-[#1B332C] tracking-tight">
+            {scorePercent}%
+          </span>
+          <span className="text-xs sm:text-sm font-semibold text-[#5B6B5F] mt-0.5">
+            Correct
+          </span>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-6 mt-4">
+        <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-[#1B332C]">
+          <span className="h-3 w-3 rounded-full bg-[#1B332C] shrink-0" />
+          <span>Correct — {correctCount}</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-[#1B332C]">
+          <span className="h-3 w-3 rounded-full bg-[#E06A55] shrink-0" />
+          <span>Wrong — {wrongCount}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatBlock({ label, value }) {
   return (
     <div className="flex flex-col items-center gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 py-4">
@@ -968,3 +1000,4 @@ function StatBlock({ label, value }) {
     </div>
   );
 }
+
