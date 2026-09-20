@@ -16,7 +16,6 @@ import Container from "../components/Container";
 import SectionHeading from "../components/SectionHeading";
 import Card from "../components/Card";
 import Button from "../components/Button";
-import CtaBanner from "../components/CtaBanner";
 import HeroSection from "../components/HeroSection";
 import { mistakeMapApi } from "../services/api";
 
@@ -94,24 +93,120 @@ const MISTAKE_TYPE_BADGES = {
   UNKNOWN: { label: "General Error", bg: "bg-gray-50", text: "text-gray-700", border: "border-gray-200" },
 };
 
+const KNOWN_SHORT_LABELS = {
+  // Pharmacy, Pharmacology & Healthcare
+  "Pharmacokinetic & Dynamic Studies": "PK Studies",
+  "Pharmacokinetics & Pharmacodynamics": "PK / PD",
+  "Pharmacokinetics": "PK Studies",
+  "Pharmacodynamics": "PD Studies",
+  "Pharmacology": "Pharmacology",
+  "Pharmacy Quality & Drug Interactions": "Pharmacy",
+  "Pharmacy Practice & Clinical Guidelines": "Pharmacy",
+  "Testing Parameters & Assay Validation": "Testing Parameters",
+  "Testing Parameters": "Testing Parameters",
+  "Adverse Drug Reactions & Monitoring": "Drug Interactions",
+  "Adverse Drug Reactions": "Drug Reactions",
+  "Drug Interactions & Contraindications": "Drug Interactions",
+  "Clinical Pharmacology & Dosing Guidelines": "Clinical Dosing",
+  "Biochemical Pathways & Enzymology": "Biochem Pathways",
+  "Toxicology & Risk Assessment": "Toxicology",
+  "Pharmaceutical Formulations": "Formulations",
+
+  // Tech, Computer Science & Algorithms
+  "Dynamic Programming & Memoization": "Dynamic Prog.",
+  "Object Oriented Programming": "OOP Principles",
+  "Data Structures & Algorithms": "Data Structures",
+  "Binary Search & Divide and Conquer": "Binary Search",
+  "Graph Traversal & Shortest Path": "Graph Traversal",
+  "Relational Database Management": "RDBMS / SQL",
+  "Continuous Integration & Deployment": "CI / CD",
+  "System Architecture & Scalability": "System Arch",
+  "Operating Systems & Concurrency": "Operating Systems",
+  "Computer Networks & Protocols": "Networks",
+  "Machine Learning & Neural Networks": "Machine Learning",
+};
+
+/**
+ * Produces clean, readable short labels for charts while preserving the full name in data for tooltips.
+ */
+function formatShortLabel(name, maxLen = 18) {
+  if (!name) return "";
+  const trimmed = String(name).trim();
+  if (KNOWN_SHORT_LABELS[trimmed]) {
+    return KNOWN_SHORT_LABELS[trimmed];
+  }
+
+  // Handle common word replacements
+  let short = trimmed
+    .replace(/pharmacokinetics?/gi, "PK")
+    .replace(/pharmacodynamics?/gi, "PD")
+    .replace(/parameters?/gi, "Params")
+    .replace(/administration/gi, "Admin")
+    .replace(/specifications?/gi, "Specs")
+    .replace(/management/gi, "Mgmt")
+    .replace(/development/gi, "Dev")
+    .replace(/architecture/gi, "Arch")
+    .replace(/optimization/gi, "Opt.")
+    .replace(/configuration/gi, "Config")
+    .replace(/information/gi, "Info");
+
+  if (KNOWN_SHORT_LABELS[short]) {
+    return KNOWN_SHORT_LABELS[short];
+  }
+
+  // If there's an ' & ' or ' / ' or ' - ', check if the first part is substantive and within limits
+  if (short.length > maxLen) {
+    if (short.includes(" & ")) {
+      const parts = short.split(" & ");
+      if (parts[0].length >= 3 && parts[0].length <= maxLen) {
+        return parts[0].trim();
+      }
+    } else if (short.includes(" / ")) {
+      const parts = short.split(" / ");
+      if (parts[0].length >= 3 && parts[0].length <= maxLen) {
+        return parts[0].trim();
+      }
+    } else if (short.includes(" - ")) {
+      const parts = short.split(" - ");
+      if (parts[0].length >= 3 && parts[0].length <= maxLen) {
+        return parts[0].trim();
+      }
+    }
+  }
+
+  if (short.length > maxLen) {
+    return short.slice(0, maxLen - 1).trim() + "…";
+  }
+  return short;
+}
+
 function ProgressTooltip({ active, payload, label, data = [] }) {
   if (!active || !payload || !payload.length) return null;
-  const row = data.find((t) => t.concept === label);
+  const row = data.find((t) => t.concept === label || t.shortLabel === label);
+  const fullTitle = row?.concept || label;
+
   return (
-    <div className="rounded-xl border border-[var(--color-border)] bg-white p-3 shadow-lg max-w-xs">
-      <p className="mb-1 text-xs font-bold text-[var(--color-text-h)]">{label}</p>
-      {row?.topic && <p className="mb-1 text-[11px] text-[var(--color-text-muted)]">Topic: {row.topic}</p>}
-      <div className="space-y-1">
+    <div className="rounded-xl border border-[var(--color-border)] bg-white p-3.5 shadow-xl max-w-xs z-50">
+      <p className="mb-1 text-xs font-bold text-[var(--color-text-h)] leading-snug">{fullTitle}</p>
+      {row?.topic && (
+        <p className="mb-2 text-[11px] font-medium text-[var(--color-text-muted)]">
+          Topic: <span className="text-[var(--color-text-body)]">{row.topic}</span>
+        </p>
+      )}
+      <div className="space-y-1.5 border-t border-[var(--color-border)] pt-2">
         {payload.map((p) => (
-          <p key={p.dataKey} className="text-xs text-[var(--color-text-muted)] flex justify-between gap-4">
-            <span>{p.name}:</span>
-            <span className="font-semibold text-[var(--color-text-h)]">{p.value}</span>
+          <p key={p.dataKey} className="text-xs text-[var(--color-text-muted)] flex items-center justify-between gap-4">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color || p.fill }} />
+              <span>{p.name}:</span>
+            </span>
+            <span className="font-bold text-[var(--color-text-h)]">{p.value}</span>
           </p>
         ))}
       </div>
       {row?.needsAttention && (
-        <p className="mt-2 text-[11px] font-semibold text-amber-600 bg-amber-50 rounded px-1.5 py-0.5">
-          ⚠ Needs review — recurring error pattern
+        <p className="mt-2.5 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200/60 rounded-lg px-2 py-1 flex items-center gap-1">
+          <span>⚠</span> Needs review — recurring error pattern
         </p>
       )}
     </div>
@@ -191,6 +286,10 @@ export default function MistakeMapPage() {
   const topics = Array.isArray(data?.topics) ? data.topics : [];
   const mistakeDistribution = data?.mistakeDistribution || { breakdown: [], totalMistakes: 0 };
   const topicProgress = Array.isArray(data?.trends?.topicProgress) ? data.trends.topicProgress : [];
+  const trajectoryData = (topicProgress.slice(0, 8) || []).map((item) => ({
+    ...item,
+    shortLabel: formatShortLabel(item.concept || item.topic || "Unknown", 18),
+  }));
   const aiInsights = data?.aiInsights || null;
 
   // Filtered concepts
@@ -217,7 +316,7 @@ export default function MistakeMapPage() {
       {/* Hero Section */}
       <HeroSection
         variant="mistake-map"
-        eyebrow="AI-Powered · Concept Telemetry"
+        eyebrow="AI-Powered · Mistake Map"
         title="From every wrong answer to"
         highlightWord="actionable mastery"
         description="Mistake Map analyzes your performance across assessments at the concept and skill level — clustering recurring gaps, tracking error trajectories, and formulating AI-backed study priorities."
@@ -689,10 +788,13 @@ export default function MistakeMapPage() {
 
                           <div className="mt-4 pt-3">
                             <Link
-                              to={`/assessment`}
-                              className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-surface-secondary)] py-2 text-xs font-bold text-[var(--color-text-h)] hover:bg-[var(--color-primary-50)] hover:text-[var(--color-primary-700)] transition-colors border border-[var(--color-border)]"
+                              to="/assessment"
+                              title={`Practice ${item.concept}`}
+                              className="flex h-9 w-full min-w-0 items-center justify-center rounded-xl bg-[var(--color-surface-secondary)] px-3 text-xs font-bold text-[var(--color-text-h)] hover:bg-[var(--color-primary-50)] hover:text-[var(--color-primary-700)] transition-colors border border-[var(--color-border)] text-center"
                             >
-                              Practice {item.concept}
+                              <span className="truncate block max-w-full">
+                                Practice {item.concept}
+                              </span>
                             </Link>
                           </div>
                         </div>
@@ -721,50 +823,77 @@ export default function MistakeMapPage() {
                     </p>
                   </div>
 
-                  {topicProgress.length > 0 ? (
+                  {trajectoryData.length > 0 ? (
                     <>
-                      <ResponsiveContainer width="100%" height={320}>
-                        <BarChart
-                          data={topicProgress.slice(0, 10)}
-                          margin={{ top: 10, right: 10, left: -15, bottom: 25 }}
-                          barGap={4}
+                      <div className="w-full">
+                        <ResponsiveContainer
+                          width="100%"
+                          height={Math.max(280, trajectoryData.length * 42 + 65)}
                         >
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                          <XAxis
-                            dataKey="concept"
-                            tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
-                            axisLine={{ stroke: "var(--color-border)" }}
-                            tickLine={false}
-                            interval={0}
-                            angle={-20}
-                            textAnchor="end"
-                          />
-                          <YAxis
-                            allowDecimals={false}
-                            tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
-                            axisLine={false}
-                            tickLine={false}
-                            label={{
-                              value: "Mistakes",
-                              angle: -90,
-                              position: "insideLeft",
-                              fill: "var(--color-text-muted)",
-                              fontSize: 11,
-                            }}
-                          />
-                          <Tooltip content={<ProgressTooltip data={topicProgress} />} />
-                          <Legend wrapperStyle={{ fontSize: 12, color: "var(--color-text-muted)" }} />
-                          <Bar dataKey="before" name="Earlier Mistakes" fill={CHART_COLOR_BEFORE} radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="after" name="Recent Mistakes" fill={CHART_COLOR_PRIMARY} radius={[4, 4, 0, 0]}>
-                            {topicProgress.slice(0, 10).map((entry) => (
-                              <Cell
-                                key={entry.concept}
-                                fill={entry.needsAttention ? CHART_COLOR_ATTENTION : CHART_COLOR_PRIMARY}
-                              />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                          <BarChart
+                            layout="vertical"
+                            data={trajectoryData}
+                            margin={{ top: 10, right: 25, left: 10, bottom: 20 }}
+                            barGap={4}
+                            barCategoryGap="24%"
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+                            <XAxis
+                              type="number"
+                              allowDecimals={false}
+                              tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
+                              axisLine={{ stroke: "var(--color-border)" }}
+                              tickLine={false}
+                              domain={[0, (dataMax) => Math.max(3, dataMax + 1)]}
+                              label={{
+                                value: "Mistake Count",
+                                position: "insideBottom",
+                                offset: -12,
+                                fill: "var(--color-text-muted)",
+                                fontSize: 11,
+                              }}
+                            />
+                            <YAxis
+                              type="category"
+                              dataKey="shortLabel"
+                              width={130}
+                              tick={{ fill: "var(--color-text-h)", fontSize: 11, fontWeight: 500 }}
+                              axisLine={{ stroke: "var(--color-border)" }}
+                              tickLine={false}
+                            />
+                            <Tooltip
+                              content={<ProgressTooltip data={trajectoryData} />}
+                              cursor={{ fill: "rgba(0, 0, 0, 0.03)" }}
+                            />
+                            <Legend
+                              verticalAlign="top"
+                              align="right"
+                              wrapperStyle={{ paddingBottom: 14, fontSize: 12, color: "var(--color-text-muted)" }}
+                            />
+                            <Bar
+                              dataKey="before"
+                              name="Earlier Mistakes"
+                              fill={CHART_COLOR_BEFORE}
+                              radius={[0, 4, 4, 0]}
+                              barSize={11}
+                            />
+                            <Bar
+                              dataKey="after"
+                              name="Recent Mistakes"
+                              fill={CHART_COLOR_PRIMARY}
+                              radius={[0, 4, 4, 0]}
+                              barSize={11}
+                            >
+                              {trajectoryData.map((entry) => (
+                                <Cell
+                                  key={entry.concept}
+                                  fill={entry.needsAttention ? CHART_COLOR_ATTENTION : CHART_COLOR_PRIMARY}
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
 
                       <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-[var(--color-text-muted)] border-t border-[var(--color-border)] pt-3">
                         <span className="flex items-center gap-1.5">
@@ -917,14 +1046,25 @@ export default function MistakeMapPage() {
       </Section>
 
       {/* Bottom CTA */}
-      <Section>
-        <CtaBanner
-          eyebrow="Target Your Weaknesses"
-          title="Turn your mistakes into your greatest competitive edge."
-          subtitle="Take a targeted diagnostic assessment now to refresh your personalized Mistake Map."
-          buttonLabel="Start Assessment"
-          href="/assessment"
-        />
+      <Section className="py-8 sm:py-10 lg:py-12">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 rounded-2xl border border-[var(--color-primary-800)] bg-[var(--color-navy)] px-6 py-6 sm:px-8 sm:py-6 shadow-md">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              Ready to improve?
+            </h3>
+            <p className="text-xs sm:text-sm text-[#FBF8F0]/80 leading-relaxed max-w-xl">
+              Take another assessment to identify your latest weak areas.
+            </p>
+          </div>
+
+          <Link
+            to="/assessment"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#D9A62B] hover:bg-[#E8C547] text-[#1B332C] px-5 py-2.5 text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow shrink-0 whitespace-nowrap"
+          >
+            <span>Start Assessment</span>
+            <span>→</span>
+          </Link>
+        </div>
       </Section>
     </div>
   );

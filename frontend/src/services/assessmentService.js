@@ -538,6 +538,23 @@ export async function submitAttemptSession(assessmentId, attemptId, responses, e
     attemptSessionCache.delete(attemptId);
   }
 
+  const rating = percentage >= 80 ? "Excellent" : percentage >= 60 ? "Good" : percentage >= 40 ? "Average" : "Needs Improvement";
+  const correctConcepts = Array.from(new Set(questionResults.filter(q => q.status === "correct").map(q => q.concept || q.topic).filter(Boolean)));
+  const missedConcepts = Array.from(new Set(questionResults.filter(q => q.status !== "correct" && q.status !== "unanswered").map(q => q.concept || q.topic).filter(Boolean)));
+
+  const strengths = correctConcepts.length > 0 
+    ? correctConcepts.slice(0, 3).map(c => `Solid understanding of ${c}`)
+    : ["Attempted foundational assessment questions"];
+  const areasToImprove = missedConcepts.length > 0 
+    ? missedConcepts.slice(0, 3).map(c => `Review core principles of ${c}`)
+    : ["Continue practicing advanced diagnostic questions"];
+
+  const overallFeedback = `The student completed the assessment with a score of ${percentage}%. ${
+    percentage >= 60
+      ? "Demonstrated solid understanding of fundamental concepts with key strengths in assessed topics."
+      : "Gaps were observed in core concept applications; targeted review is recommended."
+  }`;
+
   const result = {
     success: true,
     scorePercent: percentage,
@@ -555,6 +572,10 @@ export async function submitAttemptSession(assessmentId, attemptId, responses, e
     totalQuestions: questions.length,
     questionResults,
     elapsedSeconds,
+    overallFeedback,
+    overallRating: rating,
+    strengths,
+    areasToImprove,
     violationsCount: violations.length,
     violations,
     autoSubmitted: violations.length >= 3,
