@@ -1,9 +1,7 @@
 import AttemptResult from "../models/AttemptResult.js";
 import User from "../models/User.js";
 import UserRoadmap from "../models/UserRoadmap.js";
-import { buildConceptRootAnalysis, buildSkillGapAnalysis } from "../services/evidenceService.js";
 import { generateProjectIdeasWithAI } from "../services/geminiService.js";
-import { buildMistakeMapAnalysis } from "../services/mistakeMapService.js";
 
 /**
  * Cleans raw internal topic/category names before showing to users.
@@ -415,130 +413,6 @@ function getRequiredSkillsForRole(role) {
     }
   }
   return ["Core Logic", "Problem Solving", "Domain Fundamentals", "Best Practices", "Applied Execution"];
-}
-
-// ─────────────────────────────────────────────
-// 1. GET /api/analytics/skill-gap
-// ─────────────────────────────────────────────
-export async function getSkillGapAnalytics(req, res) {
-  try {
-    const userId = req.user._id;
-    const user = await User.findById(userId).lean();
-    const attempts = await AttemptResult.find({ userId }).sort({ completedAt: -1 }).lean();
-
-    const targetCareer = user?.onboardingProfile?.careerGoal || user?.selectedField || "";
-    const result = buildSkillGapAnalysis({ attempts, careerGoal: targetCareer, user });
-
-    return res.json({
-      success: true,
-      data: {
-        ...result,
-        hasHistory: result.hasData,
-        demonstratedCapability: result.overallProficiency,
-        averageGap: result.averageGap,
-        matchPercentage: result.overallProficiency,
-        strengths: result.strongAreas.map((item) => item.skillName),
-        weakSkills: result.weakAreas.map((item) => ({
-          name: item.skillName,
-          avgScore: item.currentProficiency,
-          gapPoints: item.gap,
-          status: item.currentProficiency >= 55 ? "improving" : "attention",
-        })),
-        skillsBreakdown: result.skills.map((skill) => ({
-          name: skill.skillName,
-          avgScore: skill.currentProficiency,
-          status: skill.currentProficiency >= 75 ? "strong" : skill.currentProficiency >= 55 ? "improving" : "attention",
-        })),
-        requiredSkills: result.skills.map((skill) => ({
-          name: skill.skillName,
-          status: skill.currentProficiency >= skill.requiredProficiency ? "strong" : skill.currentProficiency >= 55 ? "improving" : "attention",
-          score: skill.currentProficiency,
-        })),
-      },
-    });
-  } catch (err) {
-    console.error("[Analytics] Error in getSkillGapAnalytics:", err);
-    return res.status(500).json({ success: false, message: "Failed to calculate SkillGap analytics." });
-  }
-}
-
-// ─────────────────────────────────────────────
-// 2. GET /api/analytics/mistake-map
-// ─────────────────────────────────────────────
-export async function getMistakeMapAnalytics(req, res) {
-  try {
-    const userId = req.user._id;
-    const attempts = await AttemptResult.find({ userId }).sort({ completedAt: -1 }).lean();
-    const analysis = buildMistakeMapAnalysis(attempts, {
-      careerGoal: req.user.onboardingProfile?.careerGoal || req.user.selectedField || "",
-    });
-
-    if (!analysis.hasData) {
-      return res.json({
-        success: true,
-        data: {
-          hasHistory: false,
-          totalMistakes: 0,
-          mostCommonMistake: "No mistake patterns detected yet",
-          occurrences: 0,
-          topicProgress: [],
-          mistakePatterns: [],
-          ...analysis,
-        },
-      });
-    }
-
-    return res.json({
-      success: true,
-      data: {
-        hasHistory: true,
-        totalMistakes: analysis.summary.totalMistakes,
-        mostCommonMistake: analysis.summary.mostCommonWeakness,
-        occurrences: analysis.highPriorityConcepts.length > 0 ? analysis.highPriorityConcepts[0].mistakeCount : 0,
-        improvement: analysis.trends.improvedCount > 0 ? Math.round((analysis.trends.improvedCount / Math.max(1, analysis.concepts.length)) * 100) : 0,
-        topicProgress: analysis.trends.topicProgress,
-        mistakePatterns: analysis.concepts.map((c) => ({
-          concept: c.concept,
-          occurrences: c.mistakeCount,
-          accuracy: c.accuracy,
-          primaryMistakeType: c.primaryMistakeType,
-          learningPriority: c.learningPriority,
-          explanation: c.evidence,
-        })),
-        ...analysis,
-      },
-    });
-  } catch (err) {
-    console.error("[Analytics] Error in getMistakeMapAnalytics:", err);
-    return res.status(500).json({ success: false, message: "Failed to calculate MistakeMap analytics." });
-  }
-}
-
-// ─────────────────────────────────────────────
-// 3. GET /api/analytics/concept-root
-// ─────────────────────────────────────────────
-export async function getConceptRootAnalytics(req, res) {
-  try {
-    const userId = req.user._id;
-    const user = await User.findById(userId).lean();
-    const attempts = await AttemptResult.find({ userId }).sort({ completedAt: -1 }).lean();
-    const data = buildConceptRootAnalysis({ attempts, careerGoal: user?.onboardingProfile?.careerGoal || user?.selectedField || "", user });
-
-    return res.json({
-      success: true,
-      data: {
-        hasHistory: data.hasData,
-        analyzedCount: data.summary ? data.summary.totalEvidence : 0,
-        strongCount: 0,
-        attentionCount: data.learningDiagnosis?.rootCauses?.length || 0,
-        concepts: data.learningDiagnosis?.concepts || [],
-        ...data,
-      },
-    });
-  } catch (err) {
-    console.error("[Analytics] Error in getConceptRootAnalytics:", err);
-    return res.status(500).json({ success: false, message: "Failed to calculate ConceptRoot analytics." });
-  }
 }
 
 // ─────────────────────────────────────────────

@@ -216,9 +216,21 @@ const CONCEPT_ROOT_SCHEMA = {
 const EXPLAIN_CONCEPT_ROOT_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
-    explanation: { type: SchemaType.STRING, description: "Concise evidence-based explanation." },
-    misconception: { type: SchemaType.STRING, description: "Likely misconception, or null when evidence is insufficient." },
+    explanation: { type: SchemaType.STRING, description: "Concise evidence-based explanation of the concept." },
+    whyMistakeHappens: { type: SchemaType.STRING, description: "Specific explanation of where and why the learner went wrong based on evidence." },
+    misconception: { type: SchemaType.STRING, description: "The underlying misconception or prerequisite weakness." },
     conceptRelationship: { type: SchemaType.STRING, description: "Explain how the root concept relates to the observed weakness." },
+    whatToUnderstand: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+      description: "Bullet points explaining what the learner needs to understand about this concept."
+    },
+    mentalModel: { type: SchemaType.STRING, description: "A reusable mental model on how to think about this concept next time." },
+    howToAvoid: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING },
+      description: "Actionable checklist steps to avoid making the same mistake."
+    },
     recommendedRevision: {
       type: SchemaType.ARRAY,
       items: { type: SchemaType.STRING }
@@ -231,8 +243,11 @@ const EXPLAIN_CONCEPT_ROOT_SCHEMA = {
   },
   required: [
     "explanation",
-    "conceptRelationship",
-    "recommendedRevision",
+    "whyMistakeHappens",
+    "misconception",
+    "whatToUnderstand",
+    "mentalModel",
+    "howToAvoid",
     "recommendedPractice",
     "confidenceNote"
   ]
@@ -633,7 +648,7 @@ You must reason ONLY from the supplied evidence.
 - Never claim certainty when evidence is weak.
 
 ## INPUT EVIDENCE
-Observed Concept: ${deterministicData.canonicalConcept} (Attempts: ${deterministicData.mastery.attempts}, Accuracy: ${(deterministicData.mastery.accuracy * 100).toFixed(0)}%, Trend: ${deterministicData.mastery.trend})
+Observed Concept: ${deterministicData.canonicalConcept} (Total Relevant Attempts: ${deterministicData.mastery.attempts}, Incorrect Attempts: ${deterministicData.mastery.attempts - deterministicData.mastery.correct}, Accuracy: ${(deterministicData.mastery.accuracy * 100).toFixed(0)}%, Trend: ${deterministicData.mastery.trend})
 Root Concept Candidate: ${deterministicData.rootCause.rootConceptName}
 Diagnosed Error Type: ${deterministicData.rootCause.type}
 Confidence: ${deterministicData.rootCause.confidence}

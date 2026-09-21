@@ -482,23 +482,7 @@ export async function submitAttemptSession(assessmentId, attemptId, responses, e
     assessmentField: field,
   };
 
-  // 1. Try AI evaluation first
-  try {
-    const aiRes = await assessmentApi.evaluateAI(assessmentId, payload);
-    if (aiRes && aiRes.success) {
-      return aiRes;
-    }
-  } catch (_) {}
-
-  // 2. Fallback: Try standard backend submitAttempt
-  try {
-    const apiRes = await assessmentApi.submitAttempt(assessmentId, payload);
-    if (apiRes && apiRes.success) {
-      return apiRes;
-    }
-  } catch (_) {}
-
-  // 3. Fallback: Validate against private closure session cache
+  // 1. Evaluate against private closure session cache first
   const session = attemptSessionCache.get(attemptId);
   const questions = session ? session.questions : [];
   const answersMap = session ? session.answersMap : null;
@@ -510,26 +494,54 @@ export async function submitAttemptSession(assessmentId, attemptId, responses, e
   let incorrectCount = 0;
   let unansweredCount = 0;
 
-  questions.forEach((q) => {
-    const qId = String(q.id || q._id);
-    const userResp = responses ? responses[qId] : undefined;
-    const sessionQ = answersMap ? answersMap.get(qId) : null;
+  if (questions.length > 0) {
+    questions.forEach((q) => {
+      const qId = String(q.id || q._id);
+      const userResp = responses ? responses[qId] : undefined;
+      const sessionQ = answersMap ? answersMap.get(qId) : null;
 
-    const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
-    questionResults.push(evalResult);
+      const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
+      evalResult.concept = q.concept || sessionQ?.concept || "";
+      evalResult.topic = q.topic || sessionQ?.topic || "";
+      questionResults.push(evalResult);
 
-    totalScore += evalResult.marksAwarded;
-    maxScore += evalResult.maxMarks;
+      totalScore += evalResult.marksAwarded;
+      maxScore += evalResult.maxMarks;
 
-    if (evalResult.status === "correct" || evalResult.marksAwarded >= 7) {
-      correctCount++;
-    } else if (evalResult.status === "unanswered") {
-      unansweredCount++;
-    } else {
-      incorrectCount++;
+      if (evalResult.status === "correct" || evalResult.marksAwarded >= 7) {
+        correctCount++;
+      } else if (evalResult.status === "unanswered") {
+        unansweredCount++;
+      } else {
+        incorrectCount++;
+      }
+    });
+  }
+
+  // Attach evaluated results so the backend can persist them if it doesn't know the questions
+  if (questionResults.length > 0) {
+    payload.questionResults = questionResults;
+  }
+
+  // 2. Try AI evaluation first
+  try {
+    const aiRes = await assessmentApi.evaluateAI(assessmentId, payload);
+    if (aiRes && aiRes.success) {
+      if (attemptId) attemptSessionCache.delete(attemptId);
+      return aiRes;
     }
-  });
+  } catch (_) {}
 
+  // 3. Fallback: Try standard backend submitAttempt
+  try {
+    const apiRes = await assessmentApi.submitAttempt(assessmentId, payload);
+    if (apiRes && apiRes.success) {
+      if (attemptId) attemptSessionCache.delete(attemptId);
+      return apiRes;
+    }
+  } catch (_) {}
+
+  // 4. Fallback: Return local evaluation if backend APIs fail
   const percentage = maxScore > 0 ? Math.min(100, Math.round((totalScore / maxScore) * 100)) : 0;
   const attemptedCount = questions.length - unansweredCount;
 

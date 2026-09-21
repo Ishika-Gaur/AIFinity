@@ -18,22 +18,6 @@ const CONFIDENCE_THRESHOLDS = {
   HIGH: 5
 };
 
-const ERROR_TAXONOMY = {
-  CONCEPT_GAP: "CONCEPT_GAP",
-  DEFINITION_GAP: "DEFINITION_GAP",
-  PROCEDURE_GAP: "PROCEDURE_GAP",
-  IMPLEMENTATION_ERROR: "IMPLEMENTATION_ERROR",
-  BOUNDARY_ERROR: "BOUNDARY_ERROR",
-  LOGIC_ERROR: "LOGIC_ERROR",
-  CALCULATION_ERROR: "CALCULATION_ERROR",
-  SYNTAX_ERROR: "SYNTAX_ERROR",
-  MISREAD_QUESTION: "MISREAD_QUESTION",
-  CARELESS_ERROR: "CARELESS_ERROR",
-  PARTIAL_UNDERSTANDING: "PARTIAL_UNDERSTANDING",
-  TIME_PRESSURE: "TIME_PRESSURE",
-  UNKNOWN: "UNKNOWN"
-};
-
 // Configurable recency weights (milliseconds)
 const RECENCY_WEIGHTS = {
   RECENT: { maxAge: 14 * 24 * 60 * 60 * 1000, weight: 1.0 }, // 14 days
@@ -58,36 +42,32 @@ function isEdgeCaseQuestion(q) {
 function classifyError(q, attempt) {
   if (q.isCorrect) return null;
   
+  if (q.mistakeType && ["CONCEPTUAL", "LOGICAL", "IMPLEMENTATION", "CARELESS", "MISINTERPRETATION", "TIME_MANAGEMENT"].includes(q.mistakeType)) {
+    return q.mistakeType;
+  }
+
   const text = (q.questionText || "").toLowerCase();
   const uAns = String(q.userAnswer || "").toLowerCase();
   
-  if (q.status === "unanswered" || uAns === "") return ERROR_TAXONOMY.UNKNOWN;
+  if (q.status === "unanswered" || uAns === "") return "UNKNOWN";
   if (q.timeTaken && attempt.timeLimit && (q.timeTaken < 5 || q.timeTaken > attempt.timeLimit * 0.9)) {
-    return ERROR_TAXONOMY.TIME_PRESSURE;
+    return "TIME_MANAGEMENT";
   }
   
   if (text.includes("boundary") || text.includes("edge") || text.includes("limit") || isEdgeCaseQuestion(q)) {
-    return ERROR_TAXONOMY.BOUNDARY_ERROR;
+    return "LOGICAL";
   }
   if (text.includes("syntax") || text.includes("compile") || text.includes("error")) {
-    return ERROR_TAXONOMY.SYNTAX_ERROR;
+    return "IMPLEMENTATION";
   }
   if (text.includes("calculate") || text.includes("math") || text.includes("sum")) {
-    return ERROR_TAXONOMY.CALCULATION_ERROR;
+    return "CARELESS";
   }
   if (text.includes("define") || text.includes("what is")) {
-    return ERROR_TAXONOMY.DEFINITION_GAP;
+    return "CONCEPTUAL";
   }
   
-  if (q.mistakeType) {
-    if (q.mistakeType === "CONCEPTUAL") return ERROR_TAXONOMY.CONCEPT_GAP;
-    if (q.mistakeType === "LOGICAL") return ERROR_TAXONOMY.LOGIC_ERROR;
-    if (q.mistakeType === "CARELESS") return ERROR_TAXONOMY.CARELESS_ERROR;
-    if (q.mistakeType === "IMPLEMENTATION") return ERROR_TAXONOMY.IMPLEMENTATION_ERROR;
-    if (q.mistakeType === "MISINTERPRETATION") return ERROR_TAXONOMY.MISREAD_QUESTION;
-  }
-  
-  return ERROR_TAXONOMY.CONCEPT_GAP; // Fallback for generalized failure
+  return "CONCEPTUAL"; // Fallback for generalized failure
 }
 
 function extractEvidence(q, attempt) {
@@ -127,10 +107,10 @@ function calculateTrend(accuracy, recentAccuracy, totalAttempts) {
   return "STABLE";
 }
 
-function calculateConfidenceString(evidenceCount) {
-  if (evidenceCount <= CONFIDENCE_THRESHOLDS.INSUFFICIENT) return "INSUFFICIENT_EVIDENCE";
-  if (evidenceCount <= CONFIDENCE_THRESHOLDS.TENTATIVE) return "TENTATIVE";
-  if (evidenceCount < CONFIDENCE_THRESHOLDS.HIGH) return "MODERATE_CONFIDENCE";
+function calculateConfidenceString(confidenceScore) {
+  if (confidenceScore < 0.3) return "INSUFFICIENT_EVIDENCE";
+  if (confidenceScore < 0.5) return "TENTATIVE";
+  if (confidenceScore < 0.8) return "MODERATE_CONFIDENCE";
   return "HIGH_CONFIDENCE";
 }
 
@@ -217,8 +197,13 @@ export async function calculateConceptRoot(userId) {
       }
     }
 
-    // Mathematical confidence formula: 0.0 to 1.0 based on evidence
-    const confidenceScore = Math.min((totalAttempts / CONFIDENCE_THRESHOLDS.HIGH), 1.0);
+    // Mathematical confidence formula: (Error Consistency * Mistake Volume) - Recent Successes
+    const mistakeVolumeFactor = Math.min(totalAttempts / CONFIDENCE_THRESHOLDS.HIGH, 1.0);
+    const errorConsistency = totalAttempts > 0 ? (highestErrFreq / totalAttempts) : 0;
+    const recentSuccessPenalty = recentAccuracy * 0.5; // Max 0.5 penalty
+    
+    let confidenceScore = (mistakeVolumeFactor * errorConsistency) - recentSuccessPenalty;
+    confidenceScore = Math.max(0, Math.min(confidenceScore, 1.0));
     
     profiles.push({
       conceptId: cid,
@@ -241,13 +226,13 @@ export async function calculateConceptRoot(userId) {
     });
   }
 
-  // 3. Root-Cause Detection (Find most recent worst performing profile)
+  // 4. Find the Weakest Link
   let weakestProfile = null;
-  let lowestAccuracy = 1.1;
+  let lowestAccuracy = 1.0;
   let mostRecentError = 0;
 
   for (const p of profiles) {
-    if (p.mastery.attempts >= 2 && p.mastery.accuracy < 0.6) {
+    if (p.mastery.attempts >= 1 && p.mastery.accuracy < 0.6) {
       // Find the most recent mistake for this concept
       const latestErrorTimestamp = p.evidence
         .filter(e => !e.isCorrect)
@@ -299,7 +284,29 @@ export async function calculateConceptRoot(userId) {
     }
   }
 
-  const dependencies = getConceptPath(weakestProfile.conceptId, bestRootProfile.conceptId);
+  const rawDependencies = getConceptPath(weakestProfile.conceptId, bestRootProfile.conceptId);
+  const dependencies = rawDependencies.map((id, idx) => ({
+    id: id,
+    name: getConceptName(id),
+    type: idx === 0 ? "observed" : (idx === rawDependencies.length - 1 ? "root" : "intermediate"),
+    level: idx
+  }));
+
+  // Calculate consistent combined metrics
+  const combinedEvidence = [];
+  const seenEv = new Set();
+  for (const ev of [...weakestProfile.evidence, ...bestRootProfile.evidence]) {
+    const key = `${ev.attemptId}-${ev.questionId}`;
+    if (!seenEv.has(key)) {
+      seenEv.add(key);
+      combinedEvidence.push(ev);
+    }
+  }
+
+  const combinedAttempts = combinedEvidence.length;
+  const combinedCorrect = combinedEvidence.filter(e => e.isCorrect).length;
+  const combinedAccuracy = combinedAttempts > 0 ? (combinedCorrect / combinedAttempts) : 0;
+  const patternMatches = combinedEvidence.filter(e => !e.isCorrect && e.errorType === bestRootProfile.rootCause.type).length;
 
   // 5. Final Result Formation
   return {
@@ -307,24 +314,27 @@ export async function calculateConceptRoot(userId) {
     conceptId: weakestProfile.conceptId,
     canonicalConcept: weakestProfile.canonicalConcept,
     skillId: weakestProfile.skillId,
-    mastery: weakestProfile.mastery,
+    mastery: {
+      ...weakestProfile.mastery,
+      attempts: combinedAttempts,
+      correct: combinedCorrect,
+      accuracy: Number(combinedAccuracy.toFixed(3))
+    },
     
     rootCause: {
       type: bestRootProfile.rootCause.type,
       confidence: bestRootProfile.rootCause.confidence,
-      evidenceCount: bestRootProfile.rootCause.evidenceCount,
+      evidenceCount: patternMatches,
       rootConceptId: bestRootProfile.conceptId,
       rootConceptName: bestRootProfile.canonicalConcept
     },
 
-    evidence: weakestProfile.evidence.filter(e => !e.isCorrect).concat(
-      bestRootProfile.conceptId !== weakestProfile.conceptId ? bestRootProfile.evidence.filter(e => !e.isCorrect) : []
-    ).slice(0, 8), // Provide max 8 key mistakes for LLM reasoning
+    evidence: combinedEvidence.filter(e => !e.isCorrect).slice(0, 8), // Provide max 8 key mistakes for LLM reasoning
     
     dependencies,
     
     diagnosis: {
-      status: calculateConfidenceString(weakestProfile.mastery.attempts)
+      status: calculateConfidenceString(weakestProfile.rootCause.confidence)
     },
     
     explanation: null, // To be filled by Gemini

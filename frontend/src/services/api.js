@@ -140,9 +140,6 @@ export const assessmentApi = {
 };
 
 export const analyticsApi = {
-  getSkillGap: () => request("/analytics/skill-gap"),
-  getMistakeMap: () => request("/analytics/mistake-map"),
-  getConceptRoot: () => request("/analytics/concept-root"),
   getRoadmap: () => request("/analytics/roadmap"),
   updateRoadmap: (payload) =>
     request("/analytics/roadmap", {

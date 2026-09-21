@@ -617,6 +617,14 @@ export async function submitAttempt(req, res) {
   const category = assessment?.category || bodyCategory || "General";
   const field = assessment?.field || bodyField || "";
 
+  // Validation: Do not silently save empty evidence if an assessment was actually evaluated
+  if (totalQuestions > 0 && (!questionResults || questionResults.length === 0)) {
+    return res.status(400).json({
+      success: false,
+      message: "No question results provided and unable to reconstruct questions from backend. Cannot save empty evidence.",
+    });
+  }
+
   // Persist the attempt result for the authenticated user (dashboard & roadmap analytics)
   if (req.user) {
     try {
@@ -1307,28 +1315,54 @@ export async function evaluateAttemptWithAI(req, res) {
     let incorrectCount = 0;
     let unansweredCount = 0;
 
-    rawQuestions.forEach((q) => {
-      const qId = String(q._id || q.id);
-      const userResp = responses[qId];
-      const sessionQ = session?.answersMap?.get(qId) ?? null;
+    if (rawQuestions.length > 0) {
+      rawQuestions.forEach((q) => {
+        const qId = String(q._id || q.id);
+        const userResp = responses[qId];
+        const sessionQ = session?.answersMap?.get(qId) ?? null;
 
-      const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
-      evalResult.topic = q.topic || sessionQ?.topic || assessment?.field || assessment?.category || bodyField || bodyCategory || "General";
-      evalResult.concept = q.concept || sessionQ?.concept || assessment?.category || bodyCategory || "General";
-      evalResult.difficulty = q.difficulty || sessionQ?.difficulty || assessment?.difficulty || "Medium";
-      evalResult.timeTaken = rawQuestions.length > 0 ? Math.round(Number(elapsedSeconds || 0) / rawQuestions.length) : 0;
-      evalResult.mistakeType = classifyMistakeDeterministically(q, evalResult, sessionQ, userResp, elapsedSeconds, rawQuestions.length);
-      questionResults.push(evalResult);
+        const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
+        evalResult.topic = q.topic || sessionQ?.topic || assessment?.field || assessment?.category || bodyField || bodyCategory || "General";
+        evalResult.concept = q.concept || sessionQ?.concept || assessment?.category || bodyCategory || "General";
+        evalResult.difficulty = q.difficulty || sessionQ?.difficulty || assessment?.difficulty || "Medium";
+        evalResult.timeTaken = rawQuestions.length > 0 ? Math.round(Number(elapsedSeconds || 0) / rawQuestions.length) : 0;
+        evalResult.mistakeType = classifyMistakeDeterministically(q, evalResult, sessionQ, userResp, elapsedSeconds, rawQuestions.length);
+        questionResults.push(evalResult);
 
-      totalScore += evalResult.marksAwarded;
-      maxScore += evalResult.maxMarks;
+        totalScore += evalResult.marksAwarded;
+        maxScore += evalResult.maxMarks;
 
-      if (evalResult.status === "correct" || evalResult.marksAwarded >= 7) correctCount++;
-      else if (evalResult.status === "unanswered") unansweredCount++;
-      else incorrectCount++;
-    });
+        if (evalResult.status === "correct" || evalResult.marksAwarded >= 7) correctCount++;
+        else if (evalResult.status === "unanswered") unansweredCount++;
+        else incorrectCount++;
+      });
+    } else if (req.body.questionResults && Array.isArray(req.body.questionResults)) {
+      req.body.questionResults.forEach((q) => {
+        const topic = q.topic || bodyField || bodyCategory || "General";
+        const concept = q.concept || bodyCategory || "General";
+        const difficulty = q.difficulty || "Medium";
+        const isCorrect = q.isCorrect || q.status === "correct";
+        const mistakeType = q.mistakeType || (isCorrect ? "" : classifyMistakeDeterministically(q, q, null, q.userAnswer, elapsedSeconds, req.body.questionResults.length));
+        questionResults.push({
+          ...q,
+          topic,
+          concept,
+          difficulty,
+          timeTaken: q.timeTaken || (req.body.questionResults.length > 0 ? Math.round(Number(elapsedSeconds || 0) / req.body.questionResults.length) : 0),
+          mistakeType,
+        });
+        const marks = q.marksAwarded || (q.isCorrect ? 10 : 0);
+        const maxM = q.maxMarks || 10;
+        totalScore += marks;
+        maxScore += maxM;
 
-    const totalQuestions = rawQuestions.length || 1;
+        if (q.isCorrect || marks >= 7) correctCount++;
+        else if (q.status === "unanswered") unansweredCount++;
+        else incorrectCount++;
+      });
+    }
+
+    const totalQuestions = rawQuestions.length || questionResults.length || 1;
     if (maxScore === 0) maxScore = totalQuestions * 10;
 
     // -----------------------------------------------------------------------
@@ -1341,10 +1375,18 @@ export async function evaluateAttemptWithAI(req, res) {
     let aiEvalApplied = false;
 
     try {
+      const aiQuestionsToEvaluate = rawQuestions.length > 0 ? rawQuestions : questionResults.map(q => ({
+        _id: q.questionId,
+        id: q.questionId,
+        type: q.type,
+        question: q.questionText,
+        answer: q.correctAnswer
+      }));
+
       const aiResult = await evaluateAssessmentWithAI({
         assessmentTitle: assessment?.title || bodyTitle || targetId,
         assessmentCategory: assessment?.category || bodyCategory || "General",
-        questions: rawQuestions,
+        questions: aiQuestionsToEvaluate,
         userAnswers: responses,
       });
 

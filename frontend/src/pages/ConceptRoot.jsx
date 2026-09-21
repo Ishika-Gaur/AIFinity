@@ -1,78 +1,15 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Section from "../components/Section";
-import SectionHeading from "../components/SectionHeading";
-import Card from "../components/Card";
-import ConceptRootDemo from "../components/ConceptRootDemo";
-import CtaBanner from "../components/CtaBanner";
-import HeroSection from "../components/HeroSection";
 import { conceptRootApi } from "../services/api";
 import { useStudentAuth } from "../context/StudentAuthContext";
 import { Link } from "react-router-dom";
-
-const HOW_IT_WORKS_STEPS = [
-  {
-    step: "01",
-    title: "Student Submission",
-    description: "Submit a normal quiz answer, conceptual response, or JavaScript code snippet.",
-  },
-  {
-    step: "02",
-    title: "Analyze the Mistake",
-    description: "ConceptRoot evaluates the submission mechanics beyond simple right/wrong checks.",
-  },
-  {
-    step: "03",
-    title: "Find the Root Cause",
-    description: "Identify the exact underlying concept and missing prerequisite knowledge gap.",
-  },
-  {
-    step: "04",
-    title: "Personalized Guidance",
-    description: "Receive targeted study topics and practice recommendations customized to your gap.",
-  },
-];
-
-const FEATURE_CARDS = [
-  {
-    eyebrow: "DIAGNOSTIC 01",
-    title: "Root Cause Analysis",
-    description:
-      "Pinpoint the exact foundational concept that caused the mistake, rather than relying on rote answer memorization.",
-  },
-  {
-    eyebrow: "DIAGNOSTIC 02",
-    title: "Concept Gap Detection",
-    description:
-      "Identify missing prerequisite knowledge from earlier topics that is blocking progress on current material.",
-  },
-  {
-    eyebrow: "DIAGNOSTIC 03",
-    title: "Adaptive Learning Path",
-    description:
-      "Get targeted concepts and tailored practice exercises directly addressing the detected gap.",
-  },
-];
-
-const JOURNEY_STEPS = [
-  "Student Submission",
-  "Mistake Detected",
-  "Root Concept",
-  "Missing Prerequisite",
-  "Recommended Concept",
-  "Practice",
-  "Improved Understanding",
-];
+import Button from "../components/Button";
 
 export default function ConceptRoot() {
-  const demoRef = useRef(null);
-  const howItWorksRef = useRef(null);
-
   const { user } = useStudentAuth();
-
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [expandedConcept, setExpandedConcept] = useState(null);
 
   useEffect(() => {
     async function loadData() {
@@ -91,375 +28,285 @@ export default function ConceptRoot() {
     loadData();
   }, [user]);
 
-  const handleScrollToDemo = (e) => {
-    if (e) e.preventDefault();
-    if (demoRef.current) {
-      const navbarHeight = 85;
-      const elementPosition = demoRef.current.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - navbarHeight;
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: "smooth",
-      });
-    }
-  };
-
-  const handleScrollToHowItWorks = (e) => {
-    if (e) e.preventDefault();
-    if (howItWorksRef.current) {
-      const navbarHeight = 85;
-      const elementPosition = howItWorksRef.current.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - navbarHeight;
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: "smooth",
-      });
-    }
-  };
-
-  const hasData = data && data.learningDiagnosis && data.learningDiagnosis.hasDiagnosis;
-
-  return (
-    <div>
-      {/* HERO SECTION */}
-      <HeroSection
-        variant="concept-root"
-        eyebrow="AI-Powered · ConceptRoot"
-        title="Find the root,"
-        highlightWord="not just the mistake"
-        description="Wrong answers don't just get marked incorrect. Our AI traces each one back to the underlying concept gap, so you always know exactly what to fix."
-        primaryCta={{ label: "See Your ConceptRoot", href: "#your-personalized-conceptroot" }}
-        secondaryCta={{ label: "How It Works", href: "#how-it-works" }}
-      />
-
-      <Section>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          {/* Traditional Feedback Card — kept bespoke: this is a one-off
-              comparison layout, not a repeatable list item, so the
-              generic Card shape doesn't fit it. */}
-          <div className="rounded-2xl border border-red-100 bg-red-50/30 p-8 flex flex-col justify-between space-y-6">
-            <div>
-              <span className="text-xs font-bold text-red-600 uppercase tracking-wider block mb-2">
-                Traditional Feedback
-              </span>
-              <h3 className="text-xl font-bold text-gray-900 mb-6">
-                Surface-Level Checking
-              </h3>
-              <div className="space-y-4 text-sm font-medium">
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-red-100 text-red-600">
-                  <span className="text-lg">❌</span>
-                  <span>Incorrect Answer</span>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-200 text-gray-700">
-                  <span className="text-lg">✓</span>
-                  <span>Correct answer provided (Memorize it)</span>
-                </div>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 italic">
-              Result: Student memorizes the correct answer without fixing the underlying concept gap.
-            </p>
-          </div>
-
-          {/* ConceptRoot Card — same, bespoke flow layout */}
-          <div className="rounded-2xl border border-[var(--color-primary-200)] bg-[var(--color-primary-50)]/40 p-8 flex flex-col justify-between space-y-6 shadow-sm">
-            <div>
-              <span className="text-xs font-bold text-[var(--color-primary-600)] uppercase tracking-wider block mb-2">
-                ConceptRoot AI
-              </span>
-              <h3 className="text-xl font-bold text-[var(--color-text-h)] mb-6">
-                Root Cause Diagnosis
-              </h3>
-              <div className="space-y-2.5 text-xs font-medium">
-                <div className="p-2.5 bg-white rounded-lg border border-red-200 text-red-700 flex items-center justify-between">
-                  <span>❌ Incorrect Attempt</span>
-                </div>
-                <div className="text-center text-[var(--color-primary-600)] font-bold text-xs">↓</div>
-                <div className="p-2.5 bg-white rounded-lg border border-[var(--color-primary-200)] text-[var(--color-text-h)]">
-                  🔍 Mistake Identified
-                </div>
-                <div className="text-center text-[var(--color-primary-600)] font-bold text-xs">↓</div>
-                <div className="p-2.5 bg-white rounded-lg border border-[var(--color-primary-200)] text-[var(--color-primary-900)] font-semibold">
-                  🧠 Root Concept Detected
-                </div>
-                <div className="text-center text-[var(--color-primary-600)] font-bold text-xs">↓</div>
-                <div className="p-2.5 bg-white rounded-lg border border-indigo-200 text-indigo-900 font-semibold">
-                  ⚠️ Missing Prerequisite Identified
-                </div>
-                <div className="text-center text-[var(--color-primary-600)] font-bold text-xs">↓</div>
-                <div className="p-2.5 bg-[var(--color-primary-600)] text-white rounded-lg font-bold text-center">
-                  🎯 Targeted Practice & Guidance
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Section>
-
-      {/* HOW IT WORKS */}
-      <div ref={howItWorksRef} id="how-it-works" className="scroll-mt-20">
-        <Section className="border-y border-[var(--color-border)]">
-          <SectionHeading
-            eyebrow="STEP-BY-STEP"
-            title="How ConceptRoot Works"
-            subtitle="Four simple steps from attempt to deep conceptual clarity."
-          />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {HOW_IT_WORKS_STEPS.map((s) => (
-              <Card
-                key={s.step}
-                icon={<span style={{ fontFamily: "var(--font-mono)" }} className="text-lg font-bold">{s.step}</span>}
-                title={s.title}
-              >
-                {s.description}
-              </Card>
-            ))}
-          </div>
-        </Section>
-      </div>
-
-      {/* INTERACTIVE DEMO */}
-      <div ref={demoRef} id="interactive-demo" className="scroll-mt-20">
-        <Section>
-          <SectionHeading
-            eyebrow="LIVE DEMO"
-            title="Interactive ConceptRoot Demo"
-            subtitle="Try out ConceptRoot on a sample conceptual question or JavaScript code snippet."
-          />
-
-          <ConceptRootDemo />
-        </Section>
-      </div>
-
-      {/* WHAT CONCEPTROOT FINDS */}
-      <Section className="border-y border-[var(--color-border)]">
-        <SectionHeading
-          eyebrow="DIAGNOSTICS"
-          title="What ConceptRoot Finds"
-          subtitle="Three core capabilities engineered to eliminate blind spots."
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {FEATURE_CARDS.map((f) => (
-            <Card key={f.eyebrow} eyebrow={f.eyebrow} title={f.title}>
-              {f.description}
-            </Card>
-          ))}
-        </div>
-      </Section>
-
-      {/* EXAMPLE LEARNING JOURNEY */}
-      <Section>
-        <SectionHeading
-          eyebrow="VISUAL PROGRESSION"
-          title="Example Learning Journey"
-          subtitle="How ConceptRoot transforms an error into master-level understanding."
-        />
-
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-center">
-            {JOURNEY_STEPS.map((step, idx) => (
-              <React.Fragment key={step}>
-                <div className="flex-1 min-w-[130px] p-3 rounded-xl bg-[var(--color-primary-50)] border border-[var(--color-primary-100)]">
-                  <span className="text-[10px] font-mono font-bold text-[var(--color-primary-700)] block uppercase">
-                    Step 0{idx + 1}
-                  </span>
-                  <span className="text-xs font-semibold text-[var(--color-text-h)]">
-                    {step}
-                  </span>
-                </div>
-                {idx < JOURNEY_STEPS.length - 1 && (
-                  <span className="hidden lg:block text-xs font-bold text-[var(--color-primary-400)]">
-                    →
-                  </span>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-      </Section>
-
-  {/* PERSONALIZED CONCEPTROOT SECTION */}
-  <Section id="your-personalized-conceptroot" className="border-t border-[var(--color-border)] scroll-mt-20">
-    <SectionHeading
-      eyebrow="YOUR PERSONALIZED CONCEPTROOT"
-      title="Based on Your Assessment Results"
-      subtitle="Real analysis of your learning patterns and concept gaps."
-    />
-
-    {loading ? (
-      <div className="max-w-4xl mx-auto">
-        <div className="animate-pulse space-y-4">
+  if (loading) {
+    return (
+      <Section className="min-h-[60vh] flex items-center justify-center">
+        <div className="animate-pulse space-y-4 w-full max-w-3xl">
           <div className="h-8 bg-gray-200 rounded w-1/3"></div>
           <div className="h-32 bg-gray-200 rounded"></div>
           <div className="h-32 bg-gray-200 rounded"></div>
         </div>
-      </div>
-    ) : error ? (
-      <div className="max-w-4xl mx-auto text-center py-12">
-        <div className="text-red-600 mb-4">
-          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
+      </Section>
+    );
+  }
+
+  if (error) {
+    return (
+      <Section className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Unable to load diagnosis</h3>
+          <p className="text-gray-600 mb-6">There was a problem fetching your ConceptRoot data.</p>
+          <button onClick={() => window.location.reload()} className="px-6 py-3 bg-[var(--color-primary-600)] text-white rounded-lg font-medium hover:bg-[var(--color-primary-700)]">
+            Retry
+          </button>
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Unable to load your ConceptRoot analysis</h3>
-        <p className="text-gray-600 mb-6">There was a problem fetching your personalized data. Please try again.</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="px-6 py-3 bg-[var(--color-primary-600)] text-white rounded-lg font-medium hover:bg-[var(--color-primary-700)] transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    ) : !user ? (
-      <div className="max-w-4xl mx-auto text-center py-12">
-        <div className="text-[var(--color-primary-600)] mb-4">
-          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
+      </Section>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Section className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Sign in to view ConceptRoot</h3>
+          <p className="text-gray-600 mb-6">Log in to view your diagnostic report.</p>
+          <Link to="/login" className="inline-block px-6 py-3 bg-[var(--color-primary-600)] text-white rounded-lg font-medium hover:bg-[var(--color-primary-700)]">
+            Sign In
+          </Link>
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Sign in to see your personalized ConceptRoot analysis</h3>
-        <p className="text-gray-600 mb-6">Log in to view your personalized learning diagnosis and recommendations.</p>
-        <Link
-          to="/login"
-          className="inline-block px-6 py-3 bg-[var(--color-primary-600)] text-white rounded-lg font-medium hover:bg-[var(--color-primary-700)] transition-colors"
-        >
-          Sign In
-        </Link>
-      </div>
-    ) : (!data || !data.hasData || !data.conceptId) ? (
-      <div className="max-w-4xl mx-auto text-center py-12">
-        <div className="text-[var(--color-primary-600)] mb-4">
-          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
+      </Section>
+    );
+  }
+
+  if (!data || !data.hasData || !data.conceptId) {
+    return (
+      <Section className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No ConceptRoot Data Yet</h3>
+          <p className="text-gray-600 mb-6">Take an assessment to generate your first diagnostic report.</p>
+          <Link to="/assessment" className="inline-block px-6 py-3 bg-[var(--color-primary-600)] text-white rounded-lg font-medium hover:bg-[var(--color-primary-700)]">
+            Start Assessment
+          </Link>
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Complete an assessment to see your personalized ConceptRoot analysis</h3>
-        <p className="text-gray-600 mb-6">We need more data! Take an assessment so we can detect any underlying concept gaps.</p>
-        <Link
-          to="/assessment"
-          className="inline-block px-6 py-3 bg-[var(--color-primary-600)] text-white rounded-lg font-medium hover:bg-[var(--color-primary-700)] transition-colors"
-        >
-          Start Assessment
-        </Link>
-      </div>
-    ) : (
-      <div className="max-w-4xl mx-auto space-y-8">
-        {/* Core Diagnosis Card */}
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+      </Section>
+    );
+  }
+
+  const isInsufficient = data.diagnosis.status === "INSUFFICIENT_EVIDENCE";
+  const confidenceScore = data.rootCause?.confidence || 0;
+  
+  // Format Confidence Label
+  let confColor = "text-gray-600";
+  if (data.diagnosis.status === "HIGH_CONFIDENCE") confColor = "text-green-600";
+  else if (data.diagnosis.status === "MODERATE_CONFIDENCE") confColor = "text-yellow-600";
+  else if (data.diagnosis.status === "TENTATIVE") confColor = "text-orange-600";
+
+  return (
+    <div className="bg-gray-50 min-h-screen pb-20">
+      <Section className="pt-12">
+        <div className="max-w-3xl mx-auto space-y-6">
+          
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
-              <h3 className="text-2xl font-bold text-[var(--color-text-h)]">
-                Root Cause Detected
-              </h3>
-              <p className="text-gray-600 mt-1">
-                Based on <span className="font-semibold">{data.rootCause.evidenceCount}</span> pieces of primary evidence across {data.sourceAttemptCount} attempts.
-              </p>
+              <h1 className="text-3xl font-bold text-gray-900">ConceptRoot Diagnosis</h1>
+              <p className="text-gray-500 mt-1">AI-powered root cause analysis</p>
             </div>
-            <div className="text-right">
-              <span className="text-sm text-gray-500 uppercase tracking-wide block mb-1">Confidence Score</span>
-              <span className="text-3xl font-bold text-[var(--color-primary-600)]">
-                {Math.round(data.rootCause.confidence * 100)}%
+            <div>
+              <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isInsufficient ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-800'}`}>
+                {isInsufficient ? 'Pending Data' : 'Diagnosis Active'}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-4 items-center bg-[var(--color-primary-50)] p-4 rounded-xl border border-[var(--color-primary-100)]">
-            <div className="flex-1 text-center md:text-left">
-              <span className="text-xs text-gray-500 uppercase font-bold block mb-1">Observed Weakness</span>
-              <span className="text-lg font-bold text-red-600">{data.canonicalConcept}</span>
+          {/* Handle Insufficient Evidence Gracefully */}
+          {isInsufficient ? (
+            <div className="bg-white rounded-2xl border border-[var(--color-border)] p-8 shadow-sm text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-4">
+                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Not enough evidence yet.</h3>
+              <p className="text-gray-600 max-w-md mx-auto">
+                AIFINITY detected an incorrect attempt, but one attempt is not enough to determine a recurring root cause. Keep practicing this concept and return after more attempts are available.
+              </p>
             </div>
-            
-            <div className="hidden md:flex flex-col items-center flex-1 px-4 text-[var(--color-primary-400)]">
-              <span className="text-xs font-mono mb-1">TRACED TO</span>
-              <span className="text-2xl">←</span>
-            </div>
+          ) : (
+            <>
+              {/* Root Cause */}
+              <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6 shadow-sm border-t-4 border-t-[var(--color-primary-600)]">
+                <span className="text-xs font-bold text-[var(--color-primary-700)] uppercase tracking-wider mb-3 block">Root Cause</span>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">{data.rootCause.rootConceptName}</h3>
+                <p className="text-gray-600 font-medium mb-1">
+                  Detected Pattern: <span className="capitalize text-gray-900">{data.rootCause.type.replace(/_/g, ' ').toLowerCase()}</span>
+                </p>
+                {data.explanation?.conceptRelationship && (
+                  <p className="text-gray-700 text-sm mt-3">
+                    {data.explanation.conceptRelationship}
+                  </p>
+                )}
+              </div>
 
-            <div className="flex-1 text-center md:text-right">
-              <span className="text-xs text-[var(--color-primary-600)] uppercase font-bold block mb-1">Prerequisite Root Cause ({data.rootCause.type.replace(/_/g, ' ')})</span>
-              <span className="text-lg font-bold text-[var(--color-primary-900)]">{data.rootCause.rootConceptName}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* AI Explanations */}
-        {data.explanation && data.aiStatus === "completed" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-              <h4 className="text-lg font-semibold text-[var(--color-text-h)] mb-4">Why is this happening?</h4>
-              <p className="text-gray-700 text-sm leading-relaxed mb-4">{data.explanation.explanation}</p>
-              
-              {data.explanation.misconception && (
-                <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                  <span className="text-xs font-bold text-red-600 uppercase mb-1 block">Likely Misconception</span>
-                  <span className="text-sm text-gray-800">{data.explanation.misconception}</span>
+              {/* Why You’re Making This Mistake */}
+              {data.explanation && (data.explanation.whyMistakeHappens || data.explanation.misconception) && (
+                <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6 shadow-sm border-l-4 border-l-red-500">
+                  <span className="text-xs font-bold text-red-600 uppercase tracking-wider mb-4 block">Why You’re Making This Mistake</span>
+                  {data.explanation.misconception && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-800">
+                      <strong className="font-semibold text-red-900 block mb-1">Core Misconception:</strong>
+                      {data.explanation.misconception}
+                    </div>
+                  )}
+                  {data.explanation.whyMistakeHappens && (
+                    <p className="text-gray-800 leading-relaxed text-sm">
+                      {data.explanation.whyMistakeHappens}
+                    </p>
+                  )}
                 </div>
               )}
-            </div>
 
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-              <h4 className="text-lg font-semibold text-[var(--color-text-h)] mb-4">Recommended Plan</h4>
-              
-              <div className="space-y-4">
-                <div>
-                  <span className="text-xs font-bold text-[var(--color-primary-600)] uppercase mb-2 block">1. Revise First</span>
-                  <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                    {data.explanation.recommendedRevision.map((rev, i) => <li key={i}>{rev}</li>)}
-                  </ul>
-                </div>
-                <div>
-                  <span className="text-xs font-bold text-green-600 uppercase mb-2 block">2. Then Practice</span>
-                  <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                    {data.explanation.recommendedPractice.map((prac, i) => <li key={i}>{prac}</li>)}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Evidence Logs */}
-        {data.evidence && data.evidence.length > 0 && (
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
-            <h4 className="text-lg font-semibold text-[var(--color-text-h)] mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-              Supporting Evidence
-            </h4>
-            <div className="space-y-3">
-              {data.evidence.map((sq, idx) => (
-                <div key={idx} className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm">
-                  <div className="font-medium text-gray-900 mb-2">Question ID: {sq.questionId}</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-gray-500">Your Answer:</span>
-                      <span className="block mt-1 font-mono text-red-600">{sq.studentAnswer}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Correct Answer:</span>
-                      <span className="block mt-1 font-mono text-green-600">{sq.correctAnswer}</span>
+              {/* Evidence Behind Diagnosis */}
+              <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6 shadow-sm">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 block">Evidence Behind Diagnosis</span>
+                
+                <div className="flex flex-col md:flex-row items-center gap-6 divide-y md:divide-y-0 md:divide-x divide-gray-100 mb-6">
+                  <div className="flex-1 w-full pt-4 md:pt-0">
+                    <div className="flex gap-6">
+                      <div>
+                        <div className="text-2xl font-bold text-gray-900">{data.mastery.attempts}</div>
+                        <div className="text-xs text-gray-500">Relevant Attempts</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-red-600">{data.mastery.attempts - data.mastery.correct}</div>
+                        <div className="text-xs text-gray-500">Incorrect</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-orange-500">{data.rootCause.evidenceCount}</div>
+                        <div className="text-xs text-gray-500">Pattern Matches</div>
+                      </div>
                     </div>
                   </div>
+                  <div className="flex-1 w-full pt-4 md:pt-0 md:pl-6">
+                    <div className="flex items-center gap-3">
+                      <div className={`text-xl font-bold ${confColor}`}>
+                        {data.diagnosis.status.replace('_CONFIDENCE', '').replace('_', ' ')} Confidence
+                      </div>
+                    </div>
+                    {data.explanation?.confidenceNote && (
+                      <p className="text-xs text-gray-500 mt-1">{data.explanation.confidenceNote}</p>
+                    )}
+                  </div>
                 </div>
-              ))}
+
+                {/* Evidence Logs */}
+                {data.evidence && data.evidence.filter(e => !e.isCorrect).length > 0 && (
+                  <div className="space-y-3 mt-4 pt-4 border-t border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 uppercase">Recent Mistakes:</p>
+                    {data.evidence.filter(e => !e.isCorrect).slice(0, 3).map((sq, idx) => (
+                      <div key={idx} className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-sm flex flex-col md:flex-row md:items-center gap-4">
+                        <div className="flex-1">
+                          <span className="text-xs text-gray-400 uppercase block mb-1">Your Answer</span>
+                          <span className="font-mono text-red-600">{sq.studentAnswer}</span>
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-xs text-gray-400 uppercase block mb-1">Correct Answer</span>
+                          <span className="font-mono text-green-600">{sq.correctAnswer}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Concept You Need to Strengthen */}
+              <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6 shadow-sm border-t-4 border-t-blue-500">
+                <span className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 block">Concept You Need to Strengthen</span>
+                <h3 className="text-xl font-bold text-gray-900 mb-1">{data.canonicalConcept}</h3>
+                <p className="text-sm font-medium text-blue-600 mb-3">{data.skillId}</p>
+                {data.explanation?.explanation && (
+                  <p className="text-gray-700 text-sm leading-relaxed">
+                    {data.explanation.explanation}
+                  </p>
+                )}
+              </div>
+
+              {/* Personalized Fix */}
+              {data.explanation && (data.explanation.whatToUnderstand || data.explanation.mentalModel || data.explanation.howToAvoid) && (
+                <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6 shadow-sm">
+                  <span className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-4 block">Personalized Fix</span>
+                  
+                  <div className="space-y-6">
+                    {(data.explanation.whatToUnderstand?.length > 0 || data.explanation.recommendedRevision?.length > 0) && (
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-800 mb-2">What To Understand:</h4>
+                        <ul className="space-y-2">
+                          {(data.explanation.whatToUnderstand || data.explanation.recommendedRevision).map((item, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                              <span className="text-purple-500 mt-0.5">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {data.explanation.mentalModel && (
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-800 mb-2">Mental Model:</h4>
+                        <p className="text-gray-700 text-sm italic bg-purple-50 p-3 rounded-lg border border-purple-100">
+                          "{data.explanation.mentalModel}"
+                        </p>
+                      </div>
+                    )}
+
+                    {data.explanation.howToAvoid?.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-800 mb-2">How to Avoid Next Time:</h4>
+                        <ul className="space-y-2">
+                          {data.explanation.howToAvoid.map((item, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                              <span className="text-purple-500 mt-0.5">□</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Recommended Practice */}
+              {data.explanation?.recommendedPractice?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6 shadow-sm border-l-4 border-l-green-500">
+                  <span className="text-xs font-bold text-green-600 uppercase tracking-wider mb-4 block">Recommended Practice</span>
+                  <ul className="space-y-3">
+                    {data.explanation.recommendedPractice.slice(0, 5).map((item, i) => (
+                      <li key={i} className="flex items-start gap-3 text-sm text-gray-800 bg-green-50/50 p-3 rounded-lg">
+                        <span className="text-green-500 mt-0.5 shrink-0">→</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+            </>
+          )}
+
+          {/* Next Step → Start Targeted Practice */}
+          {data.hasData && (
+            <div className="mt-8 bg-[var(--color-primary-900)] rounded-2xl p-8 text-center shadow-lg relative overflow-hidden">
+              <div className="relative z-10">
+                <span className="text-xs font-bold text-[var(--color-primary-200)] uppercase tracking-wider mb-3 block">Next Step</span>
+                <h3 className="text-2xl font-bold text-white mb-3">Start Targeted Practice</h3>
+                <p className="text-[var(--color-primary-100)] text-sm max-w-xl mx-auto mb-6">
+                  Your ConceptRoot diagnosis is complete. We've customized your learning path based on this exact root cause. 
+                  Apply your personalized fix and start mastering {data.canonicalConcept} now.
+                </p>
+                <Link to="/roadmap" className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-white text-gray-900 text-base font-bold shadow-md rounded-xl transition-transform hover:scale-105">
+                  Go to Roadmap 
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                </Link>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-      </div>
-    )}
-  </Section>
-
-      {/* CTA */}
-      <Section>
-        <CtaBanner
-          eyebrow="Ready to begin?"
-          title="Your skill gap is waiting for you."
-          buttonLabel="Start Free Assessment"
-          href="/assessment"
-        />
+        </div>
       </Section>
     </div>
   );

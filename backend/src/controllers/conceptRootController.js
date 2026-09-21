@@ -14,7 +14,7 @@ export async function getConceptRoot(req, res) {
     // 1. Calculate deterministic root
     const deterministicData = await calculateConceptRoot(user._id);
 
-    if (!deterministicData.hasData || !deterministicData.observedConcept) {
+    if (!deterministicData.hasData || !deterministicData.conceptId) {
       return res.json({
         success: true,
         data: {
@@ -32,7 +32,7 @@ export async function getConceptRoot(req, res) {
     const cachedAnalysis = await ConceptRootAnalysis.findOne({
       userId: user._id,
       latestAttemptId,
-      calculationVersion: "3A"
+      calculationVersion: "3B"
     }).lean();
 
     let aiInsights = null;
@@ -56,7 +56,7 @@ export async function getConceptRoot(req, res) {
       await ConceptRootAnalysis.create({
         userId: user._id,
         latestAttemptId,
-        calculationVersion: "3A",
+        calculationVersion: "3B",
         deterministicRoot: deterministicData,
         aiInsights,
         aiStatus
@@ -75,10 +75,12 @@ export async function getConceptRoot(req, res) {
       },
     });
   } catch (err) {
-    console.error("[ConceptRoot] Error fetching ConceptRoot data:", err);
+    console.error("[ConceptRoot ERROR] CRITICAL ERROR IN GET CONCEPT ROOT:", err);
+    console.error(err.stack);
     return res.status(500).json({
       success: false,
       message: "Unable to load your ConceptRoot analysis. Please try again.",
+      errorDetails: err.message
     });
   }
 }
