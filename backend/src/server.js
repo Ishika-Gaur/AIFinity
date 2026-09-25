@@ -33,7 +33,17 @@ if (!allowedOrigins.includes("https://aifinity-frontend.onrender.com")) {
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      // Allow any localhost port in development
+      if (process.env.NODE_ENV !== "production" && origin.match(/^http:\/\/localhost:\d+$/)) {
+        return callback(null, true);
+      }
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
