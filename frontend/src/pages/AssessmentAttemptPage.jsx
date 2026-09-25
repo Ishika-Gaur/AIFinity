@@ -482,6 +482,11 @@ export default function AssessmentAttemptPage() {
     const areasToImprove = Array.isArray(resultData.areasToImprove) ? resultData.areasToImprove : [];
     const hasAiEvaluation = Boolean(overallFeedback || overallRating || strengths.length > 0 || areasToImprove.length > 0);
 
+    const reviewQuestions = getQuestionReviewList(resultData, assessment, responses);
+    const unansweredCount =
+      resultData.unansweredCount ??
+      reviewQuestions.filter((q) => q.isUnanswered).length;
+
     return (
       <Section className="py-12 sm:py-16 bg-[#FBF8F0] min-h-screen">
         <Container>
@@ -655,6 +660,14 @@ export default function AssessmentAttemptPage() {
                 </Link>
               </div>
             </div>
+
+            {/* Answer Review Section */}
+            <ReviewAnswersSection
+              questionsList={reviewQuestions}
+              correctCount={correctCount}
+              wrongCount={wrongCount}
+              unansweredCount={unansweredCount}
+            />
 
             {/* Secondary Actions */}
             <div className="flex flex-wrap items-center justify-center gap-3 w-full pt-2">
@@ -997,6 +1010,296 @@ function StatBlock({ label, value }) {
     <div className="flex flex-col items-center gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-secondary)] px-3 py-4">
       <span className="text-xl font-bold text-[var(--color-text-h)]">{value}</span>
       <span className="text-xs text-[var(--color-text-muted)]">{label}</span>
+    </div>
+  );
+}
+
+/* ---------------- ANSWER REVIEW SECTION ---------------- */
+
+function resolveOptionText(answerVal, options) {
+  if (answerVal === undefined || answerVal === null || answerVal === "") return null;
+  if (typeof answerVal === "number" && Array.isArray(options) && options[answerVal] !== undefined) {
+    return options[answerVal];
+  }
+  if (
+    typeof answerVal === "string" &&
+    !isNaN(Number(answerVal)) &&
+    Array.isArray(options) &&
+    !options.includes(answerVal) &&
+    options[Number(answerVal)] !== undefined
+  ) {
+    return options[Number(answerVal)];
+  }
+  return String(answerVal);
+}
+
+function getQuestionReviewList(resultData, assessment, responses) {
+  const qrList =
+    Array.isArray(resultData?.questionResults) && resultData.questionResults.length > 0
+      ? resultData.questionResults
+      : [];
+
+  const assessmentQuestions = Array.isArray(assessment?.questions) ? assessment.questions : [];
+
+  if (qrList.length > 0) {
+    return qrList.map((qr, index) => {
+      const qId = String(qr.questionId || qr.id || qr._id || "");
+      const matchedQ =
+        assessmentQuestions.find((q) => String(q.id || q._id) === qId) ||
+        assessmentQuestions[index];
+
+      const questionText = qr.questionText || matchedQ?.question || `Question ${index + 1}`;
+
+      let userAnswer = qr.userAnswer;
+      if (userAnswer === undefined || userAnswer === null || userAnswer === "") {
+        const rawUserResp = responses ? responses[qId] : undefined;
+        if (rawUserResp !== undefined && rawUserResp !== null && String(rawUserResp).trim() !== "") {
+          userAnswer = resolveOptionText(rawUserResp, matchedQ?.options);
+        }
+      } else {
+        userAnswer = resolveOptionText(userAnswer, matchedQ?.options);
+      }
+
+      let correctAnswer = qr.correctAnswer;
+      if (!correctAnswer || correctAnswer === "N/A") {
+        if (matchedQ?.answer !== undefined && matchedQ?.answer !== null) {
+          correctAnswer = resolveOptionText(matchedQ.answer, matchedQ?.options);
+        }
+      } else {
+        correctAnswer = resolveOptionText(correctAnswer, matchedQ?.options);
+      }
+
+      const isUnanswered =
+        qr.status === "unanswered" ||
+        userAnswer === null ||
+        userAnswer === undefined ||
+        String(userAnswer).trim() === "" ||
+        String(userAnswer).trim().toLowerCase() === "unanswered" ||
+        String(userAnswer).trim().toLowerCase() === "[unanswered]";
+
+      const isCorrect =
+        !isUnanswered &&
+        (qr.isCorrect === true ||
+          qr.status === "correct" ||
+          (userAnswer != null &&
+            correctAnswer != null &&
+            String(userAnswer).trim().toLowerCase() === String(correctAnswer).trim().toLowerCase()));
+
+      return {
+        id: qId || `q_${index}`,
+        questionNumber: index + 1,
+        questionText,
+        userAnswer: isUnanswered ? null : String(userAnswer),
+        correctAnswer: correctAnswer ? String(correctAnswer) : "N/A",
+        isCorrect,
+        isUnanswered,
+        status: isUnanswered ? "unanswered" : isCorrect ? "correct" : "incorrect",
+      };
+    });
+  }
+
+  // Fallback if questionResults array is missing
+  return assessmentQuestions.map((q, index) => {
+    const qId = String(q.id || q._id || `q_${index}`);
+    const rawResp = responses ? responses[qId] : undefined;
+    const isUnanswered = rawResp === undefined || rawResp === null || String(rawResp).trim() === "";
+
+    const userAnswerText = isUnanswered ? null : resolveOptionText(rawResp, q.options);
+    const correctText = q.answer != null ? resolveOptionText(q.answer, q.options) : "N/A";
+
+    const isMatch =
+      !isUnanswered &&
+      userAnswerText &&
+      correctText &&
+      userAnswerText.trim().toLowerCase() === correctText.trim().toLowerCase();
+
+    return {
+      id: qId,
+      questionNumber: index + 1,
+      questionText: q.question || `Question ${index + 1}`,
+      userAnswer: userAnswerText,
+      correctAnswer: correctText,
+      isCorrect: isMatch,
+      isUnanswered,
+      status: isUnanswered ? "unanswered" : isMatch ? "correct" : "incorrect",
+    };
+  });
+}
+
+function ReviewAnswersSection({ questionsList, correctCount, wrongCount, unansweredCount }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!questionsList || questionsList.length === 0) return null;
+
+  return (
+    <div className="w-full text-left rounded-2xl border border-[#E5DEC7] bg-[#FAF6EB] p-5 sm:p-6 shadow-xs">
+      {/* Collapsible Accordion Header */}
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        aria-expanded={isOpen}
+        className="w-full flex items-center justify-between gap-4 text-left transition-colors cursor-pointer group"
+      >
+        <div>
+          <h3 className="text-base sm:text-lg font-bold text-[#1B332C] group-hover:text-[#2E4F42] transition-colors">
+            Review Your Answers
+          </h3>
+          <p className="mt-0.5 text-xs sm:text-sm font-medium text-[#5B6B5F]">
+            {correctCount} correct · {wrongCount} incorrect{unansweredCount > 0 ? ` · ${unansweredCount} not answered` : ""}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 rounded-xl border border-[#E5DEC7] bg-[#F5EEDC]/90 px-3.5 py-2 text-xs font-bold text-[#1B332C] group-hover:bg-[#EBD79B]/60 group-hover:border-[#D9A62B] transition-all shadow-2xs">
+          <span>{isOpen ? "Hide Answers" : "Show Answers"}</span>
+          <svg
+            className={`h-4 w-4 transform transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2.2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {/* Questions List */}
+      {isOpen && (
+        <div className="mt-5 pt-5 border-t border-[#E5DEC7] space-y-3.5 sm:space-y-4">
+          {questionsList.map((item) => (
+            <QuestionReviewCard key={item.id || item.questionNumber} item={item} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuestionReviewCard({ item }) {
+  const { questionNumber, questionText, userAnswer, correctAnswer, isCorrect, isUnanswered } = item;
+
+  if (isCorrect) {
+    return (
+      <div className="rounded-xl border border-[#A7F3D0] bg-[#F0FDF4]/90 p-4 sm:p-5 shadow-2xs text-left">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <span className="font-extrabold text-sm sm:text-base text-[#1B332C]">
+            Q{questionNumber}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#D1FAE5] px-2.5 py-0.5 text-xs font-bold text-[#065F46] border border-[#A7F3D0]">
+            <svg className="w-3.5 h-3.5 text-[#059669]" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <span>Correct</span>
+          </span>
+        </div>
+
+        <p className="text-xs sm:text-sm font-semibold text-[#1B332C] leading-relaxed mb-3">
+          {questionText}
+        </p>
+
+        <div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#065F46] block mb-1.5">
+            Your Answer
+          </span>
+          <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-white/95 px-3.5 py-2.5 text-xs sm:text-sm text-[#1B332C] font-medium shadow-2xs">
+            <svg className="w-4 h-4 text-[#059669] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <span className="break-words leading-relaxed">{userAnswer}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isUnanswered) {
+    return (
+      <div className="rounded-xl border border-[#E5DEC7] bg-[#FAF6EB] p-4 sm:p-5 shadow-2xs text-left">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <span className="font-extrabold text-sm sm:text-base text-[#1B332C]">
+            Q{questionNumber}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#FEF3C7] px-2.5 py-0.5 text-xs font-bold text-[#92400E] border border-[#FDE68A]">
+            <span className="text-amber-600 font-bold">○</span>
+            <span>Not Answered</span>
+          </span>
+        </div>
+
+        <p className="text-xs sm:text-sm font-semibold text-[#1B332C] leading-relaxed mb-3">
+          {questionText}
+        </p>
+
+        <div className="space-y-2.5">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#92400E] block mb-1.5">
+              Your Answer
+            </span>
+            <div className="flex items-start gap-2.5 rounded-lg border border-[#E5DEC7] bg-white/95 px-3.5 py-2.5 text-xs sm:text-sm text-[#5B6B5F] shadow-2xs italic">
+              <span className="text-amber-600 font-bold shrink-0 mt-0.5">—</span>
+              <span className="break-words leading-relaxed">Not Answered</span>
+            </div>
+          </div>
+
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#065F46] block mb-1.5">
+              Correct Answer
+            </span>
+            <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-[#F0FDF4]/95 px-3.5 py-2.5 text-xs sm:text-sm text-[#1B332C] font-medium shadow-2xs">
+              <svg className="w-4 h-4 text-[#059669] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              <span className="break-words leading-relaxed">{correctAnswer}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Incorrect question
+  return (
+    <div className="rounded-xl border border-[#FECDD3] bg-[#FFF5F5]/90 p-4 sm:p-5 shadow-2xs text-left">
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <span className="font-extrabold text-sm sm:text-base text-[#1B332C]">
+          Q{questionNumber}
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-[#FFE4E6] px-2.5 py-0.5 text-xs font-bold text-[#9F1239] border border-[#FECDD3]">
+          <svg className="w-3.5 h-3.5 text-[#E11D48]" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+          <span>Incorrect</span>
+        </span>
+      </div>
+
+      <p className="text-xs sm:text-sm font-semibold text-[#1B332C] leading-relaxed mb-3">
+        {questionText}
+      </p>
+
+      <div className="space-y-2.5">
+        <div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#9F1239] block mb-1.5">
+            Your Answer
+          </span>
+          <div className="flex items-start gap-2.5 rounded-lg border border-rose-200 bg-white/95 px-3.5 py-2.5 text-xs sm:text-sm text-[#1B332C] font-medium shadow-2xs">
+            <svg className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+            <span className="break-words leading-relaxed">{userAnswer}</span>
+          </div>
+        </div>
+
+        <div>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#065F46] block mb-1.5">
+            Correct Answer
+          </span>
+          <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-[#F0FDF4]/95 px-3.5 py-2.5 text-xs sm:text-sm text-[#1B332C] font-medium shadow-2xs">
+            <svg className="w-4 h-4 text-[#059669] shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <span className="break-words leading-relaxed">{correctAnswer}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
