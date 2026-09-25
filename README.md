@@ -293,8 +293,7 @@ The platform is designed around real application data rather than relying on har
 
 ### Prerequisites
 
-- **Node.js** (v18 or higher)
-- **npm** or **yarn**
+- **Node.js** 20.19+ (or 22.12+) and npm 10.8+
 - **MongoDB** (local or MongoDB Atlas account)
 - **Groq API Key** (for AI features)
 - **EmailJS credentials** (for contact form)
@@ -311,7 +310,8 @@ The platform is designed around real application data rather than relying on har
    ```bash
    cd backend
    npm install
-   cp .env.example .env
+   # macOS/Linux: cp .env.example .env
+   # Windows PowerShell: Copy-Item .env.example .env
    ```
    Configure your `.env` file with the following variables:
    ```env
@@ -321,6 +321,8 @@ The platform is designed around real application data rather than relying on har
    JWT_EXPIRES_IN=7d
    NODE_ENV=development
    CLIENT_URL=http://localhost:5173
+   GEMINI_API_KEY=your_gemini_api_key_here
+   GEMINI_MODEL=gemini-2.0-flash
    COOKIE_SECRET=your_cookie_secret_key_here
    SMTP_HOST=smtp.example.com
    SMTP_PORT=587
@@ -334,7 +336,8 @@ The platform is designed around real application data rather than relying on har
    ```bash
    cd frontend
    npm install
-   cp .env.example .env
+   # macOS/Linux: cp .env.example .env
+   # Windows PowerShell: Copy-Item .env.example .env
    ```
    Configure your `.env` file with the following variables:
    ```env

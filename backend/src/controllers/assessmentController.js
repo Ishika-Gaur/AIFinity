@@ -974,18 +974,10 @@ export async function getPersonalizedAssessments(req, res) {
     try {
       const userRoadmap = await UserRoadmap.findOne({ userId }).lean();
       if (userRoadmap) {
-        if (userRoadmap.shortRoadmap?.currentFocus) {
-          roadmapFocusTopics.push(userRoadmap.shortRoadmap.currentFocus);
-        }
-        if (Array.isArray(userRoadmap.shortRoadmap?.nextSteps)) {
-          roadmapFocusTopics.push(...userRoadmap.shortRoadmap.nextSteps);
-        }
-        if (Array.isArray(userRoadmap.phases)) {
-          for (const phase of userRoadmap.phases) {
-            for (const skill of (phase.skills || [])) {
-              if (skill.status === "IN_PROGRESS" || skill.status === "NOT_STARTED") {
-                roadmapFocusTopics.push(skill.name);
-              }
+        if (Array.isArray(userRoadmap.stages)) {
+          for (const stage of userRoadmap.stages) {
+            if (stage.status === "current" && Array.isArray(stage.concepts)) {
+              roadmapFocusTopics.push(...stage.concepts);
             }
           }
         }

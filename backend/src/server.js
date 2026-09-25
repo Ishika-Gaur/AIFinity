@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import dotenv from "dotenv";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import assessmentRoutes from "./routes/assessmentRoutes.js";
@@ -12,20 +14,22 @@ import personalIntelligenceRoutes from "./routes/personalIntelligenceRoutes.js";
 import conceptRootRoutes from "./routes/conceptRootRoutes.js";
 import mistakeMapRoutes from "./routes/mistakeMapRoutes.js";
 import skillGapRoutes from "./routes/skillGapRoutes.js";
-import roadmapRoutes from "./routes/roadmapRoutes.js";
 import { authenticate, isAdmin } from "./middleware/authMiddleware.js";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.01:27017/aifinity";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/aifinity";
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://aifinity-frontend.onrender.com",
-];
+const allowedOrigins = CLIENT_URL.split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+if (!allowedOrigins.includes("https://aifinity-frontend.onrender.com")) {
+  allowedOrigins.push("https://aifinity-frontend.onrender.com");
+}
 
 app.use(
   cors({
@@ -33,6 +37,16 @@ app.use(
     credentials: true,
   })
 );
+
+app.use(helmet());
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Limit each IP to 1000 requests per windowMs
+  message: "Too many requests from this IP, please try again later."
+});
+app.use(limiter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -47,7 +61,6 @@ app.use("/api/personal-intelligence", personalIntelligenceRoutes);
 app.use("/api/concept-root", conceptRootRoutes);
 app.use("/api/mistake-map", mistakeMapRoutes);
 app.use("/api/skill-gap", skillGapRoutes);
-app.use("/api/roadmap", roadmapRoutes);
 
 // Protected Admin Test Route
 app.get("/api/admin/test", authenticate, isAdmin, (req, res) => {
