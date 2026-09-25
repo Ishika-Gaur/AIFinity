@@ -302,14 +302,14 @@ The platform is designed around real application data rather than relying on har
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
-   cd project
+   git clone https://github.com/Ishika-Gaur/AIFinity.git
+   cd AIFinity
    ```
 
 2. **Backend Setup**
    ```bash
    cd backend
-   npm install
+   npm ci
    # macOS/Linux: cp .env.example .env
    # Windows PowerShell: Copy-Item .env.example .env
    ```
@@ -335,7 +335,7 @@ The platform is designed around real application data rather than relying on har
 3. **Frontend Setup**
    ```bash
    cd frontend
-   npm install
+   npm ci
    # macOS/Linux: cp .env.example .env
    # Windows PowerShell: Copy-Item .env.example .env
    ```
