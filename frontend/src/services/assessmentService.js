@@ -34,7 +34,6 @@ export async function submitAttemptSession(assessmentId, attemptId, responses, e
   try {
     const apiRes = await assessmentApi.submitAttempt(assessmentId, payload);
     if (apiRes && apiRes.success) {
-      if (attemptId) attemptSessionCache.delete(attemptId);
       return apiRes;
     }
     throw new Error(apiRes?.error || "Failed to submit attempt");
