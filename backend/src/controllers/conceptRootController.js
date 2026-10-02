@@ -53,14 +53,18 @@ export async function getConceptRoot(req, res) {
       }
       
       // Save to cache
-      await ConceptRootAnalysis.create({
-        userId: user._id,
-        latestAttemptId,
-        calculationVersion: "3B",
-        deterministicRoot: deterministicData,
-        aiInsights,
-        aiStatus
-      });
+      try {
+        await ConceptRootAnalysis.create({
+          userId: user._id,
+          latestAttemptId,
+          calculationVersion: "3B",
+          deterministicRoot: deterministicData,
+          aiInsights,
+          aiStatus
+        });
+      } catch (cacheError) {
+        console.warn("[ConceptRoot] Failed to cache analysis:", cacheError);
+      }
     }
 
     // 5. Construct final response

@@ -53,7 +53,7 @@ const conceptRootAnalysisSchema = new mongoose.Schema(
       dependencies: [{
         id: String,
         name: String,
-        type: String,
+        type: { type: String },
         level: Number
       }],
       diagnosis: {
