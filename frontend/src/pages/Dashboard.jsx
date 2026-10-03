@@ -11,6 +11,8 @@ import NextStepsCard from "../components/dashboard/NextStepsCard";
 import ProfileSettingsCard from "../components/dashboard/ProfileSettingsCard";
 import ProfileEditModal from "../components/dashboard/ProfileEditModal";
 import FloatingAIAssistant from "../components/FloatingAIAssistant";
+import AchievementBadges from "../components/dashboard/AchievementBadges";
+import { BADGE_DEFINITIONS, computeAchievementStats } from "../components/dashboard/achievementData";
 import { Link } from "react-router-dom";
 import { dashboardApi, assessmentApi } from "../services/api";
 
@@ -73,17 +75,26 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    id: "achievements",
+    label: "Achievements",
+    icon: (
+      <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+      </svg>
+    ),
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────
-// Sidebar — desktop: fixed full-height green panel pinned to the left
-// edge. Mobile: sticky horizontal pill bar at the top.
+// Sidebar — desktop: sticky panel in document flow (never overlaps
+// Navbar or Footer). Mobile: horizontal pill bar at the top.
 // ─────────────────────────────────────────────────────────────────
 function DashboardSidebar({ active, onSelect, user }) {
   return (
     <>
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:flex-col fixed left-0 top-0 h-screen w-72 bg-[#1B332C] border-r border-[#C4952A]/25 z-40">
+      {/* Desktop sidebar — sticky, stays in document flow */}
+      <aside className="hidden lg:flex lg:flex-col shrink-0 w-72 bg-[#1B332C] border-r border-[#C4952A]/25 sticky top-[65px] self-start h-[calc(100vh-65px)] overflow-y-auto">
         {/* Brand */}
         <div className="px-6 py-7 border-b border-[#FBF8F0]/10">
           <h1 className="font-sans text-2xl font-bold text-[#E8C547] tracking-tight">
@@ -113,7 +124,7 @@ function DashboardSidebar({ active, onSelect, user }) {
           })}
         </nav>
 
-        {/* Footer / user */}
+        {/* User card */}
         <div className="px-4 py-5 border-t border-[#FBF8F0]/10">
           <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-[#2E4F42]/60">
             <div className="w-9 h-9 shrink-0 rounded-full bg-[#E8C547] text-[#1B332C] font-bold flex items-center justify-center text-sm">
@@ -132,7 +143,7 @@ function DashboardSidebar({ active, onSelect, user }) {
       </aside>
 
       {/* Mobile nav */}
-      <div className="lg:hidden sticky top-0 z-40 bg-[#1B332C] border-b border-[#C4952A]/25">
+      <div className="lg:hidden sticky top-[65px] z-30 bg-[#1B332C] border-b border-[#C4952A]/25">
         <div className="flex gap-2 overflow-x-auto px-4 py-3">
           {NAV_ITEMS.map((item) => {
             const isActive = active === item.id;
@@ -164,15 +175,70 @@ function DashboardSidebar({ active, onSelect, user }) {
 function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-8 animate-pulse">
-      <div className="rounded-2xl bg-[#FBF8F0] border border-[#2E4F42]/15 p-8 h-36" />
+      {/* Top indicator banner */}
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#EDE6D3]/60 border border-[#2E4F42]/12 text-[#1B332C]">
+        <div className="h-4 w-4 rounded-full border-2 border-[#1B332C] border-t-transparent animate-spin shrink-0" />
+        <span className="text-xs font-semibold text-[#1B332C]">
+          Loading your learning stats, badges, and progress...
+        </span>
+      </div>
+
+      {/* Header skeleton */}
+      <div className="rounded-2xl bg-[#FBF8F0] border border-[#2E4F42]/12 p-6 sm:p-8 shadow-[var(--shadow-card)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col gap-3 w-full max-w-md">
+          <div className="h-4 w-28 rounded-md bg-[#2E4F42]/15" />
+          <div className="h-8 w-64 rounded-md bg-[#2E4F42]/20" />
+          <div className="h-4 w-80 rounded-md bg-[#2E4F42]/10" />
+        </div>
+        <div className="h-10 w-24 rounded-xl bg-[#2E4F42]/15 shrink-0" />
+      </div>
+
+      {/* 4 Stat cards skeleton */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="rounded-2xl bg-[#FBF8F0] border border-[#2E4F42]/15 p-6 h-32" />
+          <div
+            key={i}
+            className="flex flex-col justify-between rounded-2xl bg-[#FBF8F0] border border-[#2E4F42]/12 p-6 h-36 shadow-[var(--shadow-card)]"
+          >
+            <div className="flex items-center justify-between">
+              <div className="h-3 w-20 rounded-md bg-[#2E4F42]/15" />
+              <div className="h-9 w-9 rounded-xl bg-[#EDE6D3] border border-[#2E4F42]/10" />
+            </div>
+            <div className="h-8 w-24 rounded-md bg-[#2E4F42]/25 my-2" />
+            <div className="h-3 w-32 rounded-md bg-[#2E4F42]/10" />
+          </div>
         ))}
       </div>
+
+      {/* Chart + AI insight card skeleton */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 rounded-2xl bg-[#FBF8F0] border border-[#2E4F42]/15 p-6 h-72" />
-        <div className="lg:col-span-1 rounded-2xl bg-[#1B332C]/80 border border-[#C4952A]/20 p-6 h-72" />
+        <div className="lg:col-span-2 rounded-2xl bg-[#FBF8F0] border border-[#2E4F42]/12 p-6 h-80 shadow-[var(--shadow-card)] flex flex-col justify-between">
+          <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-2">
+              <div className="h-5 w-44 rounded-md bg-[#2E4F42]/20" />
+              <div className="h-3 w-64 rounded-md bg-[#2E4F42]/10" />
+            </div>
+            <div className="h-7 w-28 rounded-lg bg-[#2E4F42]/10" />
+          </div>
+          <div className="h-44 w-full rounded-xl bg-[#EDE6D3]/40 border border-[#2E4F42]/10 flex items-end p-4 gap-4 justify-around">
+            {[40, 65, 50, 80, 55, 70, 90].map((h, idx) => (
+              <div
+                key={idx}
+                className="w-8 rounded-t-md bg-[#2E4F42]/15"
+                style={{ height: `${h}%` }}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="lg:col-span-1 rounded-2xl bg-[#1B332C] border border-[#C4952A]/30 p-6 sm:p-8 h-80 shadow-[var(--shadow-card)] flex flex-col justify-between text-[#FBF8F0]">
+          <div className="flex flex-col gap-3">
+            <div className="h-5 w-32 rounded-md bg-[#C4952A]/30" />
+            <div className="h-6 w-full rounded-md bg-[#FBF8F0]/20" />
+            <div className="h-4 w-3/4 rounded-md bg-[#FBF8F0]/15" />
+          </div>
+          <div className="h-20 w-full rounded-xl bg-[#2E4F42]/60 border border-[#C4952A]/20 p-3" />
+          <div className="h-8 w-28 rounded-xl bg-[#E8C547]/40 self-end" />
+        </div>
       </div>
     </div>
   );
@@ -237,6 +303,72 @@ function EmptyProgressChart() {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// MiniAchievementsBanner — compact earned-badge preview on Overview
+// ─────────────────────────────────────────────────────────────────
+
+function MiniAchievementsBanner({ dashData, onViewAll }) {
+  const stats = computeAchievementStats(dashData);
+  if (!stats) return null;
+
+  const earnedBadges = BADGE_DEFINITIONS.filter((b) => b.condition(stats));
+  const totalXP = earnedBadges.reduce((sum, b) => sum + b.xp, 0);
+  const recentBadges = earnedBadges.slice(0, 5);
+
+  return (
+    <div
+      className="rounded-2xl border p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4"
+      style={{ background: "linear-gradient(135deg, #1B332C 0%, #2E4F42 100%)", borderColor: "rgba(196,149,42,0.3)" }}
+    >
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="text-2xl shrink-0">🏆</div>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#E8C547]/70 mb-0.5">
+            Your Achievements
+          </p>
+          <p className="text-sm font-bold text-[#FBF8F0]">
+            {earnedBadges.length > 0
+              ? `${earnedBadges.length} badge${earnedBadges.length > 1 ? "s" : ""} earned · ${totalXP.toLocaleString()} XP`
+              : "No badges yet — start earning!"}
+          </p>
+        </div>
+      </div>
+
+      {/* Badge icons preview */}
+      {recentBadges.length > 0 && (
+        <div className="flex items-center gap-2 shrink-0">
+          {recentBadges.map((badge) => (
+            <div
+              key={badge.id}
+              title={`${badge.name} (${badge.tagline})`}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-base border shadow-xs transition-transform hover:scale-110 cursor-pointer"
+              style={{ background: badge.bg, borderColor: badge.border }}
+            >
+              <span className="leading-none select-none">{badge.emoji || badge.icon || "🏅"}</span>
+            </div>
+          ))}
+          {earnedBadges.length > 5 && (
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold border shadow-xs"
+              style={{ background: "rgba(232,197,71,0.15)", borderColor: "rgba(232,197,71,0.4)", color: "#E8C547" }}
+            >
+              +{earnedBadges.length - 5}
+            </div>
+          )}
+        </div>
+      )}
+
+      <button
+        onClick={onViewAll}
+        className="shrink-0 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer hover:opacity-90"
+        style={{ background: "#E8C547", color: "#1B332C" }}
+      >
+        View All →
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Dashboard — main page component
 // ─────────────────────────────────────────────────────────────────
 export default function Dashboard() {
@@ -296,14 +428,12 @@ export default function Dashboard() {
   // ── Loading state
   if (loading) {
     return (
-      <div className="min-h-screen">
+      <div className="flex">
         <DashboardSidebar active={activeSection} onSelect={setActiveSection} user={null} />
-        <div className="lg:pl-72">
-          <div className="py-6 sm:py-10">
-            <Container size="wide">
-              <DashboardSkeleton />
-            </Container>
-          </div>
+        <div className="flex-1 py-6 sm:py-10">
+          <Container size="wide">
+            <DashboardSkeleton />
+          </Container>
         </div>
       </div>
     );
@@ -312,14 +442,12 @@ export default function Dashboard() {
   // ── Error state
   if (error || !dashData) {
     return (
-      <div className="min-h-screen">
+      <div className="flex">
         <DashboardSidebar active={activeSection} onSelect={setActiveSection} user={null} />
-        <div className="lg:pl-72">
-          <div className="py-6 sm:py-10">
-            <Container size="wide">
-              <DashboardError onRetry={fetchDashboard} />
-            </Container>
-          </div>
+        <div className="flex-1 py-6 sm:py-10">
+          <Container size="wide">
+            <DashboardError onRetry={fetchDashboard} />
+          </Container>
         </div>
       </div>
     );
@@ -346,14 +474,14 @@ export default function Dashboard() {
       progressSeries["3M"]?.length > 0);
 
   return (
-    <div className="min-h-screen">
+    <div className="flex">
       <DashboardSidebar
         active={activeSection}
         onSelect={setActiveSection}
         user={user}
       />
 
-      <div className="lg:pl-72">
+      <div className="flex-1 min-w-0">
         <div className="py-6 sm:py-10">
           <Container size="wide">
             {/* HEADER — always visible, regardless of active section */}
@@ -433,6 +561,12 @@ export default function Dashboard() {
                       <AIInsightCard aiInsight={aiInsight} />
                     </div>
                   </div>
+
+                  {/* ── Mini Achievements Banner */}
+                  <MiniAchievementsBanner
+                    dashData={dashData}
+                    onViewAll={() => setActiveSection("achievements")}
+                  />
                 </>
               )}
 
@@ -502,6 +636,11 @@ export default function Dashboard() {
               {/* ── ASSESSMENTS */}
               {activeSection === "assessments" && (
                 <RecentAssessmentsTable assessments={assessments} />
+              )}
+
+              {/* ── ACHIEVEMENTS: Badges & Certificates */}
+              {activeSection === "achievements" && (
+                <AchievementBadges dashData={dashData} userName={user?.name} />
               )}
 
               {/* ── NEXT STEPS: Personal Intelligence + recommendations + career goal */}

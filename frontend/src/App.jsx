@@ -51,11 +51,23 @@ function PublicLayout() {
   return (
     <div className="flex flex-col min-h-screen bg-grid">
       <Navbar />
-
       <main className="flex-1">
         <Outlet />
       </main>
+      <Footer />
+    </div>
+  );
+}
 
+// App pages (Dashboard, Assessment, AI tools) — Navbar + Footer, no overlap
+// Sidebar uses sticky (not fixed) so it never covers the footer.
+function AppLayout() {
+  return (
+    <div className="flex flex-col min-h-screen bg-grid">
+      <Navbar />
+      <main className="flex-1">
+        <Outlet />
+      </main>
       <Footer />
     </div>
   );
@@ -102,9 +114,7 @@ function App() {
             </Route>
           </Route>
 
-          {/* =====================================================
-              PUBLIC & STUDENT ROUTES
-              ===================================================== */}
+          {/* ── PUBLIC pages: Navbar + Footer ── */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<Home />} />
             <Route path="/about" element={<About />} />
@@ -114,8 +124,11 @@ function App() {
             <Route path="/faq" element={<Faq />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
 
-            {/* Onboarding Guard: Unauthenticated -> Login; Already Completed -> Dashboard */}
+          {/* ── APP pages: Navbar only (no Footer — sidebar would overlap it) ── */}
+          <Route element={<AppLayout />}>
             <Route
               path="/onboardingpage"
               element={
@@ -124,8 +137,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
-            {/* Protected Student Routes (Require Completed Onboarding) */}
             <Route
               path="/dashboard"
               element={
@@ -134,7 +145,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
             <Route
               path="/dashboard/:metric"
               element={
@@ -143,7 +153,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
             <Route
               path="/personal-intelligence"
               element={
@@ -152,7 +161,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
             <Route
               path="/assessment"
               element={
@@ -163,7 +171,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
             <Route
               path="/assessment/:id"
               element={
@@ -174,7 +181,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
             <Route
               path="/concept-root"
               element={
@@ -191,7 +197,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
             <Route
               path="/mistake-map"
               element={
@@ -200,7 +205,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
             <Route
               path="/skill-gap"
               element={
@@ -209,7 +213,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
             <Route
               path="/roadmap"
               element={
@@ -218,7 +221,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
             <Route
               path="/resources/handbook"
               element={
@@ -235,7 +237,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
             <Route
               path="/resources/project-ideas"
               element={
@@ -252,8 +253,6 @@ function App() {
                 </StudentAuthGuard>
               }
             />
-
-            <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </Router>
@@ -263,3 +262,4 @@ function App() {
 }
 
 export default App;
+
