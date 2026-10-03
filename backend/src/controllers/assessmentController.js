@@ -647,8 +647,10 @@ export async function submitAttempt(req, res) {
         completedAt: new Date(),
       });
 
-      // Automatically regenerate personalized roadmap with latest assessment results
-      await generatePersonalizedRoadmap(req.user._id);
+      // Fire roadmap regeneration in the background — do NOT await, so response is instant
+      generatePersonalizedRoadmap(req.user._id).catch((err) =>
+        console.error("[Dashboard] Background roadmap regeneration failed:", err.message)
+      );
     } catch (saveErr) {
       console.error("[Dashboard] Failed to persist attempt result:", saveErr.message);
     }
@@ -733,14 +735,15 @@ export async function syncAttemptResult(req, res) {
       completedAt: new Date(),
     });
 
-    // Automatically regenerate personalized roadmap with latest assessment results
-    const updatedRoadmap = await generatePersonalizedRoadmap(userId);
+    // Fire roadmap regeneration in the background — do NOT await, so response is instant
+    generatePersonalizedRoadmap(userId).catch((err) =>
+      console.error("[Assessment] Background roadmap regeneration failed:", err.message)
+    );
 
     return res.json({
       success: true,
       message: "Attempt synchronized successfully and personalized roadmap updated.",
       attemptId: attempt._id,
-      roadmap: updatedRoadmap,
     });
   } catch (err) {
     console.error("[Assessment] Error syncing attempt result:", err);
@@ -1471,7 +1474,10 @@ export async function evaluateAttemptWithAI(req, res) {
           completedAt: new Date(),
         });
 
-        await generatePersonalizedRoadmap(req.user._id);
+        // Fire roadmap regeneration in the background — do NOT await, so response is instant
+        generatePersonalizedRoadmap(req.user._id).catch((err) =>
+          console.error("[AI Evaluator] Background roadmap regeneration failed:", err.message)
+        );
       } catch (saveErr) {
         console.error("[AI Evaluator] Failed to persist attempt result:", saveErr.message);
       }

@@ -5,7 +5,7 @@ import { getConceptRoot } from "./src/controllers/conceptRootController.js";
 async function run() {
   await mongoose.connect("mongodb+srv://amanyt27082005_db_user:mlBv42m94lekLwwv@namastenode.ompokw3.mongodb.net/aifinity");
   
-  const user = await User.findOne({ name: "Faiz Anwer" });
+  const user = await User.findOne({ name: "chhavi sharma" });
   console.log("Testing for user:", user.email);
 
   const req = { user };

@@ -258,26 +258,33 @@ export default function AssessmentAttemptPage() {
       if (isSubmitting || completed) return;
       setIsSubmitting(true);
 
-      const activeViolations = overrideViolations || violations;
-      const result = await submitAttemptSession(
-        id,
-        attemptId,
-        responses,
-        elapsedSeconds,
-        activeViolations
-      );
+      try {
+        const activeViolations = overrideViolations || violations;
+        const result = await submitAttemptSession(
+          id,
+          attemptId,
+          responses,
+          elapsedSeconds,
+          activeViolations
+        );
 
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
+        if (document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+
+        if (typeof window !== "undefined" && window.sessionStorage) {
+          window.sessionStorage.removeItem(`aifinity_active_attempt_${id}`);
+        }
+
+        setResultData(result);
+        setCompleted(true);
+      } catch (err) {
+        console.error("[Submit] Assessment submission failed:", err);
+        // Always reset submitting state so user can retry
+        setIsSubmitting(false);
+      } finally {
+        setIsSubmitting(false);
       }
-
-      if (typeof window !== "undefined" && window.sessionStorage) {
-        window.sessionStorage.removeItem(`aifinity_active_attempt_${id}`);
-      }
-
-      setResultData(result);
-      setCompleted(true);
-      setIsSubmitting(false);
     },
     [isSubmitting, completed, violations, id, attemptId, responses, elapsedSeconds]
   );
