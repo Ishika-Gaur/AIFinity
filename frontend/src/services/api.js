@@ -108,6 +108,16 @@ export const adminApi = {
       method: "PUT",
       body: JSON.stringify(settings),
     }),
+  getCourseRequests: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/admin/course-requests${query ? `?${query}` : ""}`);
+  },
+  getCourseRequestById: (id) => request(`/admin/course-requests/${id}`),
+  updateCourseRequestStatus: (id, status) =>
+    request(`/admin/course-requests/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
 };
 
 export const assessmentApi = {
@@ -281,5 +291,24 @@ export const personalIntelligenceApi = {
   clearAllSessions: () =>
     request("/personal-intelligence/sessions", {
       method: "DELETE",
+    }),
+};
+
+export const courseRequestApi = {
+  create: (data) =>
+    request("/course-requests", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getMyRequests: () => request("/course-requests/my"),
+  getAdminRequests: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/admin/course-requests${query ? `?${query}` : ""}`);
+  },
+  getAdminRequestById: (id) => request(`/admin/course-requests/${id}`),
+  updateAdminRequestStatus: (id, status) =>
+    request(`/admin/course-requests/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
     }),
 };

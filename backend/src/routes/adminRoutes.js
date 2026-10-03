@@ -12,6 +12,12 @@ import {
 } from "../controllers/adminController.js";
 import { authenticate, isAdmin } from "../middleware/authMiddleware.js";
 
+import {
+  listCourseRequests,
+  getCourseRequestById,
+  updateCourseRequestStatus,
+} from "../controllers/courseRequestController.js";
+
 const router = express.Router();
 router.use(authenticate, isAdmin);
 
@@ -26,6 +32,12 @@ router.get("/analytics", getAnalytics);
 router.get("/content", listContent);
 router.post("/content", createContent);
 router.delete("/content/:id", deleteContent);
+
+// Course Requests Management
+router.get("/course-requests", listCourseRequests);
+router.get("/course-requests/:id", getCourseRequestById);
+router.patch("/course-requests/:id/status", updateCourseRequestStatus);
+router.put("/course-requests/:id/status", updateCourseRequestStatus);
 
 // Reports
 router.get("/reports", listReports);
