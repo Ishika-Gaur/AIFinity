@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Link } from "react-router-dom";
 import Button from "../Button";
 
@@ -6,18 +6,18 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
   const getStatusBadge = (status) => {
     switch (status) {
       case "strong":
-        return { icon: "✓", color: "text-[#2E4F42] bg-[#2E4F42]/10 border-[#2E4F42]/30" };
+        return { icon: "âœ“", color: "text-[#2E4F42] bg-[#2E4F42]/10 border-[#2E4F42]/30" };
       case "improving":
         return { icon: "~", color: "text-[#C4952A] bg-[#E8C547]/20 border-[#C4952A]/40" };
       case "attention":
-        return { icon: "×", color: "text-[#C1443C] bg-[#C1443C]/10 border-[#C1443C]/30" };
+        return { icon: "Ã—", color: "text-[#C1443C] bg-[#C1443C]/10 border-[#C1443C]/30" };
       default:
-        return { icon: "•", color: "text-[#5B6B5F] bg-[#EDE6D3] border-[#2E4F42]/10" };
+        return { icon: "â€¢", color: "text-[#5B6B5F] bg-[#EDE6D3] border-[#2E4F42]/10" };
     }
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
       {/* Module 1: ConceptRoot AI */}
       <div className="flex flex-col justify-between rounded-2xl bg-[#FBF8F0] p-6 sm:p-7 border border-[#2E4F42]/12 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] hover:border-[#C4952A]/40 hover:-translate-y-1 transition-all duration-300 group">
         <div className="flex flex-col gap-4">
@@ -25,7 +25,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#C4952A] bg-[#EDE6D3] px-2.5 py-0.5 rounded-md">
               ROOT CAUSE
             </span>
-            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">🌳</span>
+            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">ðŸŒ³</span>
           </div>
 
           <div>
@@ -86,7 +86,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             className="inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 bg-[var(--color-surface)] text-[#1B332C] border border-[#2E4F42]/20 hover:bg-[#1B332C] hover:text-[#E8C547] hover:border-[#1B332C] px-4 py-2 text-xs w-full justify-between shadow-2xs"
           >
             <span>{conceptRoot?.cta || "Explore ConceptRoot"}</span>
-            <span>→</span>
+            <span>â†’</span>
           </Link>
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#C1443C] bg-[#C1443C]/10 px-2.5 py-0.5 rounded-md">
               PATTERN DETECTION
             </span>
-            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">🗺️</span>
+            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">ðŸ—ºï¸</span>
           </div>
 
           <div>
@@ -139,7 +139,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             className="inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 bg-[var(--color-surface)] text-[#1B332C] border border-[#2E4F42]/20 hover:bg-[#1B332C] hover:text-[#E8C547] hover:border-[#1B332C] px-4 py-2 text-xs w-full justify-between shadow-2xs"
           >
             <span>{mistakeMap?.cta || "View MistakeMap"}</span>
-            <span>→</span>
+            <span>â†’</span>
           </Link>
         </div>
       </div>
@@ -151,7 +151,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#2E4F42] bg-[#2E4F42]/10 px-2.5 py-0.5 rounded-md">
               CAREER READINESS
             </span>
-            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">🎯</span>
+            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">ðŸŽ¯</span>
           </div>
 
           <div>
@@ -210,10 +210,57 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             className="inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 bg-[var(--color-surface)] text-[#1B332C] border border-[#2E4F42]/20 hover:bg-[#1B332C] hover:text-[#E8C547] hover:border-[#1B332C] px-4 py-2 text-xs w-full justify-between shadow-2xs"
           >
             <span>{skillGap?.cta || "View Skill Gap"}</span>
-            <span>→</span>
+            <span>â†’</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Module 4: Revision Center */}
+      <div className="flex flex-col justify-between rounded-2xl bg-[#FBF8F0] p-6 sm:p-7 border border-[#2E4F42]/12 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] hover:border-[#4F46E5]/40 hover:-translate-y-1 transition-all duration-300 group">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#4F46E5] bg-[#4F46E5]/10 px-2.5 py-0.5 rounded-md">
+              SPACED REPETITION
+            </span>
+            <svg className="w-5 h-5 text-[#4F46E5] group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+          </div>
+
+          <div>
+            <h3 className="font-sans text-xl sm:text-2xl font-bold text-[#1B332C] group-hover:text-[#4F46E5] transition-colors">
+              Revision Center
+            </h3>
+            <p className="text-xs text-[#5B6B5F] font-normal leading-relaxed mt-1">
+              Review concepts you previously struggled with based on evidence.
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-[#F1EDE1] p-4 border border-[#2E4F42]/08 flex flex-col gap-2.5 group-hover:border-[#4F46E5]/20 transition-colors">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-[#5B6B5F]">
+              UPCOMING REVISION
+            </span>
+            <span className="font-sans text-base font-bold text-[#4F46E5]">
+              Dynamic Evidence-Driven
+            </span>
+            <div className="flex items-center justify-between text-xs pt-2 border-t border-[#2E4F42]/10 font-mono">
+              <span className="text-[#5B6B5F]">
+                Tailored generated practice
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-5 mt-4 border-t border-[#2E4F42]/10">
+          <Link
+            to="/revision"
+            className="inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 bg-[var(--color-surface)] text-[#1B332C] border border-[#2E4F42]/20 hover:bg-[#1B332C] hover:text-[#E8C547] hover:border-[#1B332C] px-4 py-2 text-xs w-full justify-between shadow-2xs"
+          >
+            <span>Start Revision</span>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
           </Link>
         </div>
       </div>
     </div>
   );
 }
+
+

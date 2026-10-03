@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import logo from "../assets/logo.svg";
@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
   { label: "FAQS", href: "/faq" },
+    { label: "Revision", href: "/revision" },
 ];
 
 function BrandLogo() {
@@ -84,7 +85,7 @@ export default function Navbar() {
             <div className="h-9 w-40 rounded-xl bg-[#EDE6D3]/70 animate-pulse" aria-hidden="true" />
           ) : user ? (
             <>
-              {/* User avatar + name → clicks to dashboard */}
+              {/* User avatar + name â†’ clicks to dashboard */}
               <a
                 href="/dashboard"
                 className="flex items-center gap-2 mr-1 rounded-xl px-2 py-1 hover:bg-[#EDE6D3]/60 transition-colors cursor-pointer"
@@ -111,7 +112,7 @@ export default function Navbar() {
                 href="/assessment"
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#1B332C] px-3.5 py-1.5 text-xs font-bold text-[#E8C547] border border-[#C4952A]/40 shadow-xs hover:bg-[#2E4F42] hover:text-white transition-all duration-200"
               >
-                <span>⚡ Take Assessment</span>
+                <span>âš¡ Take Assessment</span>
               </a>
               <Button
                 onClick={handleLogout}
@@ -127,7 +128,7 @@ export default function Navbar() {
                 href="/assessment"
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#1B332C] px-3.5 py-1.5 text-xs font-bold text-[#E8C547] border border-[#C4952A]/40 shadow-xs hover:bg-[#2E4F42] hover:text-white transition-all duration-200"
               >
-                <span>⚡ Take Assessment</span>
+                <span>âš¡ Take Assessment</span>
               </a>
               <a
                 href="/login"
@@ -194,7 +195,7 @@ export default function Navbar() {
                 className="w-full text-center py-2.5 text-sm font-sans font-bold text-[#E8C547] bg-[#1B332C] rounded-xl shadow-xs border border-[#C4952A]/40 transition-colors"
                 onClick={() => setOpen(false)}
               >
-                ⚡ Take Assessment
+                âš¡ Take Assessment
               </a>
               {authLoading ? (
                 <div className="h-10 w-full rounded-xl bg-[#EDE6D3]/70 animate-pulse" aria-hidden="true" />
@@ -214,14 +215,14 @@ export default function Navbar() {
                     className="w-full text-center py-2 text-sm font-sans font-bold text-[#D9A62B] hover:text-[#1B332C] bg-[#EDE6D3] rounded-xl transition-colors"
                     onClick={() => setOpen(false)}
                   >
-                    ✦ Personal Intelligence
+                    âœ¦ Personal Intelligence
                   </a>
                   <a
                     href="/dashboard"
                     className="w-full text-center py-2 text-sm font-sans font-semibold text-[#1B332C] hover:text-[#C4952A]"
                     onClick={() => setOpen(false)}
                   >
-                    📊 Dashboard
+                    ðŸ“Š Dashboard
                   </a>
                   <Button 
                     onClick={() => {

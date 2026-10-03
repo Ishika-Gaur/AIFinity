@@ -283,3 +283,5 @@ export const personalIntelligenceApi = {
       method: "DELETE",
     }),
 };
+
+export { request };

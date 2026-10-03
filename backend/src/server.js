@@ -14,6 +14,7 @@ import personalIntelligenceRoutes from "./routes/personalIntelligenceRoutes.js";
 import conceptRootRoutes from "./routes/conceptRootRoutes.js";
 import mistakeMapRoutes from "./routes/mistakeMapRoutes.js";
 import skillGapRoutes from "./routes/skillGapRoutes.js";
+import revisionRoutes from "./routes/revisionRoutes.js";
 import { authenticate, isAdmin } from "./middleware/authMiddleware.js";
 
 dotenv.config();
@@ -71,6 +72,7 @@ app.use("/api/personal-intelligence", personalIntelligenceRoutes);
 app.use("/api/concept-root", conceptRootRoutes);
 app.use("/api/mistake-map", mistakeMapRoutes);
 app.use("/api/skill-gap", skillGapRoutes);
+app.use("/api/revision", revisionRoutes);
 
 // Protected Admin Test Route
 app.get("/api/admin/test", authenticate, isAdmin, (req, res) => {

@@ -1046,3 +1046,61 @@ Return the response strictly matching the requested JSON schema.`;
   }
 };
 
+
+export const generateRevisionSession = async (context) => {
+  try {
+    const genAI = getGenAI();
+    const modelsToTry = getCandidateModels();
+    
+    const prompt = `You are an expert AI tutor. A student is struggling with the concept: "${context.concept}".
+Based on their learning evidence, they have made ${context.incorrectAttempts} recent incorrect attempts.
+Here is the context of their mistakes:
+${JSON.stringify(context.evidenceDetails, null, 2)}
+
+Your task is to generate a personalized revision session.
+You must return the result as a valid JSON object matching the following structure exactly, with NO markdown formatting outside the JSON, and NO backticks wrapped around the JSON:
+{
+  "explanation": "A concise (2-3 sentences) explanation of the concept, specifically targeting the identified weakness.",
+  "keyTakeaways": ["Point 1", "Point 2", "Point 3"],
+  "workedExample": {
+    "problem": "A simple example problem",
+    "solution": "Step by step solution",
+    "commonMistake": "The specific mistake the student keeps making and how to avoid it"
+  },
+  "practiceQuestions": [
+    {
+      "question": "A multiple choice question to test their weakness",
+      "options": ["A", "B", "C", "D"],
+      "correctAnswer": "A",
+      "explanation": "Why A is correct"
+    }
+  ]
+}
+Ensure exactly 3 practice questions are generated.`;
+
+    let lastError = null;
+    for (const modelName of modelsToTry) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            temperature: 0.3,
+            responseMimeType: "application/json",
+          },
+        });
+        
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        return safeParseJSON(responseText);
+      } catch (err) {
+        console.warn(`[geminiService] Error with model ${modelName} for generateRevisionSession:`, err.message);
+        lastError = err;
+      }
+    }
+    throw lastError;
+  } catch (error) {
+    console.error("[geminiService] Final failure in generateRevisionSession:", error);
+    return null;
+  }
+};
+

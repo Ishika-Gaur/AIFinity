@@ -25,6 +25,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Faq from './pages/Faq';
 import PersonalIntelligence from './pages/PersonalIntelligence';
+import Revision from './pages/Revision';
 
 // Student Auth Guard
 import StudentAuthGuard from './components/StudentAuthGuard';
@@ -221,6 +222,15 @@ function App() {
                 </StudentAuthGuard>
               }
             />
+            <Route
+              path="/revision"
+              element={
+                <StudentAuthGuard requireOnboardingCompleted>
+                  <Revision />
+                </StudentAuthGuard>
+              }
+            />
+
             <Route
               path="/resources/handbook"
               element={

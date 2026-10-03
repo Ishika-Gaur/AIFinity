@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStudentAuth } from "../../context/StudentAuthContext";
 
@@ -75,13 +75,13 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
 
           <div className="mt-1">
             <h1 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1B332C] tracking-tight leading-tight flex items-center flex-wrap gap-3">
-              {dynamicName ? `${greeting}, ${dynamicName} 👋` : `${greeting} 👋`}
+              {dynamicName ? `${greeting}, ${dynamicName} ðŸ‘‹` : `${greeting} ðŸ‘‹`}
               <button 
                 type="button"
                 onClick={onOpenProfile}
                 className="text-xs font-sans font-semibold text-[#1B332C] bg-[#EDE6D3]/80 border border-[#2E4F42]/15 hover:bg-[#1B332C] hover:text-[#E8C547] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
               >
-                <span>⚙️</span> Edit Profile
+                <span>âš™ï¸</span> Edit Profile
               </button>
             </h1>
             <p className="mt-2 text-sm sm:text-base text-[#5B6B5F] font-normal leading-relaxed">
@@ -91,7 +91,7 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
 
           {/* 13. ROTATING QUOTES WITH FADE & MONO COUNTER */}
           <div className="mt-1 flex items-center gap-3 rounded-xl bg-[#EDE6D3]/60 px-4 py-2 border border-[#2E4F42]/10 w-fit min-h-[40px]">
-            <span className="text-[#C4952A] text-sm shrink-0">✦</span>
+            <span className="text-[#C4952A] text-sm shrink-0">âœ¦</span>
             <div className="flex items-center gap-2">
               <span
                 className={`font-sans text-xs sm:text-sm text-[#1B332C] font-medium italic transition-opacity duration-300 ${
@@ -109,17 +109,23 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
 
         {/* Right Actions & Streak Badge */}
         <div className="flex shrink-0 flex-wrap items-center gap-3">
+          <Link to="/revision" className="inline-flex items-center gap-2 rounded-2xl bg-[#EDE6D3] px-5 py-3 text-xs font-bold text-[#1B332C] border border-[#2E4F42]/15 shadow-sm hover:bg-[#E8C547] hover:-translate-y-0.5 transition-all duration-300 group">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <span>Revision Center</span>
+          </Link>
           <Link
             to="/assessment"
             className="inline-flex items-center gap-2 rounded-2xl bg-[#1B332C] px-5 py-3 text-xs font-bold text-[#E8C547] border border-[#C4952A]/40 shadow-md hover:bg-[#2E4F42] hover:text-white hover:-translate-y-0.5 transition-all duration-300 group"
           >
-            <span className="text-base group-hover:scale-110 transition-transform">⚡</span>
+            <span className="text-base group-hover:scale-110 transition-transform">âš¡</span>
             <span>Take Assessment</span>
-            <span>→</span>
+            <span>â†’</span>
           </Link>
 
           <div className="flex items-center gap-3 rounded-2xl bg-[#EDE6D3] px-4 py-3 text-[#1B332C] border border-[#2E4F42]/15 shadow-2xs hover:-translate-y-0.5 transition-all duration-300 group cursor-default">
-            <span className="text-xl group-hover:scale-110 transition-transform duration-200">🔥</span>
+            <span className="text-xl group-hover:scale-110 transition-transform duration-200">ðŸ”¥</span>
             <div className="flex flex-col">
               <span className="font-mono text-xs uppercase tracking-wider text-[#1B332C] font-bold">
                 {streak} DAY STREAK
@@ -134,3 +140,6 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
     </div>
   );
 }
+
+
+
