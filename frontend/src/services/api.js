@@ -1,6 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
-async function request(endpoint, options = {}) {
+export async function request(endpoint, options = {}) {
   const defaultHeaders = {
     "Content-Type": "application/json",
   };
@@ -329,5 +329,14 @@ export const personalIntelligenceApi = {
   clearAllSessions: () =>
     request("/personal-intelligence/sessions", {
       method: "DELETE",
+    }),
+};
+
+export const courseRequestApi = {
+  getMyRequests: () => request("/course-requests/my-requests"),
+  create: (data) =>
+    request("/course-requests", {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 };

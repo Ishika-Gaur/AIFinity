@@ -165,11 +165,12 @@ export async function getRevisionSession(userId, conceptId) {
 
   const evidenceHash = generateEvidenceHash(incorrectEvidence);
   
-  // 2. Find or Create Revision
-  let revision = await Revision.findOne({ userId, conceptId });
-  if (!revision) {
-    revision = new Revision({ userId, conceptId, conceptName });
-  }
+  // 2. Find or Create Revision atomically
+  let revision = await Revision.findOneAndUpdate(
+    { userId, conceptId },
+    { $setOnInsert: { conceptName } },
+    { new: true, upsert: true }
+  );
 
   // 3. Check Cache
   if (
@@ -196,20 +197,22 @@ export async function getRevisionSession(userId, conceptId) {
   };
 
   const sessionContent = await generateRevisionSession(promptContext);
-  
   if (!sessionContent) {
-    throw 
-    new Error("Failed to generate revision session.");
+    throw new Error("Failed to generate revision session.");
   }
 
-  // 5. Update Cache
-  revision.aiContent = {
-    contentVersion: "1.0",
-    evidenceHash,
-    generatedAt: new Date(),
-    content: sessionContent
-  };
-  await revision.save();
+  // 5. Update Cache atomically
+  await Revision.updateOne(
+    { _id: revision._id },
+    {
+      $set: {
+        "aiContent.contentVersion": "1.0",
+        "aiContent.evidenceHash": evidenceHash,
+        "aiContent.generatedAt": new Date(),
+        "aiContent.content": sessionContent
+      }
+    }
+  );
 
   return {
     sessionContent,

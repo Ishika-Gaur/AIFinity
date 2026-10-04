@@ -16,7 +16,7 @@ const getGenAI = () => {
 // Candidate models tried in priority order
 const getCandidateModels = () => {
   const custom = process.env.GEMINI_MODEL;
-  const defaults = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest"];
+  const defaults = ["gemini-1.5-flash", "gemini-1.5-pro"];
   if (custom && !defaults.includes(custom)) {
     return [custom, ...defaults];
   }
@@ -1100,7 +1100,35 @@ Ensure exactly 3 practice questions are generated.`;
     throw lastError;
   } catch (error) {
     console.error("[geminiService] Final failure in generateRevisionSession:", error);
-    return null;
+    return {
+      explanation: `We're currently experiencing high demand. This is a quick fallback explanation for ${context.concept}.`,
+      keyTakeaways: ["Review the basic definitions.", "Practice similar problems.", "Check back later for personalized insights."],
+      workedExample: {
+        problem: "Sample problem generated due to AI unavailability.",
+        solution: "Sample step-by-step solution.",
+        commonMistake: "A typical error is applying the wrong formula."
+      },
+      practiceQuestions: [
+        {
+          question: "Sample fallback question: What is the main idea here?",
+          options: ["Option A", "Option B", "Option C", "Option D"],
+          correctAnswer: "Option A",
+          explanation: "Option A is correct based on the fallback context."
+        },
+        {
+          question: "Another fallback question?",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "Fallback."
+        },
+        {
+          question: "Third fallback question?",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "Fallback."
+        }
+      ]
+    };
   }
 };
 

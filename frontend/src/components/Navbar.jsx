@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import logo from "../assets/logo.svg";
@@ -87,28 +87,29 @@ export default function Navbar() {
           ) : user ? (
             <>
               {/* User avatar + name â†’ clicks to dashboard */}
-              <a
-                href="/dashboard"
-                className="flex items-center gap-2 mr-1 rounded-xl px-2 py-1 hover:bg-[#EDE6D3]/60 transition-colors cursor-pointer"
-                title="Go to Dashboard"
-              >
+              <div className="flex items-center mr-1">
                 <a
                   href="/personal-intelligence"
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center justify-center h-9 w-9 rounded-full bg-[#E8C547] text-[#1B332C] hover:bg-[#C4952A] hover:text-white transition-colors shadow-sm mr-1 cursor-pointer"
+                  className="flex items-center justify-center h-9 w-9 rounded-full bg-[#E8C547] text-[#1B332C] hover:bg-[#C4952A] hover:text-white transition-colors shadow-sm mr-2 cursor-pointer"
                   title="Personal Intelligence"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                   </svg>
                 </a>
-                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-[#1B332C] text-[#E8C547] font-bold text-xs shadow-sm">
-                  {getInitials(user.name)}
-                </div>
-                <span className="text-sm font-sans font-semibold text-[#1B332C] hidden xl:block">
-                  {user.name || "User"}
-                </span>
-              </a>
+                <a
+                  href="/dashboard"
+                  className="flex items-center gap-2 rounded-xl px-2 py-1 hover:bg-[#EDE6D3]/60 transition-colors cursor-pointer"
+                  title="Go to Dashboard"
+                >
+                  <div className="flex items-center justify-center h-9 w-9 rounded-full bg-[#1B332C] text-[#E8C547] font-bold text-xs shadow-sm">
+                    {getInitials(user.name)}
+                  </div>
+                  <span className="text-sm font-sans font-semibold text-[#1B332C] hidden xl:block">
+                    {user.name || "User"}
+                  </span>
+                </a>
+              </div>
               <a
                 href="/assessment"
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#1B332C] px-3.5 py-1.5 text-xs font-bold text-[#E8C547] border border-[#C4952A]/40 shadow-xs hover:bg-[#2E4F42] hover:text-white transition-all duration-200"

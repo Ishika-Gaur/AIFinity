@@ -101,6 +101,8 @@ app.use("/api/personal-intelligence", personalIntelligenceRoutes);
 app.use("/api/concept-root", conceptRootRoutes);
 app.use("/api/mistake-map", mistakeMapRoutes);
 app.use("/api/skill-gap", skillGapRoutes);
+app.use("/api/revision", revisionRoutes);
+app.use("/api/course-requests", courseRequestRoutes);
 
 // Protected Admin Test Route
 app.get("/api/admin/test", authenticate, isAdmin, (req, res) => {
