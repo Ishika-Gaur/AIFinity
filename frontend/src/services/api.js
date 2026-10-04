@@ -14,15 +14,44 @@ async function request(endpoint, options = {}) {
     credentials: "include", // CRITICAL: Ensures HTTP-only cookies are sent/received
   };
 
+  const url = `${API_BASE_URL}${endpoint}`;
+
   try {
-    const res = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    const res = await fetch(url, config);
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
+      let message = data.message;
+      if (!message) {
+        switch (res.status) {
+          case 400:
+            message = "Bad request (400): Invalid input or status value.";
+            break;
+          case 401:
+            message = "Unauthorized (401): Session expired or authentication required. Please log in.";
+            break;
+          case 403:
+            message = "Forbidden (403): Administrator privileges required.";
+            break;
+          case 404:
+            message = "Not found (404): The requested resource could not be found.";
+            break;
+          case 500:
+            message = "Server error (500): The server encountered an unexpected error.";
+            break;
+          default:
+            message = `Request failed with status ${res.status}`;
+        }
+      }
+
+      console.error(`[API Error] ${options.method || "GET"} ${url} responded with status ${res.status}:`, message, data);
+
       return {
         success: false,
         status: res.status,
-        error: data.message || `Request failed with status ${res.status}`,
+        error: message,
+        message,
+        data,
       };
     }
 
@@ -32,9 +61,18 @@ async function request(endpoint, options = {}) {
       ...data,
     };
   } catch (err) {
+    let errorMsg = err.message || "Network error. Failed to reach server.";
+    if (err.message === "Failed to fetch" || err.name === "TypeError") {
+      errorMsg = "Network error: Failed to fetch (Server might be unreachable or request blocked by CORS).";
+    }
+
+    console.error(`[API Network Error] ${options.method || "GET"} ${url}:`, err);
+
     return {
       success: false,
-      error: err.message || "Network error. Failed to reach server.",
+      status: 0,
+      error: errorMsg,
+      message: errorMsg,
     };
   }
 }

@@ -154,11 +154,12 @@ async function runApiTests() {
     }
     console.log("✓ Admin successfully viewed request details.");
 
-    // 8. Admin updates status
-    console.log("\n8. Testing PATCH /api/admin/course-requests/:id/status to 'reviewing'...");
+    // 8. Admin updates status: pending -> reviewing
+    console.log("\n8. Testing PATCH /api/admin/course-requests/:id/status (pending -> reviewing)...");
     const updateRes = await fetch(`${baseUrl}/api/admin/course-requests/${createdRequestId}/status`, {
       method: "PATCH",
       headers: {
+        "Origin": "http://127.0.0.1:5173",
         "Content-Type": "application/json",
         Cookie: `token=${adminToken}`,
       },
@@ -170,23 +171,96 @@ async function runApiTests() {
     if (updateRes.status !== 200 || updateData.request?.status !== "reviewing") {
       throw new Error("Failed to update status to reviewing");
     }
-    console.log("✓ Admin successfully updated status to reviewing.");
+    console.log("✓ Admin successfully updated status to reviewing (with 127.0.0.1 Origin header).");
 
-    // 9. Admin sends invalid status
-    console.log("\n9. Testing PATCH with invalid status...");
+    // 8b. Transition: reviewing -> completed
+    console.log("\n8b. Testing PATCH (reviewing -> completed)...");
+    const completedRes = await fetch(`${baseUrl}/api/admin/course-requests/${createdRequestId}/status`, {
+      method: "PATCH",
+      headers: {
+        "Origin": "http://localhost:5173",
+        "Content-Type": "application/json",
+        Cookie: `token=${adminToken}`,
+      },
+      body: JSON.stringify({ status: "completed" }),
+    });
+    const completedData = await completedRes.json();
+    console.log("  Status:", completedRes.status);
+    console.log("  New status in DB:", completedData.request?.status);
+    if (completedRes.status !== 200 || completedData.request?.status !== "completed") {
+      throw new Error("Failed to update status to completed");
+    }
+    console.log("✓ Admin successfully updated status to completed.");
+
+    // 8c. Transition: completed -> rejected
+    console.log("\n8c. Testing PATCH (completed -> rejected)...");
+    const rejectedRes = await fetch(`${baseUrl}/api/admin/course-requests/${createdRequestId}/status`, {
+      method: "PATCH",
+      headers: {
+        "Origin": "http://127.0.0.1:5173",
+        "Content-Type": "application/json",
+        Cookie: `token=${adminToken}`,
+      },
+      body: JSON.stringify({ status: "rejected" }),
+    });
+    const rejectedData = await rejectedRes.json();
+    console.log("  Status:", rejectedRes.status);
+    console.log("  New status in DB:", rejectedData.request?.status);
+    if (rejectedRes.status !== 200 || rejectedData.request?.status !== "rejected") {
+      throw new Error("Failed to update status to rejected");
+    }
+    console.log("✓ Admin successfully updated status to rejected.");
+
+    // 9. Admin sends invalid status: 'accepted'
+    console.log("\n9. Testing PATCH with invalid status 'accepted' (MUST return 400)...");
     const invalidStatusRes = await fetch(`${baseUrl}/api/admin/course-requests/${createdRequestId}/status`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
         Cookie: `token=${adminToken}`,
       },
-      body: JSON.stringify({ status: "invalid_status_xyz" }),
+      body: JSON.stringify({ status: "accepted" }),
     });
-    console.log("  Status:", invalidStatusRes.status);
+    const invalidStatusData = await invalidStatusRes.json();
+    console.log("  Status:", invalidStatusRes.status, "Message:", invalidStatusData.message);
     if (invalidStatusRes.status !== 400) {
       throw new Error(`Expected 400 for invalid status, got ${invalidStatusRes.status}`);
     }
-    console.log("✓ Correctly rejected invalid status with 400.");
+    console.log("✓ Correctly rejected invalid status 'accepted' with 400.");
+
+    // 10. Student attempts status update (MUST return 403)
+    console.log("\n10. Testing non-admin student PATCH (MUST return 403 Forbidden)...");
+    const studentPatchRes = await fetch(`${baseUrl}/api/admin/course-requests/${createdRequestId}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `token=${studentToken}`,
+      },
+      body: JSON.stringify({ status: "completed" }),
+    });
+    console.log("  Status:", studentPatchRes.status);
+    if (studentPatchRes.status !== 403) {
+      throw new Error(`Expected 403 for non-admin update, got ${studentPatchRes.status}`);
+    }
+    console.log("✓ Correctly rejected non-admin status update with 403.");
+
+    // 11. CORS preflight OPTIONS test
+    console.log("\n11. Testing CORS preflight OPTIONS from http://127.0.0.1:5173 and http://localhost:5173...");
+    for (const testOrigin of ["http://127.0.0.1:5173", "http://localhost:5173"]) {
+      const optRes = await fetch(`${baseUrl}/api/admin/course-requests/${createdRequestId}/status`, {
+        method: "OPTIONS",
+        headers: {
+          "Origin": testOrigin,
+          "Access-Control-Request-Method": "PATCH",
+          "Access-Control-Request-Headers": "Content-Type",
+        },
+      });
+      console.log(`  OPTIONS from ${testOrigin} -> Status:`, optRes.status);
+      if (optRes.status !== 200 && optRes.status !== 204) {
+        throw new Error(`Preflight failed for ${testOrigin} with status ${optRes.status}`);
+      }
+    }
+    console.log("✓ CORS preflight OPTIONS succeeded for all development origins.");
 
     console.log("\n=================================================");
     console.log(" ALL API ENDPOINT TESTS PASSED! ✓");

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { adminApi } from "../../services/api";
 
 const STATUS_OPTIONS = ["pending", "reviewing", "completed", "rejected"];
@@ -16,8 +16,10 @@ export default function CourseRequests() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [newStatus, setNewStatus] = useState("");
+  const [modalError, setModalError] = useState("");
+  const [modalSuccess, setModalSuccess] = useState("");
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -25,18 +27,21 @@ export default function CourseRequests() {
       if (res && res.success) {
         setRequests(res.requests || []);
       } else {
-        setError(res.error || "Failed to load course requests from the database.");
+        const msg = res.status
+          ? `[Error ${res.status}] ${res.error || "Failed to load course requests from the database."}`
+          : res.error || "Failed to load course requests from the database.";
+        setError(msg);
       }
     } catch (err) {
       setError(err.message || "An error occurred while loading course requests.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
     loadRequests();
-  }, [statusFilter]);
+  }, [loadRequests]);
 
   const displayedRequests = useMemo(() => {
     if (!search.trim()) return requests;
@@ -53,35 +58,57 @@ export default function CourseRequests() {
   const handleOpenDetails = (request) => {
     setSelectedRequest(request);
     setNewStatus(request.status);
+    setModalError("");
+    setModalSuccess("");
     setSuccessMsg("");
   };
 
   const handleCloseDetails = () => {
     setSelectedRequest(null);
+    setModalError("");
+    setModalSuccess("");
   };
 
   const handleUpdateStatus = async (e) => {
     e.preventDefault();
     if (!selectedRequest || updatingStatus) return;
 
+    const targetId = selectedRequest.id || selectedRequest._id;
+    if (!targetId) {
+      setModalError("Invalid course request: Missing identifier.");
+      return;
+    }
+
     setUpdatingStatus(true);
     setError("");
+    setModalError("");
+    setModalSuccess("");
     setSuccessMsg("");
 
     try {
-      const res = await adminApi.updateCourseRequestStatus(selectedRequest.id, newStatus);
+      const res = await adminApi.updateCourseRequestStatus(targetId, newStatus);
       if (res && res.success) {
-        setSuccessMsg(`Status updated to "${newStatus}".`);
+        const updateMsg = `Status successfully updated to "${newStatus}".`;
+        setSuccessMsg(updateMsg);
+        setModalSuccess(updateMsg);
         // Update local state in table
         setRequests((prev) =>
-          prev.map((item) => (item.id === selectedRequest.id ? res.request : item))
+          prev.map((item) => ((item.id === targetId || item._id === targetId) ? res.request : item))
         );
         setSelectedRequest(res.request);
       } else {
-        setError(res.error || "Failed to update course request status.");
+        const errorDetail = res.status
+          ? `[Error ${res.status}] ${res.error || "Failed to update course request status."}`
+          : res.error || "Failed to update course request status.";
+        setError(errorDetail);
+        setModalError(errorDetail);
+        console.error("Status update error details:", res);
       }
     } catch (err) {
-      setError(err.message || "An error occurred while updating status.");
+      console.error("Unexpected error in handleUpdateStatus:", err);
+      const msg = err.message || "An unexpected error occurred while updating status.";
+      setError(msg);
+      setModalError(msg);
     } finally {
       setUpdatingStatus(false);
     }
@@ -351,6 +378,33 @@ export default function CourseRequests() {
                   <div className="mt-1 p-3.5 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 leading-relaxed whitespace-pre-wrap">
                     {selectedRequest.additionalDetails}
                   </div>
+                </div>
+              )}
+
+              {/* In-Modal Feedback Alerts */}
+              {modalError && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700 shadow-xs flex items-center justify-between">
+                  <span>{modalError}</span>
+                  <button
+                    type="button"
+                    onClick={() => setModalError("")}
+                    className="text-rose-500 hover:text-rose-800 text-sm cursor-pointer ml-2"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {modalSuccess && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-700 shadow-xs flex items-center justify-between">
+                  <span>{modalSuccess}</span>
+                  <button
+                    type="button"
+                    onClick={() => setModalSuccess("")}
+                    className="text-emerald-500 hover:text-emerald-800 text-sm cursor-pointer ml-2"
+                  >
+                    ✕
+                  </button>
                 </div>
               )}
 

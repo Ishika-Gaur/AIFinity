@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import CourseRequest from "../models/CourseRequest.js";
 import { sendCourseRequestAdminNotification } from "../services/emailService.js";
 
@@ -28,9 +29,12 @@ function normalizeCourseName(name) {
  * Formats a CourseRequest document for API responses.
  */
 function formatCourseRequest(doc, fallbackUser = null) {
-  const user = doc.userId && typeof doc.userId === "object" && doc.userId.name ? doc.userId : fallbackUser;
+  const safeFallback = fallbackUser && typeof fallbackUser === "object" ? fallbackUser : null;
+  const user = doc.userId && typeof doc.userId === "object" && doc.userId.name ? doc.userId : safeFallback;
+  const docId = doc._id ? doc._id.toString() : (doc.id ? doc.id.toString() : "");
   return {
-    id: doc._id,
+    id: docId,
+    _id: docId,
     userId: user ? (user._id || user.id) : doc.userId,
     userName: user ? user.name : "Learner",
     userEmail: user ? user.email : "",
@@ -235,7 +239,7 @@ export async function listCourseRequests(req, res) {
       .lean();
 
     // In-memory filter for user name/email if search was supplied
-    let results = requests.map(formatCourseRequest);
+    let results = requests.map((doc) => formatCourseRequest(doc));
     if (search && search.trim()) {
       const term = search.trim().toLowerCase();
       results = results.filter(
@@ -271,6 +275,13 @@ export async function getCourseRequestById(req, res) {
   try {
     const { id } = req.params;
 
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid course request ID format.",
+      });
+    }
+
     const request = await CourseRequest.findById(id).populate("userId", "name email role status");
     if (!request) {
       return res.status(404).json({
@@ -301,6 +312,13 @@ export async function updateCourseRequestStatus(req, res) {
   try {
     const { id } = req.params;
     const { status } = req.body;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid course request ID format.",
+      });
+    }
 
     const validStatuses = ["pending", "reviewing", "completed", "rejected"];
     if (!status || !validStatuses.includes(status.toLowerCase())) {
