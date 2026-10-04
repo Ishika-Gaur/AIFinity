@@ -108,6 +108,16 @@ export const adminApi = {
       method: "PUT",
       body: JSON.stringify(settings),
     }),
+  getCourseRequests: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/admin/course-requests${query ? `?${query}` : ""}`);
+  },
+  getCourseRequestById: (id) => request(`/admin/course-requests/${id}`),
+  updateCourseRequestStatus: (id, status) =>
+    request(`/admin/course-requests/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
 };
 
 export const assessmentApi = {
@@ -283,5 +293,3 @@ export const personalIntelligenceApi = {
       method: "DELETE",
     }),
 };
-
-export { request };

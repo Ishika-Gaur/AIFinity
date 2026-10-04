@@ -10,6 +10,7 @@ import { FIELDS, FIELD_ICONS, CAREER_GOALS_BY_FIELD } from "../utils/constants";
 import { useStudentAuth } from "../context/StudentAuthContext";
 import { isStudentUser } from "../utils/studentAuthStorage";
 import { authApi } from "../services/api";
+import CourseRequestModal from "../components/CourseRequestModal";
 
 const WELCOME_ILLUSTRATION =
   "data:image/svg+xml;utf8," +
@@ -64,6 +65,10 @@ export default function OnboardingPage() {
   const [loadingCheck, setLoadingCheck] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Course Request modal state
+  const [isCourseRequestModalOpen, setIsCourseRequestModalOpen] = useState(false);
+  const [requestCoursePrefill, setRequestCoursePrefill] = useState("");
 
   // Resume from the authenticated student session (guard already verified /auth/me).
   useEffect(() => {
@@ -290,14 +295,48 @@ export default function OnboardingPage() {
                 </p>
               )}
               {filteredFields.length === 0 && fieldSearch && (
-                <div className="col-span-full text-center py-6">
-                  <p className="text-sm text-[var(--color-text-muted)] mb-3">
-                    No matching field found for "<strong>{fieldSearch}</strong>"
+                <div className="col-span-full rounded-2xl border border-dashed border-[#C4952A]/40 bg-white/95 p-6 text-center shadow-xs my-2">
+                  <p className="text-sm sm:text-base font-bold text-[#1B332C]">
+                    No courses found for '{fieldSearch}'
                   </p>
-                  <p className="text-xs text-[var(--color-text-muted)]">Use the custom field input below 👇</p>
+                  <p className="text-xs text-[#5B6B5F] mt-1">
+                    We don't have this course yet.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRequestCoursePrefill(fieldSearch);
+                      setIsCourseRequestModalOpen(true);
+                    }}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#1B332C] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#E8C547] border border-[#C4952A]/40 hover:bg-[#2E4F42] transition-colors cursor-pointer"
+                  >
+                    Request '{fieldSearch}'
+                  </button>
                 </div>
               )}
             </div>
+
+            {/* CTA below existing course list/cards */}
+            {!isFieldLocked && (
+              <div className="mt-5 rounded-2xl border border-[#2E4F42]/15 bg-white p-4 sm:p-5 text-center shadow-xs">
+                <p className="text-xs sm:text-sm font-bold text-[#1B332C]">
+                  Can't find the course you're looking for?
+                </p>
+                <p className="text-xs text-[#5B6B5F] mt-0.5 mb-2.5">
+                  Request any domain or skill track directly from our administration team.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequestCoursePrefill(fieldSearch || "");
+                    setIsCourseRequestModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#1B332C] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#E8C547] border border-[#C4952A]/40 hover:bg-[#2E4F42] transition-colors cursor-pointer"
+                >
+                  + Request a New Course
+                </button>
+              </div>
+            )}
 
             {/* Custom field input */}
             {!isFieldLocked && (
@@ -435,6 +474,13 @@ export default function OnboardingPage() {
           </div>
         )}
       </Container>
+
+      {/* Course Request Modal */}
+      <CourseRequestModal
+        isOpen={isCourseRequestModalOpen}
+        onClose={() => setIsCourseRequestModalOpen(false)}
+        initialCourseName={requestCoursePrefill}
+      />
     </Section>
   );
 }

@@ -15,9 +15,16 @@ import conceptRootRoutes from "./routes/conceptRootRoutes.js";
 import mistakeMapRoutes from "./routes/mistakeMapRoutes.js";
 import skillGapRoutes from "./routes/skillGapRoutes.js";
 import revisionRoutes from "./routes/revisionRoutes.js";
+import courseRequestRoutes from "./routes/courseRequestRoutes.js";
+import CourseRequest from "./models/CourseRequest.js";
 import { authenticate, isAdmin } from "./middleware/authMiddleware.js";
 
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __serverDir = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config();
+dotenv.config({ path: path.resolve(__serverDir, "../.env") });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -72,7 +79,6 @@ app.use("/api/personal-intelligence", personalIntelligenceRoutes);
 app.use("/api/concept-root", conceptRootRoutes);
 app.use("/api/mistake-map", mistakeMapRoutes);
 app.use("/api/skill-gap", skillGapRoutes);
-app.use("/api/revision", revisionRoutes);
 
 // Protected Admin Test Route
 app.get("/api/admin/test", authenticate, isAdmin, (req, res) => {
@@ -112,7 +118,8 @@ export async function startServer() {
 
     // Ensure Mongoose models sync indexes (e.g. partial unique index on role: "admin")
     await mongoose.model("User").syncIndexes();
-    console.log("MongoDB User indexes synchronized successfully.");
+    await CourseRequest.syncIndexes();
+    console.log("MongoDB User and CourseRequest indexes synchronized successfully.");
 
     const server = app.listen(PORT, () => {
       console.log(`AIFinity Express server running on port ${PORT}`);

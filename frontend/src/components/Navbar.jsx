@@ -6,6 +6,7 @@ import { useStudentAuth } from "../context/StudentAuthContext";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
+  { label: "Courses", href: "/courses" },
   { label: "Roadmap", href: "/roadmap" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },

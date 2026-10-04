@@ -26,6 +26,7 @@ import ResetPassword from './pages/ResetPassword';
 import Faq from './pages/Faq';
 import PersonalIntelligence from './pages/PersonalIntelligence';
 import Revision from './pages/Revision';
+import CourseSelection from './pages/CourseSelection';
 
 // Student Auth Guard
 import StudentAuthGuard from './components/StudentAuthGuard';
@@ -47,6 +48,7 @@ import ContentManagement from './pages/admin/ContentManagement';
 import ReportsPage from './pages/admin/ReportsPage';
 import AdminSettings from './pages/admin/AdminSettings';
 import AssessmentManagement from './pages/admin/AssessmentManagement';
+import CourseRequests from './pages/admin/CourseRequests';
 
 function PublicLayout() {
   return (
@@ -110,6 +112,7 @@ function App() {
               <Route path="assessments" element={<AssessmentManagement />} />
               <Route path="analytics" element={<AiAnalytics />} />
               <Route path="content" element={<ContentManagement />} />
+              <Route path="course-requests" element={<CourseRequests />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>
@@ -118,6 +121,8 @@ function App() {
           {/* ── PUBLIC pages: Navbar + Footer ── */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<Home />} />
+            <Route path="/courses" element={<CourseSelection />} />
+            <Route path="/course-selection" element={<CourseSelection />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/login" element={<Login />} />
