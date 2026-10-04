@@ -38,24 +38,46 @@ if (!allowedOrigins.includes("https://aifinity-frontend.onrender.com")) {
   allowedOrigins.push("https://aifinity-frontend.onrender.com");
 }
 
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    // In development, allow only local development origins (localhost, 127.0.0.1, [::1]) on any port
+    if (process.env.NODE_ENV !== "production") {
+      const isLocalOrigin =
+        /^http:\/\/localhost(:\d+)?$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
+        /^http:\/\/\[::1\](:\d+)?$/.test(origin);
+
+      if (isLocalOrigin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
+
+// Explicitly configure Helmet with crossOriginResourcePolicy: cross-origin so browsers do not block cross-origin API responses
 app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      // Allow any localhost port in development
-      if (process.env.NODE_ENV !== "production" && origin.match(/^http:\/\/localhost:\d+$/)) {
-        return callback(null, true);
-      }
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        return callback(null, true);
-      }
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
 
-app.use(helmet());
+app.use((req, res, next) => {
+  console.log(`[HTTP ${req.method}] ${req.url} | Origin: ${req.headers.origin || "none"}`);
+  next();
+});
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

@@ -7,6 +7,7 @@ import User from "../models/User.js";
  * Attaches authenticated user object to req.user.
  */
 export async function authenticate(req, res, next) {
+  if (req.method === "OPTIONS") return next();
   try {
     const token = req.cookies?.token;
 
@@ -68,6 +69,8 @@ export async function optionalAuthenticate(req, res, next) {
  * Returns 403 Forbidden if user is authenticated but lacks admin privileges.
  */
 export function isAdmin(req, res, next) {
+  if (req.method === "OPTIONS") return next();
+
   if (!req.user) {
     return res.status(401).json({
       success: false,
