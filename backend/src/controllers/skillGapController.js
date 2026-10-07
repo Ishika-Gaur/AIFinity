@@ -11,7 +11,7 @@ export async function getSkillGap(req, res) {
     const attempts = await AttemptResult.find({ userId: user._id }).sort({ completedAt: -1 }).lean();
 
     const careerGoal = user?.onboardingProfile?.careerGoal || user?.selectedField || "";
-    const data = buildSkillGapAnalysis({ attempts, careerGoal, user });
+    const data = await buildSkillGapAnalysis({ attempts, careerGoal, user });
 
     return res.json({
       success: true,

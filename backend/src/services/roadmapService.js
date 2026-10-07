@@ -129,52 +129,42 @@ export async function generateAndSaveRoadmap(user, careerGoal) {
   }
 
   // Map JSON into the mongoose schema format safely
-  const { roadmap, short_roadmap } = finalAiRoadmap;
+  const { roadmap } = finalAiRoadmap;
 
-  const dbPhases = (roadmap.phases || []).map((phase, pIndex) => ({
-    phaseId: phase.phase_id || `phase-${pIndex + 1}`,
-    title: phase.title || "Phase",
-    objective: phase.objective || "",
-    priority: phase.priority || "MEDIUM",
-    estimatedDuration: phase.estimated_duration || "",
-    skills: (phase.skills || []).map((skill, sIndex) => ({
-      skillId: skill.skill_id || `skill-${pIndex}-${sIndex}`,
-      name: skill.name || "Unknown Skill",
-      status: skill.status || "NOT_STARTED",
-      priority: skill.priority || "MEDIUM",
-      why: skill.why || "",
-      prerequisites: skill.prerequisites || [],
-      learningTasks: skill.learning_tasks || [],
-      practiceTasks: skill.practice_tasks || [],
-      projectTasks: skill.project_tasks || [],
-      validation: skill.validation || [],
-      estimatedHours: skill.estimated_hours || 0,
-      dependencies: skill.dependencies || [],
-      completionCriteria: skill.completion_criteria || [],
-      progress: 0
-    }))
-  }));
-
-  const dbShortRoadmap = {
-    currentFocus: short_roadmap.current_focus || "",
-    nextSteps: short_roadmap.next_steps || [],
-    thisWeek: short_roadmap.this_week || [],
-    nextMilestone: short_roadmap.next_milestone || ""
-  };
+  const stages = (roadmap.phases || []).map((phase, pIndex) => {
+    let concepts = [];
+    let learningTasks = [];
+    let practiceTasks = [];
+    (phase.skills || []).forEach(skill => {
+      if (skill.name) concepts.push(skill.name);
+      if (skill.learning_tasks) learningTasks.push(...skill.learning_tasks);
+      if (skill.practice_tasks) practiceTasks.push(...skill.practice_tasks);
+    });
+    return {
+      id: pIndex + 1,
+      title: phase.title || `Phase ${pIndex + 1}`,
+      phase: phase.objective || `Phase ${pIndex + 1}`,
+      status: pIndex === 0 ? "current" : "locked",
+      duration: phase.estimated_duration || "4 Weeks",
+      priority: phase.priority || "Standard",
+      why: phase.objective || "",
+      progress: 0,
+      concepts,
+      description: phase.title || "",
+      learningTasks,
+      practiceTasks,
+      questions: 20,
+      isWeakConcept: false
+    };
+  });
 
   const newRoadmap = {
     userId: user._id,
-    schemaVersion: 2,
-    careerGoal: roadmap.career_goal || careerGoal,
-    targetRole: roadmap.target_role || careerGoal,
-    currentLevel: studentContext.currentLevel,
-    roadmapTitle: roadmap.title || "Personalized AI Learning Roadmap",
-    summary: roadmap.summary || "",
-    estimatedDuration: roadmap.estimated_duration || "",
-    confidence: roadmap.confidence || 0,
-    phases: dbPhases,
-    shortRoadmap: dbShortRoadmap,
-    evidenceSnapshot: { assessmentCount: attempts.length, lastAttemptId: attempts[0]?._id }
+    targetCareer: roadmap.career_goal || careerGoal,
+    readinessScore: roadmap.confidence || 0,
+    hasHistory: true,
+    stages: stages,
+    lastEvaluatedAt: new Date()
   };
 
   const roadmapDoc = await UserRoadmap.findOneAndUpdate(

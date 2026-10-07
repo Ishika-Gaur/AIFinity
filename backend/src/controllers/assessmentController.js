@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Assessment from "../models/Assessment.js";
 import AttemptResult from "../models/AttemptResult.js";
 import UserRoadmap from "../models/UserRoadmap.js";
+import MistakeMapAnalysis from "../models/MistakeMapAnalysis.js";
 import { generatePersonalizedRoadmap } from "./analyticsController.js";
 import { generateQuestions, evaluateAssessmentWithAI } from "../services/geminiService.js";
 import { getRecommendedTopicsForField } from "../utils/fieldCatalog.js";
@@ -299,6 +300,11 @@ export function classifyMistakeDeterministically(q, evalResult, sessionQ, userRe
 
   // 5. Conceptual / Definition / Theoretical principle
   if (qType.includes("conceptual") || rubric.includes("concept") || qPrompt.includes("which of the following defines") || qPrompt.includes("definition") || qPrompt.includes("fundamental principle")) {
+    return "CONCEPTUAL";
+  }
+
+  // Improved evidence-driven fallback for standard academic/technical questions
+  if (qType.includes("multiple_choice") || qType.includes("true_false") || qType.includes("mcq")) {
     return "CONCEPTUAL";
   }
 
@@ -647,7 +653,10 @@ export async function submitAttempt(req, res) {
         completedAt: new Date(),
       });
 
-// Fire roadmap regeneration in the background — do NOT await, so response is instant`r`ngeneratePersonalizedRoadmap(req.user._id).catch((err) =>`r`n  console.error("[Dashboard] Background roadmap regeneration failed:", err.message)`r`n);
+      // Fire MistakeMap cache invalidation
+      MistakeMapAnalysis.updateOne({ userId: req.user._id }, { $unset: { aiInsights: 1 } }).catch(err => console.error("[MistakeMap] Cache invalidation failed:", err));
+      // Fire roadmap regeneration in the background
+      generatePersonalizedRoadmap(req.user._id).catch(err => console.error("[Dashboard] Background roadmap regeneration failed:", err.message));
     } catch (saveErr) {
       console.error("[Dashboard] Failed to persist attempt result:", saveErr.message);
     }
@@ -732,10 +741,10 @@ export async function syncAttemptResult(req, res) {
       completedAt: new Date(),
     });
 
-    // Fire roadmap regeneration in the background â€” do NOT await, so response is instant
-    generatePersonalizedRoadmap(userId).catch((err) =>
-      console.error("[Assessment] Background roadmap regeneration failed:", err.message)
-    );
+          // Fire MistakeMap cache invalidation
+      MistakeMapAnalysis.updateOne({ userId }, { $unset: { aiInsights: 1 } }).catch(err => console.error("[MistakeMap] Cache invalidation failed:", err));
+      // Fire roadmap regeneration in the background
+      generatePersonalizedRoadmap(userId).catch(err => console.error("[Assessment] Background roadmap regeneration failed:", err.message));
 
     return res.json({
       success: true,
@@ -1471,7 +1480,10 @@ export async function evaluateAttemptWithAI(req, res) {
           completedAt: new Date(),
         });
 
-// Fire roadmap regeneration in the background — do NOT await, so response is instant`r`ngeneratePersonalizedRoadmap(req.user._id).catch((err) =>`r`n  console.error("[Dashboard] Background roadmap regeneration failed:", err.message)`r`n);
+      // Fire MistakeMap cache invalidation
+      MistakeMapAnalysis.updateOne({ userId: req.user._id }, { $unset: { aiInsights: 1 } }).catch(err => console.error("[MistakeMap] Cache invalidation failed:", err));
+      // Fire roadmap regeneration in the background
+      generatePersonalizedRoadmap(req.user._id).catch(err => console.error("[Dashboard] Background roadmap regeneration failed:", err.message));
       } catch (saveErr) {
         console.error("[AI Evaluator] Failed to persist attempt result:", saveErr.message);
       }

@@ -24,9 +24,10 @@ function toIdentifier(value, fallback = "general") {
         .replace(/^-+|-+$/g, "") || fallback;
 }
 
-function getSkillRequirement(skillName, careerGoal) {
+async function getSkillRequirement(skillName, careerGoal) {
     const goal = String(careerGoal || "").trim();
-    const skills = getCareerRequirements(goal).skills || [];
+    const requirements = await getCareerRequirements(goal);
+    const skills = requirements?.skills || [];
     const byName = skills.find((skill) => {
         const targetName = String(skill.name || "").toLowerCase();
         const name = String(skillName || "").toLowerCase();
@@ -34,8 +35,9 @@ function getSkillRequirement(skillName, careerGoal) {
     });
 
     if (byName) {
+        const reqProf = byName.requiredProficiency ?? (byName.importance ? Math.round(byName.importance * 100) : 75);
         return {
-            requiredProficiency: Number(byName.requiredProficiency ?? byName.required ?? 75) || 75,
+            requiredProficiency: Number(reqProf) || 75,
             skillName: byName.name || skillName,
         };
     }
@@ -135,7 +137,7 @@ function summarizeConcepts(skillEvidence) {
     }).sort((a, b) => b.incorrectCount - a.incorrectCount || b.evidenceCount - a.evidenceCount);
 }
 
-export function buildSkillGapAnalysis({ attempts = [], careerGoal = "", user = null }) {
+export async function buildSkillGapAnalysis({ attempts = [], careerGoal = "", user = null }) {
     const evidence = normalizeEvidence(attempts);
 
     if (!evidence.length) {
@@ -197,7 +199,7 @@ export function buildSkillGapAnalysis({ attempts = [], careerGoal = "", user = n
         else concept.incorrectCount += 1;
     }
 
-    const skills = Array.from(skillMap.values()).map((skill) => {
+    const unsortedSkills = await Promise.all(Array.from(skillMap.values()).map(async (skill) => {
         const totalWeight = skill.evidence.reduce((sum, item) => sum + (DIFFICULTY_WEIGHT[String(item.difficulty).toLowerCase()] || 1), 0);
         const correctWeight = skill.evidence.reduce((sum, item) => sum + ((item.isCorrect ? 1 : 0) * (DIFFICULTY_WEIGHT[String(item.difficulty).toLowerCase()] || 1)), 0);
         const proficiency = totalWeight > 0 ? Math.round((correctWeight / totalWeight) * 100) : 0;
@@ -210,7 +212,7 @@ export function buildSkillGapAnalysis({ attempts = [], careerGoal = "", user = n
             }))
             .sort((a, b) => a.accuracy - b.accuracy);
 
-        const requirement = getSkillRequirement(skill.skillName, careerGoal);
+        const requirement = await getSkillRequirement(skill.skillName, careerGoal);
         const requiredProficiency = requirement.requiredProficiency;
         const gap = Math.max(requiredProficiency - proficiency, 0);
         const priority = gap >= 20 ? "high" : gap >= 10 ? "medium" : "low";
@@ -249,7 +251,9 @@ export function buildSkillGapAnalysis({ attempts = [], careerGoal = "", user = n
                 ? [`Target ${requiredProficiency}% proficiency by practicing the weakest concepts under ${skill.skillName}.`]
                 : [`Maintain current performance and challenge the student with higher-difficulty ${skill.skillName} tasks.`],
         };
-    }).sort((a, b) => (b.gap || 0) - (a.gap || 0) || b.evidenceCount - a.evidenceCount);
+    }));
+    
+    const skills = unsortedSkills.sort((a, b) => (b.gap || 0) - (a.gap || 0) || b.evidenceCount - a.evidenceCount);
 
     const overallProficiency = Math.round(
         evidence.reduce((sum, item) => sum + (item.isCorrect ? 100 : 0), 0) / Math.max(evidence.length, 1)

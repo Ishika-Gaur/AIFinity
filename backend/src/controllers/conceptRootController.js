@@ -1,6 +1,6 @@
 import AttemptResult from "../models/AttemptResult.js";
 import ConceptRootAnalysis from "../models/ConceptRootAnalysis.js";
-import { explainConceptRootWithAI } from "../services/geminiService.js";
+import { explainConceptRootWithAI, analyzeConceptRootWithAI } from "../services/geminiService.js";
 import { calculateConceptRoot } from "../services/conceptRootService.js";
 
 /**

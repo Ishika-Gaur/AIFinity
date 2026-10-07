@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStudentAuth } from "../../context/StudentAuthContext";
 
@@ -17,20 +17,15 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
 
   const dynamicName = currentUser?.name?.trim() || (user?.name && user.name.trim() !== "Learner" ? user.name.trim() : "");
   const greeting = user?.greeting || "Good evening";
-  const subtitle = user?.subtitle || "Here's where your learning journey stands today.";
+  const subtitle = user?.subtitle || "Your learning journey, understood by AI. Track your progress, uncover learning gaps, and turn every assessment into a clearer path forward.";
   const streak = user?.streak ?? 0;
 
   const defaultQuotes = [
-    "Small progress is still progress.",
+    "Every attempt is evidence. Every mistake is a step forward.",
     "Consistency builds what motivation starts.",
-    "Every mistake is a clue.",
     "Understand the why, not just the answer.",
     "Your weak areas are your next opportunities.",
-    "Practice turns confusion into confidence.",
-    "Keep learning. Keep questioning. Keep improving.",
     "One concept understood deeply is worth ten memorized.",
-    "Your mistakes are showing you where to grow.",
-    "Progress is built one problem at a time.",
   ];
 
   const activeQuotes = quotes.length > 0 ? quotes : defaultQuotes;
@@ -75,13 +70,13 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
 
           <div className="mt-1">
             <h1 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#1B332C] tracking-tight leading-tight flex items-center flex-wrap gap-3">
-              {dynamicName ? `${greeting}, ${dynamicName} ðŸ‘‹` : `${greeting} ðŸ‘‹`}
+              {dynamicName ? `${greeting}, ${dynamicName} 👋` : `${greeting} 👋`}
               <button 
                 type="button"
                 onClick={onOpenProfile}
                 className="text-xs font-sans font-semibold text-[#1B332C] bg-[#EDE6D3]/80 border border-[#2E4F42]/15 hover:bg-[#1B332C] hover:text-[#E8C547] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
               >
-                <span>âš™ï¸</span> Edit Profile
+                <span>⚙️</span> Edit Profile
               </button>
             </h1>
             <p className="mt-2 text-sm sm:text-base text-[#5B6B5F] font-normal leading-relaxed">
@@ -91,7 +86,7 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
 
           {/* 13. ROTATING QUOTES WITH FADE & MONO COUNTER */}
           <div className="mt-1 flex items-center gap-3 rounded-xl bg-[#EDE6D3]/60 px-4 py-2 border border-[#2E4F42]/10 w-fit min-h-[40px]">
-            <span className="text-[#C4952A] text-sm shrink-0">âœ¦</span>
+            <span className="text-[#C4952A] text-sm shrink-0">✦</span>
             <div className="flex items-center gap-2">
               <span
                 className={`font-sans text-xs sm:text-sm text-[#1B332C] font-medium italic transition-opacity duration-300 ${
@@ -119,19 +114,19 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
             to="/assessment"
             className="inline-flex items-center gap-2 rounded-2xl bg-[#1B332C] px-5 py-3 text-xs font-bold text-[#E8C547] border border-[#C4952A]/40 shadow-md hover:bg-[#2E4F42] hover:text-white hover:-translate-y-0.5 transition-all duration-300 group"
           >
-            <span className="text-base group-hover:scale-110 transition-transform">âš¡</span>
+            <span className="text-base group-hover:scale-110 transition-transform">⚡</span>
             <span>Take Assessment</span>
-            <span>â†’</span>
+            <span>→</span>
           </Link>
 
           <div className="flex items-center gap-3 rounded-2xl bg-[#EDE6D3] px-4 py-3 text-[#1B332C] border border-[#2E4F42]/15 shadow-2xs hover:-translate-y-0.5 transition-all duration-300 group cursor-default">
-            <span className="text-xl group-hover:scale-110 transition-transform duration-200">ðŸ”¥</span>
+            <span className="text-xl group-hover:scale-110 transition-transform duration-200">🔥</span>
             <div className="flex flex-col">
               <span className="font-mono text-xs uppercase tracking-wider text-[#1B332C] font-bold">
                 {streak} DAY STREAK
               </span>
               <span className="font-mono text-[10px] text-[#5B6B5F]">
-                {streak > 0 ? `Consistency Multiplier ${(1 + Math.min(streak, 10) * 0.1).toFixed(1)}x` : "Start your streak!"}
+                {streak > 0 ? `Consistency Multiplier ${(1 + Math.min(streak, 10) * 0.1).toFixed(1)}x` : "Make today your first consistent step."}
               </span>
             </div>
           </div>
