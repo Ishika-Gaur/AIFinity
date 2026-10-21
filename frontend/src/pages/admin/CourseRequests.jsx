@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { adminApi } from "../../services/api";
+import { useAdminNotifications } from "../../context/AdminNotificationContext";
 
 const STATUS_OPTIONS = ["pending", "reviewing", "completed", "rejected"];
 
 export default function CourseRequests() {
+  const { refreshNotifications } = useAdminNotifications();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -96,6 +98,7 @@ export default function CourseRequests() {
           prev.map((item) => ((item.id === targetId || item._id === targetId) ? res.request : item))
         );
         setSelectedRequest(res.request);
+        refreshNotifications();
       } else {
         const errorDetail = res.status
           ? `[Error ${res.status}] ${res.error || "Failed to update course request status."}`

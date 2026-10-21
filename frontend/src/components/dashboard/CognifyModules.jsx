@@ -6,13 +6,13 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
   const getStatusBadge = (status) => {
     switch (status) {
       case "strong":
-        return { icon: "âœ“", color: "text-[#2E4F42] bg-[#2E4F42]/10 border-[#2E4F42]/30" };
+        return { icon: "✓", color: "text-[#2E4F42] bg-[#2E4F42]/10 border-[#2E4F42]/30" };
       case "improving":
         return { icon: "~", color: "text-[#C4952A] bg-[#E8C547]/20 border-[#C4952A]/40" };
       case "attention":
-        return { icon: "Ã—", color: "text-[#C1443C] bg-[#C1443C]/10 border-[#C1443C]/30" };
+        return { icon: "×", color: "text-[#C1443C] bg-[#C1443C]/10 border-[#C1443C]/30" };
       default:
-        return { icon: "â€¢", color: "text-[#5B6B5F] bg-[#EDE6D3] border-[#2E4F42]/10" };
+        return { icon: "•", color: "text-[#5B6B5F] bg-[#EDE6D3] border-[#2E4F42]/10" };
     }
   };
 
@@ -25,7 +25,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#C4952A] bg-[#EDE6D3] px-2.5 py-0.5 rounded-md">
               ROOT CAUSE
             </span>
-            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">ðŸŒ³</span>
+            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">🌳</span>
           </div>
 
           <div>
@@ -86,7 +86,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             className="inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 bg-[var(--color-surface)] text-[#1B332C] border border-[#2E4F42]/20 hover:bg-[#1B332C] hover:text-[#E8C547] hover:border-[#1B332C] px-4 py-2 text-xs w-full justify-between shadow-2xs"
           >
             <span>{conceptRoot?.cta || "Explore ConceptRoot"}</span>
-            <span>â†’</span>
+            <span>→</span>
           </Link>
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#C1443C] bg-[#C1443C]/10 px-2.5 py-0.5 rounded-md">
               PATTERN DETECTION
             </span>
-            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">ðŸ—ºï¸</span>
+            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">🗺️</span>
           </div>
 
           <div>
@@ -139,7 +139,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             className="inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 bg-[var(--color-surface)] text-[#1B332C] border border-[#2E4F42]/20 hover:bg-[#1B332C] hover:text-[#E8C547] hover:border-[#1B332C] px-4 py-2 text-xs w-full justify-between shadow-2xs"
           >
             <span>{mistakeMap?.cta || "View MistakeMap"}</span>
-            <span>â†’</span>
+            <span>→</span>
           </Link>
         </div>
       </div>
@@ -151,7 +151,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#2E4F42] bg-[#2E4F42]/10 px-2.5 py-0.5 rounded-md">
               CAREER READINESS
             </span>
-            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">ðŸŽ¯</span>
+            <span className="text-xl group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">🎯</span>
           </div>
 
           <div>
@@ -210,7 +210,7 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
             className="inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-200 bg-[var(--color-surface)] text-[#1B332C] border border-[#2E4F42]/20 hover:bg-[#1B332C] hover:text-[#E8C547] hover:border-[#1B332C] px-4 py-2 text-xs w-full justify-between shadow-2xs"
           >
             <span>{skillGap?.cta || "View Skill Gap"}</span>
-            <span>â†’</span>
+            <span>→</span>
           </Link>
         </div>
       </div>
@@ -262,5 +262,4 @@ export default function CognifyModules({ conceptRoot, mistakeMap, skillGap }) {
     </div>
   );
 }
-
 

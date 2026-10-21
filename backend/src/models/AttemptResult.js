@@ -51,6 +51,12 @@ const attemptResultSchema = new mongoose.Schema(
     attemptId: {
       type: String,
       trim: true,
+<<<<<<< HEAD
+=======
+      sparse: true,
+      unique: true,
+      index: true,
+>>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
     },
     assessmentId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -156,5 +162,6 @@ attemptResultSchema.index({ userId: 1, completedAt: -1 });
 attemptResultSchema.index({ userId: 1, attemptId: 1 }, { unique: true, sparse: true });
 
 const AttemptResult = mongoose.model("AttemptResult", attemptResultSchema);
+AttemptResult.init().catch(err => console.error("[AttemptResult] Index initialization error:", err));
 
 export default AttemptResult;

@@ -467,7 +467,7 @@ export default function Roadmap() {
   const WEEKLY_FOCUS_ITEMS = activePhases[0]?.tasks?.slice(0, 4) || [];
 
   // Detect if student is preparing for school / board exams
-  const isAcademic = /class \d|board|cbse|icse|ncert|sst|social science|science|math/i.test(targetCareer);
+  const isAcademic = /class\s*\d+|10th|12th|board|cbse|icse|ncert|sst|social\s*science/i.test(targetCareer);
 
   // Resources list dynamically generated for the career or board exam
   const HELPFUL_RESOURCES = isAcademic ? [
@@ -689,7 +689,11 @@ export default function Roadmap() {
   );
 
   // Focus areas summary
-  const focusAreasSummary = Array.from(new Set(allTopics)).slice(0, 5).join(", ") || "HTML, CSS, JavaScript, React, APIs";
+  const focusAreasSummary = Array.from(new Set(allTopics)).slice(0, 5).join(", ") || (targetCareer ? `${targetCareer} Fundamentals` : "Core Concepts");
+
+  // Dynamic duration calculated from actual stages (each phase covers 2 weeks)
+  const totalDurationWeeks = activePhases.length * 2;
+  const totalDurationText = totalDurationWeeks > 0 ? `${totalDurationWeeks} Weeks` : "Self-paced";
 
   return (
     <div
@@ -817,52 +821,22 @@ export default function Roadmap() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {/* Card 1: Career Goal */}
           <div
-            className="group relative rounded-2xl border p-4 sm:p-5 transition-all duration-300 hover:shadow-md cursor-pointer"
+            className="rounded-2xl border p-4 sm:p-5 transition-all duration-300 hover:shadow-md"
             style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
-            onClick={() => setShowCareerSelector((prev) => !prev)}
-            title="Click to switch career track"
           >
             <div className="flex items-center gap-3.5">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FEE2E2] text-[#B91C1C]">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FEE2E2]">
                 <span className="text-lg">🎯</span>
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-[#8B9690]">
                   Career Goal
                 </p>
-                <div className="flex items-center justify-between gap-1">
-                  <p className="text-sm sm:text-base font-bold text-[#1B332C] truncate">
-                    {targetCareer}
-                  </p>
-                  <span className="text-xs text-[#8B9690] group-hover:text-[#1B332C] transition-colors">
-                    ▼
-                  </span>
-                </div>
+                <p className="text-sm sm:text-base font-bold text-[#1B332C] leading-snug">
+                  {targetCareer}
+                </p>
               </div>
             </div>
-
-            {/* Quick Switch Dropdown */}
-            {showCareerSelector && (
-              <div
-                className="absolute left-0 right-0 top-full mt-2 z-30 rounded-xl border p-2 shadow-xl bg-[#FBF8F0] border-[#2E4F42]/20"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8B9690]">
-                  Choose Career Track
-                </p>
-                {PRESET_CAREERS.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => handleSelectPreset(c.title)}
-                    className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-[#1B332C] hover:bg-[#EDE6D3] transition flex items-center justify-between"
-                  >
-                    <span>{c.icon} {c.title}</span>
-                    {targetCareer === c.title && <span className="text-[#2E4F42]">✓</span>}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Card 2: Total Duration */}
@@ -879,7 +853,7 @@ export default function Roadmap() {
                   Total Duration
                 </p>
                 <p className="text-sm sm:text-base font-bold text-[#1B332C]">
-                  8 Weeks
+                  {totalDurationText}
                 </p>
               </div>
             </div>
@@ -1273,7 +1247,7 @@ export default function Roadmap() {
                                 </p>
                                 <div className="flex flex-wrap gap-2">
                                   {phase.topics?.map((topic) => {
-                                    const docUrl = getPrimaryDocUrl(topic);
+                                    const docUrl = getPrimaryDocUrl(topic, targetCareer);
                                     const tooltipText = isAcademic
                                       ? `📺 Watch video lecture for: ${topic}`
                                       : `Open official documentation for ${topic}`;
@@ -1371,7 +1345,7 @@ export default function Roadmap() {
                                     </a>
                                   ) : (
                                     <a
-                                      href={getPrimaryDocUrl(phase.topics?.[0] || phase.title)}
+                                      href={getPrimaryDocUrl(phase.topics?.[0] || phase.title, targetCareer)}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       onClick={(e) => e.stopPropagation()}

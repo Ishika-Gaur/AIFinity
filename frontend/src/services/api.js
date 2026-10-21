@@ -156,12 +156,14 @@ export const adminApi = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
+  getNotifications: () => request("/admin/notifications"),
 };
 
 export const assessmentApi = {
   getPublished: () => request("/assessments"),
   getById: (id) => request(`/assessments/${id}`),
   startAttempt: (id) => request(`/assessments/${id}/start`),
+  getLatestResult: (id) => request(`/assessments/${id}/result/latest`),
   submitAttempt: (id, payload) =>
     request(`/assessments/${id}/submit`, {
       method: "POST",
