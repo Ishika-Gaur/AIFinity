@@ -162,6 +162,7 @@ export const assessmentApi = {
   getPublished: () => request("/assessments"),
   getById: (id) => request(`/assessments/${id}`),
   startAttempt: (id) => request(`/assessments/${id}/start`),
+  getLatestResult: (id) => request(`/assessments/${id}/result/latest`),
   submitAttempt: (id, payload) =>
     request(`/assessments/${id}/submit`, {
       method: "POST",
