@@ -156,6 +156,7 @@ export const adminApi = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
+  getNotifications: () => request("/admin/notifications"),
 };
 
 export const assessmentApi = {

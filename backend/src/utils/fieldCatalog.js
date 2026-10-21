@@ -392,3 +392,29 @@ export function getRecommendedTopicsForField(field, careerGoal) {
 
   return topics.slice(0, 6);
 }
+
+export function isValidField(field) {
+  if (!field || typeof field !== "string") return false;
+  const trimmed = field.trim();
+  if (trimmed.length < 3) return false;
+
+  const spam = ["hi", "hii", "hello", "test", "testing", "asdf", "qwerty", "1234", "none", "null", "undefined"];
+  if (spam.includes(trimmed.toLowerCase())) return false;
+
+  const validFields = Object.keys(CAREER_GOALS_BY_FIELD);
+  const matched = validFields.find((f) => f.toLowerCase() === trimmed.toLowerCase());
+  if (matched) return matched;
+
+  // Academic boards / classes
+  if (/class\s*(10|12|9|11)/i.test(trimmed) || /board/i.test(trimmed) || /cbse/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Partial match against recognized fields
+  const partial = validFields.find(
+    (f) => f.toLowerCase().includes(trimmed.toLowerCase()) || trimmed.toLowerCase().includes(f.toLowerCase())
+  );
+  if (partial) return partial;
+
+  return false;
+}

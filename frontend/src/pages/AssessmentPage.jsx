@@ -11,6 +11,7 @@ import {
   getUserProfile,
   formatType,
   CAREER_GOALS_BY_FIELD,
+  FIELDS,
 } from "../utils/constants";
 import { assessmentApi, dashboardApi } from "../services/api";
 
@@ -171,6 +172,7 @@ function AssessmentProgressCard({ completedCount, availableCount, inProgressCoun
         Assessment Progress
       </span>
 
+      {/* Big completed number */}
       <div className="flex flex-col items-center gap-1">
         <span className="font-sans text-4xl sm:text-5xl font-extrabold text-[#1B332C]">
           {loading ? "..." : completedCount}
@@ -180,22 +182,25 @@ function AssessmentProgressCard({ completedCount, availableCount, inProgressCoun
         </span>
       </div>
 
-      <div className="grid w-full grid-cols-3 gap-2 border-y border-[#2E4F42]/10 py-4">
-        <div className="flex flex-col items-center rounded-xl bg-[#F1EDE1]/60 p-2.5">
-          <span className="text-xl font-bold text-[#1B332C]">{loading ? "-" : completedCount}</span>
-          <span className="text-[10px] font-medium text-[#5B6B5F]">Completed</span>
+      {/* Two clear stat boxes */}
+      <div className="grid w-full grid-cols-2 gap-2 border-y border-[#2E4F42]/10 py-4">
+        {/* Topics you can still attempt — clicking scrolls to the list */}
+        <div
+          className="flex flex-col items-center gap-1 rounded-xl bg-[#F1EDE1]/60 p-3 cursor-pointer hover:bg-[#E8C547]/20 transition-colors group"
+          onClick={() => document.getElementById("recommended")?.scrollIntoView({ behavior: "smooth" })}
+          title="Click to see all available assessment topics below"
+        >
+          <span className="text-xl font-bold text-[#1B332C] group-hover:text-[#C4952A] transition-colors">{loading ? "-" : availableCount}</span>
+          <span className="text-[10px] font-medium text-[#5B6B5F] leading-tight">Topics to<br/>Explore</span>
+          <span className="text-[9px] text-[#C4952A] font-bold">↓ see below</span>
         </div>
 
-        <div className="flex flex-col items-center rounded-xl bg-[#F1EDE1]/60 p-2.5">
-          <span className="text-xl font-bold text-[#1B332C]">{loading ? "-" : availableCount}</span>
-          <span className="text-[10px] font-medium text-[#5B6B5F]">Available</span>
-        </div>
-
-        <div className="flex flex-col items-center rounded-xl bg-[#F1EDE1]/60 p-2.5">
+        {/* Saved / in-progress attempts */}
+        <div className="flex flex-col items-center gap-1 rounded-xl bg-[#F1EDE1]/60 p-3">
           <span className={`text-xl font-bold ${inProgressCount > 0 ? "text-[#C4952A]" : "text-[#1B332C]"}`}>
             {loading ? "-" : inProgressCount}
           </span>
-          <span className="text-[10px] font-medium text-[#5B6B5F]">In Progress</span>
+          <span className="text-[10px] font-medium text-[#5B6B5F] leading-tight">In<br/>Progress</span>
         </div>
       </div>
 
@@ -557,6 +562,7 @@ function StreakSidebar({ profile, dailyAssessments, completedDays, onDailyClick 
 export default function AssessmentPage() {
   const profile = useMemo(() => getUserProfile(), []);
 
+  const [selectedField, setSelectedField] = useState("All");
   const [category, setCategory] = useState("All");
   const [difficulty, setDifficulty] = useState("All");
   const [type, setType] = useState("All");
@@ -694,23 +700,34 @@ export default function AssessmentPage() {
     };
   }, []);
 
-  // Categories: seed with the career-specific goals for this user's field,
-  // then merge with any categories from the actual published assessments.
-  const userFieldCategories = useMemo(() => {
-    const field = profile?.field || "Software Development";
-    // Get career goals for this field as category seeds
-    const fieldGoals = CAREER_GOALS_BY_FIELD[field] || [];
-    // Also include core sub-topics from similar fields if goals is sparse
-    return fieldGoals.length >= 3
-      ? fieldGoals.slice(0, 6)
-      : [...fieldGoals, field];
-  }, [profile]);
+  // Available fields from user profile, published assessments, and platform catalog
+  const availableFields = useMemo(() => {
+    const dbFields = assessments.map((a) => a.field).filter(Boolean);
+    const set = new Set();
+    if (profile?.field) set.add(profile.field);
+    dbFields.forEach((f) => set.add(f));
+    FIELDS.forEach((f) => set.add(f));
+    return ["All", ...Array.from(set)];
+  }, [assessments, profile]);
 
+  // Categories dynamically derived from the selected field and assessments
   const categories = useMemo(() => {
-    const existingCats = assessments.map((assessment) => assessment.category).filter(Boolean);
-    const combined = Array.from(new Set([...userFieldCategories, ...existingCats]));
+    const targetField = selectedField !== "All" ? selectedField : profile?.field;
+    const fieldGoals = targetField && CAREER_GOALS_BY_FIELD[targetField] ? CAREER_GOALS_BY_FIELD[targetField] : [];
+
+    const relevantAssessments = selectedField !== "All"
+      ? assessments.filter((a) => {
+          if (!a.field) return false;
+          const af = a.field.toLowerCase().trim();
+          const tf = selectedField.toLowerCase().trim();
+          return af === tf || af.includes(tf) || tf.includes(af);
+        })
+      : assessments;
+
+    const existingCats = relevantAssessments.map((a) => a.category).filter(Boolean);
+    const combined = Array.from(new Set([...fieldGoals, ...existingCats]));
     return ["All", ...combined];
-  }, [assessments, userFieldCategories]);
+  }, [assessments, selectedField, profile]);
   
   // Removed static recommended logic since we fetch it from backend now
 
@@ -882,6 +899,12 @@ export default function AssessmentPage() {
 
   const exploreList = useMemo(() => {
     return assessments.filter((a) => {
+      if (selectedField !== "All") {
+        if (!a.field) return false;
+        const af = a.field.toLowerCase().trim();
+        const tf = selectedField.toLowerCase().trim();
+        if (af !== tf && !af.includes(tf) && !tf.includes(af)) return false;
+      }
       if (category !== "All" && a.category !== category) return false;
       if (difficulty !== "All") {
         const matches = a.difficulty === difficulty || a.questions.some((q) => q.difficulty === difficulty);
@@ -890,7 +913,12 @@ export default function AssessmentPage() {
       if (type !== "All" && !a.questions.some((q) => q.type === type)) return false;
       return true;
     });
-  }, [assessments, category, difficulty, type]);
+  }, [assessments, selectedField, category, difficulty, type]);
+
+  useEffect(() => {
+    setCategory("All");
+    setCurrentPage(1);
+  }, [selectedField]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -1041,7 +1069,7 @@ export default function AssessmentPage() {
                 <div className="lg:col-span-5 w-full">
                   <AssessmentProgressCard
                     completedCount={userStats.completedCount}
-                    availableCount={assessments.length}
+                    availableCount={exploreList.length}
                     inProgressCount={userStats.inProgressCount}
                     loading={userStats.loading}
                   />
@@ -1287,11 +1315,86 @@ export default function AssessmentPage() {
               subtitle="Browse across every field — new ones are added as you progress."
             />
 
-            <div className="mt-8 space-y-4">
+            <div className="mt-8 space-y-5">
+              {/* Field Filter */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-light)]">
+                    Field / Domain
+                  </span>
+                  {selectedField !== "All" && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedField("All")}
+                      className="text-xs font-semibold text-[var(--color-primary-600)] hover:underline"
+                    >
+                      Reset to All Fields
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {availableFields.slice(0, 10).map((f) => {
+                    const count = f === "All"
+                      ? assessments.length
+                      : assessments.filter((a) => {
+                          const af = (a.field || "").toLowerCase().trim();
+                          const tf = f.toLowerCase().trim();
+                          return af === tf || af.includes(tf) || tf.includes(af);
+                        }).length;
+
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setSelectedField(f)}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                          selectedField === f
+                            ? "border-[var(--color-primary-600)] bg-[var(--color-primary-600)] text-white shadow-sm"
+                            : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:border-[var(--color-primary-300)] hover:text-[var(--color-text-h)]"
+                        }`}
+                      >
+                        <span>{f === "All" ? "All Fields" : f}</span>
+                        {count > 0 && (
+                          <span
+                            className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                              selectedField === f
+                                ? "bg-white/20 text-white"
+                                : "bg-[var(--color-border)]/50 text-[var(--color-text-muted)]"
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+
+                  {/* Dropdown for other fields */}
+                  {availableFields.length > 10 && (
+                    <select
+                      value={availableFields.slice(0, 10).includes(selectedField) ? "" : selectedField}
+                      onChange={(e) => {
+                        if (e.target.value) setSelectedField(e.target.value);
+                      }}
+                      className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-muted)] outline-none transition-colors hover:border-[var(--color-primary-300)] focus:border-[var(--color-primary-600)]"
+                    >
+                      <option value="" disabled>
+                        More Fields ({availableFields.length - 10}+)...
+                      </option>
+                      {availableFields.slice(10).map((f) => (
+                        <option key={f} value={f}>
+                          {f}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+
               {/* Category filter */}
               <div>
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-[var(--color-text-light)]">
-                  Category
+                  Category {selectedField !== "All" && `(${selectedField})`}
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {categories.map((c) => (
@@ -1367,14 +1470,24 @@ export default function AssessmentPage() {
               ))}
               {paginatedList.length === 0 && (
                 <div className="col-span-full rounded-2xl border border-dashed border-[var(--color-border)] p-10 text-center">
-                  <p className="text-sm font-medium text-[var(--color-text-h)]">No public assessments match these filters yet.</p>
-                  <p className="mt-1 text-sm text-[var(--color-text-muted)]">Use the AI Generator above to create a customized assessment!</p>
+                  <p className="text-base font-bold text-[var(--color-text-h)]">
+                    {selectedField !== "All"
+                      ? `No assessments found for ${selectedField} with these filters.`
+                      : "No assessments match these filters yet."}
+                  </p>
+                  <p className="mt-2 text-sm text-[var(--color-text-muted)] max-w-md mx-auto">
+                    You can generate a brand new instant AI assessment customized for {selectedField !== "All" ? selectedField : "any topic"}!
+                  </p>
                   <Button
-                    onClick={() => handleCategorySelect(category === "All" ? (profile?.careerGoal || profile?.field || "Core Principles") : category)}
-                    className="mt-6"
+                    onClick={() => {
+                      if (selectedField !== "All") setAiField(selectedField);
+                      if (category !== "All") setAiTopic(category);
+                      document.getElementById("ai-generator")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="mt-5"
                     variant="outline"
                   >
-                    Generate AI Assessment
+                    ✨ Generate AI Assessment {selectedField !== "All" ? `for ${selectedField}` : ""} &rarr;
                   </Button>
                 </div>
               )}

@@ -1,5 +1,6 @@
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../../context/AdminAuthContext";
+import { useAdminNotifications } from "../../context/AdminNotificationContext";
 import logoImg from "../../assets/logo.svg";
 
 const ADMIN_NAV = [
@@ -81,6 +82,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout, isLoggingOut } = useAdminAuth();
+  const { unreadCount } = useAdminNotifications();
 
   return (
     <>
@@ -158,11 +160,15 @@ export default function AdminSidebar({ isOpen, onClose }) {
                   <span>{item.label}</span>
                 </div>
 
-                {item.badge && (
+                {item.path === "/admin/course-requests" && unreadCount > 0 ? (
+                  <span className="rounded-full bg-rose-500/20 border border-rose-500/30 px-2 py-0.5 text-[10px] font-extrabold text-rose-300 animate-pulse">
+                    {unreadCount} New
+                  </span>
+                ) : item.badge ? (
                   <span className="rounded-full bg-cyan-400/20 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
                     {item.badge}
                   </span>
-                )}
+                ) : null}
               </Link>
             );
           })}

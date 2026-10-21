@@ -86,7 +86,7 @@ export default function Navbar() {
             <div className="h-9 w-40 rounded-xl bg-[#EDE6D3]/70 animate-pulse" aria-hidden="true" />
           ) : user ? (
             <>
-              {/* User avatar + name â†’ clicks to dashboard */}
+              {/* User avatar + name -> clicks to dashboard */}
               <div className="flex items-center mr-1">
                 <a
                   href="/personal-intelligence"
@@ -114,7 +114,7 @@ export default function Navbar() {
                 href="/assessment"
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#1B332C] px-3.5 py-1.5 text-xs font-bold text-[#E8C547] border border-[#C4952A]/40 shadow-xs hover:bg-[#2E4F42] hover:text-white transition-all duration-200"
               >
-                <span>âš¡ Take Assessment</span>
+                <span>⚡ Take Assessment</span>
               </a>
               <Button
                 onClick={handleLogout}
@@ -130,7 +130,7 @@ export default function Navbar() {
                 href="/assessment"
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#1B332C] px-3.5 py-1.5 text-xs font-bold text-[#E8C547] border border-[#C4952A]/40 shadow-xs hover:bg-[#2E4F42] hover:text-white transition-all duration-200"
               >
-                <span>âš¡ Take Assessment</span>
+                <span>⚡ Take Assessment</span>
               </a>
               <a
                 href="/login"
@@ -197,7 +197,7 @@ export default function Navbar() {
                 className="w-full text-center py-2.5 text-sm font-sans font-bold text-[#E8C547] bg-[#1B332C] rounded-xl shadow-xs border border-[#C4952A]/40 transition-colors"
                 onClick={() => setOpen(false)}
               >
-                âš¡ Take Assessment
+                ⚡ Take Assessment
               </a>
               {authLoading ? (
                 <div className="h-10 w-full rounded-xl bg-[#EDE6D3]/70 animate-pulse" aria-hidden="true" />
@@ -217,14 +217,14 @@ export default function Navbar() {
                     className="w-full text-center py-2 text-sm font-sans font-bold text-[#D9A62B] hover:text-[#1B332C] bg-[#EDE6D3] rounded-xl transition-colors"
                     onClick={() => setOpen(false)}
                   >
-                    âœ¦ Personal Intelligence
+                    ✦ Personal Intelligence
                   </a>
                   <a
                     href="/dashboard"
                     className="w-full text-center py-2 text-sm font-sans font-semibold text-[#1B332C] hover:text-[#C4952A]"
                     onClick={() => setOpen(false)}
                   >
-                    ðŸ“Š Dashboard
+                    📊 Dashboard
                   </a>
                   <Button 
                     onClick={() => {

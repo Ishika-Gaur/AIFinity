@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import User from "../models/User.js";
+import { isValidField } from "../utils/fieldCatalog.js";
 
 const getCookieOptions = () => {
   const isProd = process.env.NODE_ENV === "production";
@@ -197,9 +198,17 @@ export async function completeOnboarding(req, res) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
 
+    const validatedField = isValidField(field);
+    if (!validatedField) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select a valid academic or professional course/field from our verified curriculum.",
+      });
+    }
+
     // Rule 2: Choose career field ONLY ONCE. If field is already set in DB, prevent overwriting.
-    if (!user.selectedField && field) {
-      user.selectedField = String(field).trim();
+    if (!user.selectedField && validatedField) {
+      user.selectedField = validatedField;
     }
 
     user.onboardingCompleted = true;

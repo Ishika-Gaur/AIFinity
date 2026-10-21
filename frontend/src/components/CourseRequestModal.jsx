@@ -7,6 +7,7 @@ export default function CourseRequestModal({
   onClose,
   initialCourseName = "",
   onSuccess,
+  onContinueWithCourse,
 }) {
   const { user } = useStudentAuth();
 
@@ -15,6 +16,7 @@ export default function CourseRequestModal({
   const [referenceUrl, setReferenceUrl] = useState("");
   const [reason, setReason] = useState("");
   const [additionalDetails, setAdditionalDetails] = useState("");
+  const [submittedCourse, setSubmittedCourse] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -96,8 +98,9 @@ export default function CourseRequestModal({
       });
 
       if (res && res.success) {
-        setSuccessMessage("Course request submitted successfully. Thanks! We've sent your request to the AIFinity team.");
-        // Reset form
+        setSubmittedCourse(trimmedCourseName);
+        setSuccessMessage("Course request submitted successfully! We've notified our administration team.");
+        // Reset form fields
         setCourseName("");
         setProvider("");
         setReferenceUrl("");
@@ -107,10 +110,6 @@ export default function CourseRequestModal({
         if (onSuccess) {
           onSuccess(res.request);
         }
-
-        setTimeout(() => {
-          onClose();
-        }, 2200);
       } else {
         setError(res.error || res.message || "Failed to submit course request.");
       }
@@ -170,15 +169,52 @@ export default function CourseRequestModal({
           )}
         </div>
 
-        {/* Success Alert */}
+        {/* Success Alert & Clear Next Steps */}
         {successMessage && (
-          <div className="mb-6 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-xs flex items-start gap-3 animate-fade-in">
-            <span className="text-xl">✓</span>
-            <div>
-              <p className="font-bold">Course request submitted successfully.</p>
-              <p className="mt-0.5 text-xs text-emerald-800">
-                Thanks! We've sent your request to the AIFinity team.
+          <div className="mb-6 space-y-4 animate-fade-in">
+            <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900 shadow-xs flex items-start gap-3">
+              <span className="text-xl">✓</span>
+              <div>
+                <p className="font-bold">Course request submitted successfully!</p>
+                <p className="mt-0.5 text-xs text-emerald-800">
+                  Our administration team has received your request and will review it.
+                </p>
+              </div>
+            </div>
+
+            {/* Clear Next Steps Box */}
+            <div className="rounded-2xl border border-[#C4952A]/40 bg-[#f5f0e6] p-5 text-left">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#C4952A] mb-1" style={{ fontFamily: "var(--font-mono)" }}>
+                ✨ Don't wait for admin review
               </p>
+              <h4 className="text-sm font-bold text-[#1B332C]">
+                Start learning &ldquo;{submittedCourse || "your chosen track"}&rdquo; with AI right now!
+              </h4>
+              <p className="text-xs text-[#5B6B5F] mt-1 leading-relaxed">
+                AIFinity can immediately generate a tailored roadmap, concept graph, and practice assessments for you today.
+              </p>
+
+              <div className="mt-4 flex flex-col sm:flex-row gap-2.5">
+                {onContinueWithCourse && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onContinueWithCourse(submittedCourse);
+                      onClose();
+                    }}
+                    className="flex-1 rounded-xl bg-[#1B332C] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[#E8C547] hover:bg-[#2E4F42] transition-colors cursor-pointer text-center shadow-xs"
+                  >
+                    🚀 Start with AI Now &rarr;
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-xl border border-[#2E4F42]/20 bg-white px-4 py-2.5 text-xs font-semibold text-[#1B332C] hover:bg-slate-100 transition-colors cursor-pointer text-center"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -50,6 +50,86 @@ const LEVEL_OPTIONS = [
 const TOTAL_STEPS = 4;
 const ONBOARDING_STORAGE_KEY = "aifinity_onboarding_profile";
 
+function getCareerGoalPlaceholder(currentField) {
+  if (!currentField) return "e.g. Full Stack Developer, Software Engineer, Tech Lead...";
+  const f = currentField.trim();
+
+  // 1. If it's a predefined course field, use its actual career goals
+  if (CAREER_GOALS_BY_FIELD[f] && CAREER_GOALS_BY_FIELD[f].length > 0) {
+    const topGoals = CAREER_GOALS_BY_FIELD[f].slice(0, 3).join(", ");
+    return `e.g. ${topGoals}...`;
+  }
+
+  // 2. Dynamic matching for custom courses
+  const lower = f.toLowerCase();
+
+  if (lower.includes("python") && (lower.includes("stack") || lower.includes("full"))) {
+    return "e.g. Python Full Stack Developer, Backend Engineer, Tech Lead...";
+  }
+  if (lower.includes("python")) {
+    return "e.g. Python Developer, Backend Engineer, Data Analyst...";
+  }
+  if (lower.includes("mern") || lower.includes("mean") || lower.includes("full stack")) {
+    return `e.g. ${f} Developer, Software Engineer, Tech Lead...`;
+  }
+  if (lower.includes("react") || lower.includes("frontend") || lower.includes("angular") || lower.includes("vue") || lower.includes("web")) {
+    return "e.g. Frontend Engineer, Full Stack Developer, Web Architect...";
+  }
+  if (lower.includes("android") || lower.includes("ios") || lower.includes("flutter") || lower.includes("mobile") || lower.includes("react native")) {
+    return "e.g. Mobile App Developer, iOS/Android Engineer, App Architect...";
+  }
+  if (lower.includes("cloud") || lower.includes("devops") || lower.includes("aws") || lower.includes("azure") || lower.includes("kubernetes")) {
+    return "e.g. DevOps Engineer, Cloud Architect, Site Reliability Engineer...";
+  }
+  if (lower.includes("data") || lower.includes("analytics") || lower.includes("bi") || lower.includes("sql")) {
+    return "e.g. Data Scientist, Data Analyst, Data Engineer...";
+  }
+  if (lower.includes("ai") || lower.includes("machine learning") || lower.includes("deep learning") || lower.includes("nlp")) {
+    return "e.g. AI Engineer, Machine Learning Specialist, AI Researcher...";
+  }
+  if (lower.includes("cyber") || lower.includes("security") || lower.includes("hacker") || lower.includes("soc")) {
+    return "e.g. Security Analyst, Penetration Tester, Cybersecurity Consultant...";
+  }
+  if (lower.includes("design") || lower.includes("ui") || lower.includes("ux") || lower.includes("figma")) {
+    return "e.g. UI/UX Designer, Product Designer, Creative Director...";
+  }
+  if (lower.includes("developer") || lower.includes("engineer")) {
+    return `e.g. Junior ${f}, Senior ${f}, Tech Lead...`;
+  }
+
+  return `e.g. ${f} Engineer, ${f} Specialist, Consultant...`;
+}
+
+function getRelatedFields(searchTerm) {
+  if (!searchTerm) return [];
+  const term = searchTerm.toLowerCase();
+  const related = [];
+
+  const mappings = [
+    { keywords: ["python", "java", "c++", "c#", "full stack", "backend", "software", "programmer", "coding", "algorithm", "developer"], field: "Software Development" },
+    { keywords: ["web", "html", "css", "javascript", "react", "node", "mern", "frontend", "php", "full stack", "vue", "angular"], field: "Web Development" },
+    { keywords: ["data", "analytics", "sql", "excel", "tableau", "power bi", "statistic", "analyst"], field: "Data Science & Analytics" },
+    { keywords: ["ai", "machine learning", "ml", "deep learning", "nlp", "llm", "neural", "vision"], field: "AI & Machine Learning" },
+    { keywords: ["android", "ios", "flutter", "react native", "swift", "kotlin", "app", "mobile"], field: "Mobile App Development" },
+    { keywords: ["cloud", "devops", "aws", "azure", "docker", "kubernetes", "linux", "gcp"], field: "Cloud Computing & DevOps" },
+    { keywords: ["cyber", "security", "ethical hacking", "network", "infosec", "penetration", "soc"], field: "Cybersecurity" },
+    { keywords: ["ui", "ux", "design", "graphic", "figma", "photoshop", "illustrator"], field: "Graphic Design & UI/UX" },
+    { keywords: ["marketing", "seo", "social media", "ads", "digital", "content"], field: "Digital Marketing" },
+    { keywords: ["finance", "accounting", "banking", "stock", "tax", "audit", "crypto"], field: "Finance & Accounting" },
+    { keywords: ["business", "management", "mba", "product manager", "startup", "operations"], field: "Business & Management" },
+  ];
+
+  for (const item of mappings) {
+    if (item.keywords.some((k) => term.includes(k))) {
+      if (!related.includes(item.field)) {
+        related.push(item.field);
+      }
+    }
+  }
+
+  return related.slice(0, 3);
+}
+
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const { user, applySession } = useStudentAuth();
@@ -122,8 +202,23 @@ export default function OnboardingPage() {
   // Requirement 5: Final button action "Start Learning"
   const handleStartLearning = async () => {
     if (saving) return;
-    setSaving(true);
     setError("");
+
+    const spamWords = ["hi", "hii", "hello", "test", "testing", "asdf", "qwerty", "1234"];
+
+    if (!field || !FIELDS.includes(field)) {
+      setError("Please select a recognized course from our verified curriculum.");
+      setStep(2);
+      return;
+    }
+
+    if (!careerGoal || careerGoal.trim().length < 3 || spamWords.includes(careerGoal.trim().toLowerCase())) {
+      setError("Please select or enter a valid career goal.");
+      setStep(4);
+      return;
+    }
+
+    setSaving(true);
 
     const payload = {
       field,
@@ -295,29 +390,74 @@ export default function OnboardingPage() {
                 </p>
               )}
               {filteredFields.length === 0 && fieldSearch && (
-                <div className="col-span-full rounded-2xl border border-dashed border-[#C4952A]/40 bg-white/95 p-6 text-center shadow-xs my-2">
-                  <p className="text-sm sm:text-base font-bold text-[#1B332C]">
-                    No courses found for '{fieldSearch}'
-                  </p>
-                  <p className="text-xs text-[#5B6B5F] mt-1">
-                    We don't have this course yet.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRequestCoursePrefill(fieldSearch);
-                      setIsCourseRequestModalOpen(true);
-                    }}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[#1B332C] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[#E8C547] border border-[#C4952A]/40 hover:bg-[#2E4F42] transition-colors cursor-pointer"
-                  >
-                    Request '{fieldSearch}'
-                  </button>
+                <div className="col-span-full rounded-3xl border border-amber-300 bg-white/95 p-6 sm:p-7 shadow-md my-2 text-left">
+                  {/* Header */}
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-xl border border-amber-200">
+                      ⚠️
+                    </div>
+                    <div>
+                      <h3 className="text-base sm:text-lg font-extrabold text-[#1B332C]">
+                        Course &lsquo;{fieldSearch}&rsquo; is not in our curriculum
+                      </h3>
+                      <p className="text-xs text-[#5B6B5F] mt-1 leading-relaxed">
+                        To maintain high quality standards, AIFinity only provides assessments and structured roadmaps for verified academic and professional domains. Please select a recognized domain from our catalog below.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Related Fields */}
+                  {getRelatedFields(fieldSearch).length > 0 && (
+                    <div className="mt-5 rounded-2xl border border-[#2E4F42]/15 bg-[#FBF8F0] p-4">
+                      <p className="text-xs font-bold text-[#1B332C] mb-2">
+                        🎯 Closest recognized tracks in our catalog:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {getRelatedFields(fieldSearch).map((rf) => (
+                          <button
+                            key={rf}
+                            type="button"
+                            onClick={() => {
+                              setField(rf);
+                              setFieldSearch("");
+                              setCustomField("");
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-[#2E4F42]/20 bg-white px-3.5 py-2 text-xs font-bold text-[#1B332C] hover:border-[#C4952A] hover:bg-[#f5f0e6] transition-all cursor-pointer shadow-xs"
+                          >
+                            <span>{FIELD_ICONS[rf] || "📚"}</span>
+                            <span>{rf}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setFieldSearch("")}
+                      className="rounded-xl border border-[#1B332C] bg-[#1B332C] px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[#E8C547] hover:bg-[#2E4F42] transition-colors cursor-pointer"
+                    >
+                      Browse All 30+ Verified Fields
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRequestCoursePrefill(fieldSearch);
+                        setIsCourseRequestModalOpen(true);
+                      }}
+                      className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
+                      📩 Request Course from Admin
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
 
             {/* CTA below existing course list/cards */}
-            {!isFieldLocked && (
+            {!isFieldLocked && filteredFields.length > 0 && (
               <div className="mt-5 rounded-2xl border border-[#2E4F42]/15 bg-white p-4 sm:p-5 text-center shadow-xs">
                 <p className="text-xs sm:text-sm font-bold text-[#1B332C]">
                   Can't find the course you're looking for?
@@ -338,30 +478,13 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            {/* Custom field input */}
-            {!isFieldLocked && (
-              <div className="mt-6 rounded-xl border border-dashed border-[#2E4F42]/25 bg-[#f5f0e6] p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#C4952A] mb-2" style={{ fontFamily: "var(--font-mono)" }}>
-                  ✨ Don't see your field?
-                </p>
-                <input
-                  type="text"
-                  placeholder="Type your field (e.g. Veterinary Science, Astronomy, Journalism)"
-                  value={customField}
-                  onChange={(e) => {
-                    setCustomField(e.target.value);
-                    if (e.target.value.trim()) {
-                      setField(e.target.value.trim());
-                    }
-                  }}
-                  onFocus={() => {
-                    // Clear selection from predefined list when typing custom
-                    if (FIELDS.includes(field)) {
-                      setField("");
-                    }
-                  }}
-                  className="w-full rounded-lg border border-[#2E4F42]/15 bg-white px-4 py-2.5 text-sm text-[#1B332C] focus:outline-none focus:ring-2 focus:ring-[#1B332C]/30 transition-all"
-                />
+            {/* Active selection feedback */}
+            {field && (
+              <div className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50/80 px-4 py-2.5 text-xs text-emerald-900 flex items-center justify-between animate-fade-in">
+                <span>
+                  ✓ Selected Domain: <strong>{field}</strong>
+                </span>
+                <span className="font-semibold text-emerald-700">Click Continue below &rarr;</span>
               </div>
             )}
 
@@ -397,41 +520,79 @@ export default function OnboardingPage() {
           <div className="mx-auto max-w-2xl">
             <SectionHeading
               title={`What's your career goal in ${field}?`}
-              subtitle="Select a target role or type your own."
+              subtitle="Select your target role from verified industry tracks, or specify a customized career goal."
             />
-            {careerGoalOptions.length > 0 && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {careerGoalOptions.map((option) => (
-                  <SelectableCard
-                    key={option}
-                    title={option}
-                    selected={careerGoal === option && !customCareerGoal}
-                    onSelect={() => {
-                      setCareerGoal(option);
-                      setCustomCareerGoal("");
-                    }}
-                  />
-                ))}
+
+            {/* Predefined career goals for this field */}
+            {CAREER_GOALS_BY_FIELD[field] && CAREER_GOALS_BY_FIELD[field].length > 0 && (
+              <div className="mt-5">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#C4952A] mb-3" style={{ fontFamily: "var(--font-mono)" }}>
+                  🎯 Verified Career Roles in {field}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {CAREER_GOALS_BY_FIELD[field].map((goal) => {
+                    const isSelected = careerGoal === goal && !customCareerGoal;
+                    return (
+                      <button
+                        key={goal}
+                        type="button"
+                        onClick={() => {
+                          setCareerGoal(goal);
+                          setCustomCareerGoal("");
+                        }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? "border-[#1B332C] bg-[#1B332C] text-[#E8C547] shadow-md ring-2 ring-[#E8C547]/30"
+                            : "border-[#2E4F42]/15 bg-white hover:border-[#1B332C]/40 text-[#1B332C] hover:bg-[#FBF8F0]"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-sm">{goal}</span>
+                          {isSelected && <span className="text-xs text-[#E8C547] font-extrabold">✓</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            {/* Custom career goal input — always visible */}
-            <div className="mt-6 rounded-xl border border-dashed border-[#2E4F42]/25 bg-[#f5f0e6] p-4">
+            {/* Custom career goal text input with validation */}
+            <div className="mt-6 rounded-xl border border-dashed border-[#2E4F42]/25 bg-[#f5f0e6] p-5">
               <p className="text-xs font-bold uppercase tracking-wider text-[#C4952A] mb-2" style={{ fontFamily: "var(--font-mono)" }}>
-                {careerGoalOptions.length > 0 ? "✨ Or type your own career goal" : "✨ Type your career goal"}
+                ✨ Or type a specific focus role
               </p>
               <input
                 type="text"
-                placeholder={`e.g. Senior ${field} Specialist, ${field} Consultant...`}
+                placeholder={getCareerGoalPlaceholder(field)}
                 value={customCareerGoal}
                 onChange={(e) => {
-                  setCustomCareerGoal(e.target.value);
-                  if (e.target.value.trim()) {
-                    setCareerGoal(e.target.value.trim());
+                  const val = e.target.value;
+                  setCustomCareerGoal(val);
+                  const spam = ["hi", "hii", "hello", "test", "testing", "asdf", "qwerty", "1234"];
+                  if (val.trim() && val.trim().length >= 3 && !spam.includes(val.trim().toLowerCase())) {
+                    setCareerGoal(val.trim());
+                  } else if (!val.trim()) {
+                    setCareerGoal(null);
                   }
                 }}
-                className="w-full rounded-lg border border-[#2E4F42]/15 bg-white px-4 py-2.5 text-sm text-[#1B332C] focus:outline-none focus:ring-2 focus:ring-[#1B332C]/30 transition-all"
+                className="w-full rounded-lg border border-[#2E4F42]/15 bg-white px-4 py-3 text-sm text-[#1B332C] focus:outline-none focus:ring-2 focus:ring-[#1B332C]/30 transition-all"
               />
+              {customCareerGoal && customCareerGoal.trim().length < 3 && (
+                <p className="mt-2 text-xs text-rose-600 font-semibold">
+                  ⚠️ Please enter at least 3 letters for your role.
+                </p>
+              )}
+              {customCareerGoal && ["hi", "hii", "hello", "test", "asdf"].includes(customCareerGoal.trim().toLowerCase()) && (
+                <p className="mt-2 text-xs text-rose-600 font-semibold">
+                  ⚠️ Please enter a real professional role or target career.
+                </p>
+              )}
+              {careerGoal && (!customCareerGoal || (customCareerGoal.trim().length >= 3 && !["hi", "hii", "hello", "test", "asdf"].includes(customCareerGoal.trim().toLowerCase()))) && (
+                <p className="mt-2 text-xs text-emerald-700 font-semibold">
+                  ✓ Selected Goal: <strong>{careerGoal}</strong>
+                </p>
+              )}
             </div>
 
             <StepNav
@@ -439,7 +600,7 @@ export default function OnboardingPage() {
               onNext={goNext}
               showBack
               nextLabel="Continue →"
-              nextDisabled={!careerGoal}
+              nextDisabled={!careerGoal || (customCareerGoal && (customCareerGoal.trim().length < 3 || ["hi", "hii", "hello", "test", "asdf"].includes(customCareerGoal.trim().toLowerCase())))}
             />
           </div>
         )}
@@ -480,6 +641,10 @@ export default function OnboardingPage() {
         isOpen={isCourseRequestModalOpen}
         onClose={() => setIsCourseRequestModalOpen(false)}
         initialCourseName={requestCoursePrefill}
+        onSuccess={() => {
+          setIsCourseRequestModalOpen(false);
+          setFieldSearch("");
+        }}
       />
     </Section>
   );
