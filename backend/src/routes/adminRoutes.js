@@ -9,6 +9,7 @@ import {
   listReports,
   getSettings,
   updateSettings,
+  getNotifications,
 } from "../controllers/adminController.js";
 import { authenticate, isAdmin } from "../middleware/authMiddleware.js";
 
@@ -38,6 +39,9 @@ router.get("/course-requests", listCourseRequests);
 router.get("/course-requests/:id", getCourseRequestById);
 router.patch("/course-requests/:id/status", updateCourseRequestStatus);
 router.put("/course-requests/:id/status", updateCourseRequestStatus);
+
+// Notifications & Live Alerts
+router.get("/notifications", getNotifications);
 
 // Reports
 router.get("/reports", listReports);
