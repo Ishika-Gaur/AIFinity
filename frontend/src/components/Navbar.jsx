@@ -107,11 +107,7 @@ export default function Navbar() {
             <div className="h-9 w-36 rounded-xl bg-[#EDE6D3]/70 animate-pulse" aria-hidden="true" />
           ) : user ? (
             <>
-<<<<<<< HEAD
               {/* User avatar + name */}
-=======
-              {/* User avatar + name -> clicks to dashboard */}
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
               <div className="flex items-center mr-1">
                 <Link
                   to="/personal-intelligence"
@@ -140,11 +136,7 @@ export default function Navbar() {
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#1B332C] px-3.5 py-1.5 text-xs font-bold text-[#E8C547] border border-[#C4952A]/40 shadow-xs hover:bg-[#2E4F42] hover:text-white transition-all duration-200 whitespace-nowrap shrink-0"
               >
                 <span>⚡ Take Assessment</span>
-<<<<<<< HEAD
               </Link>
-=======
-              </a>
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
               <Button
                 onClick={handleLogout}
                 size="sm"
@@ -160,17 +152,10 @@ export default function Navbar() {
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#1B332C] px-3.5 py-1.5 text-xs font-bold text-[#E8C547] border border-[#C4952A]/40 shadow-xs hover:bg-[#2E4F42] hover:text-white transition-all duration-200 whitespace-nowrap shrink-0"
               >
                 <span>⚡ Take Assessment</span>
-<<<<<<< HEAD
               </Link>
               <Link
                 to="/login"
                 className="px-3 py-1.5 text-xs font-sans font-semibold text-[#1B332C] hover:text-[#C4952A] transition-colors shrink-0"
-=======
-              </a>
-              <a
-                href="/login"
-                className="px-3 py-1.5 text-xs font-sans font-semibold text-[#1B332C] hover:text-[#C4952A] transition-colors"
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
               >
                 Log In
               </Link>
@@ -235,11 +220,7 @@ export default function Navbar() {
                 onClick={() => setOpen(false)}
               >
                 ⚡ Take Assessment
-<<<<<<< HEAD
               </Link>
-=======
-              </a>
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
               {authLoading ? (
                 <div className="h-10 w-full rounded-xl bg-[#EDE6D3]/70 animate-pulse" aria-hidden="true" />
               ) : user ? (
@@ -259,24 +240,14 @@ export default function Navbar() {
                     onClick={() => setOpen(false)}
                   >
                     ✦ Personal Intelligence
-<<<<<<< HEAD
                   </Link>
                   <Link
                     to="/dashboard"
-=======
-                  </a>
-                  <a
-                    href="/dashboard"
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
                     className="w-full text-center py-2 text-sm font-sans font-semibold text-[#1B332C] hover:text-[#C4952A]"
                     onClick={() => setOpen(false)}
                   >
                     📊 Dashboard
-<<<<<<< HEAD
                   </Link>
-=======
-                  </a>
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
                   <Button 
                     onClick={() => {
                       setOpen(false);

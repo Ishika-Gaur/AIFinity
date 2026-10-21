@@ -5,12 +5,7 @@ import UserRoadmap from "../models/UserRoadmap.js";
 import MistakeMapAnalysis from "../models/MistakeMapAnalysis.js";
 import { generatePersonalizedRoadmap } from "./analyticsController.js";
 import { generateQuestions, evaluateAssessmentWithAI } from "../services/geminiService.js";
-<<<<<<< HEAD
-import { getRecommendedTopicsForField } from "../utils/fieldCatalog.js";
-import { getUserEncounteredQuestions, filterUniqueQuestions } from "../services/uniquenessService.js";
-=======
 import { getRecommendedTopicsForField, isValidField } from "../utils/fieldCatalog.js";
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
 
 // Active in-memory attempt sessions cache for server-side evaluation
 const activeAttemptSessions = new Map();
@@ -114,16 +109,9 @@ export async function startAttempt(req, res) {
         const userLevel = req.user?.onboardingProfile?.level || "Beginner";
         const userCareerGoal = req.user?.onboardingProfile?.careerGoal || "";
         const audienceContext = `Level: ${userLevel}${userCareerGoal ? `, Goal: ${userCareerGoal}` : ""}`;
-<<<<<<< HEAD
-        
-        const encounteredQuestions = await getUserEncounteredQuestions(req.user?._id);
-        const generated = await generateQuestions(userField, topic, "Medium", 5, audienceContext, encounteredQuestions);
-        const candidateQuestions = (generated.questions || []).map((q) => ({
-=======
 
         const generated = await generateQuestions(userField, topic, "Medium", 5, audienceContext);
         const formattedQuestions = (generated.questions || []).map((q) => ({
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
           type: q.type || "mcq",
           difficulty: q.difficulty || "Medium",
           topic: q.topic || topic,
@@ -134,8 +122,6 @@ export async function startAttempt(req, res) {
           context: q.explanation || "",
           explanation: q.explanation || "",
         }));
-
-        const formattedQuestions = filterUniqueQuestions(candidateQuestions, encounteredQuestions);
 
         assessment = await Assessment.create({
           title: `${userField} - Benchmark Assessment`,
@@ -801,64 +787,6 @@ export async function submitAttempt(req, res) {
       generatePersonalizedRoadmap(req.user._id).catch(err => console.error("[Dashboard] Background roadmap regeneration failed:", err.message));
     } catch (saveErr) {
       if (saveErr.code === 11000) {
-<<<<<<< HEAD
-        console.warn("[Dashboard] Duplicate submission intercepted via compound unique index:", attemptId);
-        const existingAttempt = await AttemptResult.findOne({ userId: req.user._id, attemptId });
-        if (existingAttempt) {
-          return res.status(200).json({
-            success: true,
-            duplicateHandled: true,
-            scorePercent: existingAttempt.scorePercent,
-            totalScore: existingAttempt.totalScore,
-            maxScore: existingAttempt.maxScore,
-            percentage: existingAttempt.scorePercent,
-            correctCount: existingAttempt.correctCount,
-            incorrectCount: existingAttempt.incorrectCount,
-            unansweredCount: existingAttempt.unansweredCount,
-            attemptedCount: existingAttempt.attemptedCount,
-            answeredCount: existingAttempt.attemptedCount,
-            gradableCount: existingAttempt.gradableCount,
-            attemptedGradableCount: existingAttempt.attemptedCount,
-            unansweredTotalCount: existingAttempt.unansweredCount,
-            totalQuestions: existingAttempt.totalQuestions,
-            questionResults: existingAttempt.questionResults,
-            incorrectSubmissions: (existingAttempt.questionResults || []).filter((q) => !q.isCorrect && q.status !== "correct"),
-            sessionMistakes: (existingAttempt.questionResults || []).filter((q) => !q.isCorrect && q.status !== "correct"),
-            elapsedSeconds: existingAttempt.elapsedSeconds,
-            violationsCount: existingAttempt.violations?.length || 0,
-            violations: existingAttempt.violations || [],
-            autoSubmitted: (existingAttempt.violations?.length || 0) >= 3,
-          });
-        }
-      }
-      console.error("[Dashboard] Failed to persist attempt result:", saveErr.message);
-    }
-  }
-
-  res.json({
-    success: true,
-    scorePercent: percentage,
-    totalScore,
-    maxScore,
-    percentage,
-    correctCount,
-    incorrectCount,
-    unansweredCount,
-    attemptedCount: totalQuestions - unansweredCount,
-    answeredCount: totalQuestions - unansweredCount,
-    gradableCount: totalQuestions,
-    attemptedGradableCount: totalQuestions - unansweredCount,
-    unansweredTotalCount: unansweredCount,
-    totalQuestions,
-    questionResults,
-    incorrectSubmissions: questionResults.filter((q) => !q.isCorrect && q.status !== "correct"),
-    sessionMistakes: questionResults.filter((q) => !q.isCorrect && q.status !== "correct"),
-    elapsedSeconds,
-    violationsCount: violations.length,
-    violations,
-    autoSubmitted: violations.length >= 3,
-  });
-=======
         // Concurrent race condition: another request created the record first
         try {
           savedAttempt = await AttemptResult.findOne({ attemptId }).lean();
@@ -886,7 +814,6 @@ export async function submitAttempt(req, res) {
   }, 30 * 60 * 1000);
 
   return res.json(responsePayload);
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
 }
 
 /**
@@ -1102,18 +1029,9 @@ export async function generateAIAssessment(req, res) {
     const userCareerGoal = req.user?.onboardingProfile?.careerGoal || "";
     const audienceContext = `Level: ${userLevel}${userCareerGoal ? `, Goal: ${userCareerGoal}` : ""}`;
 
-<<<<<<< HEAD
-    // Cross-course uniqueness check: fetch all questions previously attempted by user
-    const encounteredQuestions = await getUserEncounteredQuestions(req.user?._id);
-
-    // Call Gemini API with exclusion list
-    const generatedData = await generateQuestions(field, topic, difficulty, questionCount, audienceContext, encounteredQuestions);
-    
-=======
     // Call Gemini API
     const generatedData = await generateQuestions(field, topic, difficulty, questionCount, audienceContext);
 
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
     if (!generatedData || !generatedData.questions || !Array.isArray(generatedData.questions) || generatedData.questions.length === 0) {
       return res.status(500).json({ success: false, message: "AI returned invalid format." });
     }
@@ -1422,16 +1340,9 @@ export async function generateDailyAIAssessment(req, res) {
       targetTopic = fieldTopics[0] || careerGoal || userField;
     }
 
-<<<<<<< HEAD
-    // 3. Generate 5 questions with cross-course uniqueness
-    const encounteredQuestions = await getUserEncounteredQuestions(userId);
-    const generatedData = await generateQuestions(userField, targetTopic, "Medium", 5, "", encounteredQuestions);
-    
-=======
     // 3. Generate 5 questions with Gemini
     const generatedData = await generateQuestions(userField, targetTopic, "Medium", 5);
 
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
     if (!generatedData || !generatedData.questions || !Array.isArray(generatedData.questions) || generatedData.questions.length === 0) {
       return res.status(500).json({ success: false, message: "AI returned invalid format." });
     }
@@ -1788,74 +1699,6 @@ export async function evaluateAttemptWithAI(req, res) {
         generatePersonalizedRoadmap(req.user._id).catch(err => console.error("[Dashboard] Background roadmap regeneration failed:", err.message));
       } catch (saveErr) {
         if (saveErr.code === 11000) {
-<<<<<<< HEAD
-          console.warn("[AI Evaluator] Duplicate submission intercepted via compound unique index:", attemptId);
-          const existingAttempt = await AttemptResult.findOne({ userId: req.user._id, attemptId });
-          if (existingAttempt) {
-            return res.status(200).json({
-              success: true,
-              duplicateHandled: true,
-              aiEvalApplied: existingAttempt.evaluatedByAI || false,
-              overallFeedback: existingAttempt.overallFeedback || "",
-              overallRating: existingAttempt.overallRating || "",
-              strengths: existingAttempt.strengths || [],
-              areasToImprove: existingAttempt.areasToImprove || [],
-              scorePercent: existingAttempt.scorePercent,
-              totalScore: existingAttempt.totalScore,
-              maxScore: existingAttempt.maxScore,
-              percentage: existingAttempt.scorePercent,
-              correctCount: existingAttempt.correctCount,
-              incorrectCount: existingAttempt.incorrectCount,
-              unansweredCount: existingAttempt.unansweredCount,
-              attemptedCount: existingAttempt.attemptedCount,
-              answeredCount: existingAttempt.attemptedCount,
-              gradableCount: existingAttempt.gradableCount,
-              attemptedGradableCount: existingAttempt.attemptedCount,
-              unansweredTotalCount: existingAttempt.unansweredCount,
-              totalQuestions: existingAttempt.totalQuestions,
-              questionResults: existingAttempt.questionResults,
-              incorrectSubmissions: (existingAttempt.questionResults || []).filter((q) => !q.isCorrect && q.status !== "correct"),
-              sessionMistakes: (existingAttempt.questionResults || []).filter((q) => !q.isCorrect && q.status !== "correct"),
-              elapsedSeconds: existingAttempt.elapsedSeconds,
-              violationsCount: existingAttempt.violations?.length || 0,
-              violations: existingAttempt.violations || [],
-              autoSubmitted: (existingAttempt.violations?.length || 0) >= 3,
-            });
-          }
-        }
-        console.error("[AI Evaluator] Failed to persist attempt result:", saveErr.message);
-      }
-    }
-
-    return res.json({
-      success: true,
-      aiEvalApplied,
-      overallFeedback,
-      overallRating,
-      strengths,
-      areasToImprove,
-      scorePercent: percentage,
-      totalScore,
-      maxScore,
-      percentage,
-      correctCount,
-      incorrectCount,
-      unansweredCount,
-      attemptedCount,
-      answeredCount: attemptedCount,
-      gradableCount: totalQuestions,
-      attemptedGradableCount: attemptedCount,
-      unansweredTotalCount: unansweredCount,
-      totalQuestions,
-      questionResults,
-      incorrectSubmissions: questionResults.filter((q) => !q.isCorrect && q.status !== "correct"),
-      sessionMistakes: questionResults.filter((q) => !q.isCorrect && q.status !== "correct"),
-      elapsedSeconds,
-      violationsCount: violations.length,
-      violations,
-      autoSubmitted: violations.length >= 3,
-    });
-=======
           // Concurrent race condition: another request created the record first
           try {
             savedAttempt = await AttemptResult.findOne({ attemptId }).lean();
@@ -1882,7 +1725,6 @@ export async function evaluateAttemptWithAI(req, res) {
     }, 30 * 60 * 1000);
 
     return res.json(responsePayload);
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
   } catch (error) {
     console.error("[AI Evaluator] Unexpected error:", error);
     res.status(500).json({ success: false, message: error.message || "Failed to evaluate assessment with AI" });

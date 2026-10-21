@@ -51,12 +51,6 @@ const attemptResultSchema = new mongoose.Schema(
     attemptId: {
       type: String,
       trim: true,
-<<<<<<< HEAD
-=======
-      sparse: true,
-      unique: true,
-      index: true,
->>>>>>> 0b20a1162c3ae6d387216d9e359c9e9172ee2cbf
     },
     assessmentId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -159,9 +153,14 @@ const attemptResultSchema = new mongoose.Schema(
 // Compound index: efficiently fetch all attempts for a user sorted by date
 attemptResultSchema.index({ userId: 1, completedAt: -1 });
 // Compound unique index: guarantees submission idempotency while preserving legacy documents without attemptId
-attemptResultSchema.index({ userId: 1, attemptId: 1 }, { unique: true, sparse: true });
+attemptResultSchema.index(
+  { userId: 1, attemptId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { attemptId: { $type: "string" } },
+  }
+);
 
 const AttemptResult = mongoose.model("AttemptResult", attemptResultSchema);
-AttemptResult.init().catch(err => console.error("[AttemptResult] Index initialization error:", err));
 
 export default AttemptResult;

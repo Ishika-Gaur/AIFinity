@@ -162,7 +162,23 @@ export async function startServer() {
       console.warn("[UserRoadmap] Index synchronization notice:", urErr.message);
     }
 
-    console.log("MongoDB User, CourseRequest, and UserRoadmap indexes synchronized successfully.");
+    // Ensure AttemptResult index synchronization
+    try {
+      const attemptResultColl = mongoose.model("AttemptResult").collection;
+      const arIndexes = await attemptResultColl.indexes();
+      const conflictedIdx = arIndexes.find((idx) => idx.name === "userId_1_attemptId_1");
+      if (conflictedIdx && !conflictedIdx.partialFilterExpression) {
+        console.log("[AttemptResult] Dropping old userId_1_attemptId_1 index without partialFilterExpression...");
+        await attemptResultColl.dropIndex("userId_1_attemptId_1");
+        console.log("[AttemptResult] Successfully dropped old userId_1_attemptId_1 index.");
+      }
+      await mongoose.model("AttemptResult").syncIndexes();
+      console.log("[AttemptResult] Indexes synchronized successfully.");
+    } catch (arErr) {
+      console.warn("[AttemptResult] Index synchronization notice:", arErr.message);
+    }
+
+    console.log("MongoDB User, CourseRequest, UserRoadmap, and AttemptResult indexes synchronized successfully.");
 
     const server = app.listen(PORT, () => {
       console.log(`AIFinity Express server running on port ${PORT}`);
