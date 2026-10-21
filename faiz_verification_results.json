@@ -1,0 +1,208 @@
+{
+  "timestamp": "2026-10-18T12:37:31.027Z",
+  "tests": [
+    {
+      "id": "CHECK-1",
+      "title": "Assessment question evaluation, marks and scoring",
+      "expected": "scorePercent: 60, correct: 3, incorrect: 1, unanswered: 1",
+      "actual": "scorePercent: 60, correct: 3, incorrect: 1, unanswered: 1",
+      "status": "PASS",
+      "details": {
+        "questionResults": [
+          {
+            "id": "6a89e08dea4da156503b6364",
+            "status": "correct",
+            "marks": 10,
+            "mistakeType": ""
+          },
+          {
+            "id": "6a89e08dea4da156503b6365",
+            "status": "correct",
+            "marks": 10,
+            "mistakeType": ""
+          },
+          {
+            "id": "6a89e08dea4da156503b6366",
+            "status": "unanswered",
+            "marks": 0,
+            "mistakeType": "UNKNOWN"
+          },
+          {
+            "id": "6a89e08dea4da156503b6367",
+            "status": "correct",
+            "marks": 10,
+            "mistakeType": ""
+          },
+          {
+            "id": "6a89e08dea4da156503b6368",
+            "status": "incorrect",
+            "marks": 0,
+            "mistakeType": "CONCEPTUAL"
+          }
+        ]
+      }
+    },
+    {
+      "id": "CHECK-2",
+      "title": "Duplicate assessment submission handling",
+      "expected": "Second submission rejected or deduplicated; totalAttempts: 1, totalMistakes: 5",
+      "actual": "Sub2 status: 200, totalAttempts in DB: 1, totalMistakes: 5, conceptRootEvidence: 3",
+      "status": "PASS",
+      "details": {
+        "sub1Status": 200,
+        "sub2Status": 200,
+        "totalAttempts": 1
+      }
+    },
+    {
+      "id": "CHECK-3A",
+      "title": "ConceptRoot evidence extraction and mathematical root cause identification",
+      "expected": "canonicalConcept: 'Boundary Conditions', confidence >= 0.5, diagnosis: 'MODERATE_CONFIDENCE'",
+      "actual": "canonicalConcept: 'Boundary Conditions', confidence: 0.6, diagnosis: 'MODERATE_CONFIDENCE'",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "id": "CHECK-3B",
+      "title": "ConceptRoot AI explanation generation",
+      "expected": "aiStatus: 'completed', explanation text present",
+      "actual": "aiStatus: 'completed', explanation: Present",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "id": "CHECK-4",
+      "title": "MistakeMap clustering of weak concepts and priority scoring",
+      "expected": "Identifies 'Boundary Conditions' in highPriorityConcepts, dominant mistake type categorized",
+      "actual": "High priority concepts count: 2, Found Boundary Conditions: true, dominantType: CONCEPTUAL, mostCommonWeakness: Boundary Conditions",
+      "status": "PASS",
+      "details": {
+        "highPriority": [
+          {
+            "concept": "Boundary Conditions",
+            "topic": "Binary Search",
+            "totalAttempts": 3,
+            "correctCount": 0,
+            "mistakeCount": 3,
+            "accuracy": 0,
+            "avgDifficultyScore": 1.67,
+            "isRecurringWeakness": true,
+            "primaryMistakeType": "CONCEPTUAL",
+            "mistakeTypeCounts": {
+              "CONCEPTUAL": 3,
+              "LOGICAL": 0,
+              "IMPLEMENTATION": 0,
+              "CARELESS": 0,
+              "MISINTERPRETATION": 0,
+              "TIME_MANAGEMENT": 0,
+              "UNKNOWN": 0
+            },
+            "learningPriority": "HIGH PRIORITY",
+            "priorityScore": 106,
+            "evidence": "Accuracy is 0% across 3 attempts with 3 mistakes (3 Conceptual). Recurring weakness detected with 3 errors across attempts.",
+            "before": 0,
+            "after": 3,
+            "beforeAccuracy": 0,
+            "nowAccuracy": 0,
+            "trend": "emerging_gap",
+            "needsAttention": true,
+            "mistakePattern": "Persistent errors (conceptual)",
+            "whyItHappened": "Repeatedly struggling with conceptual steps in Boundary Conditions",
+            "whatChanged": "Needs targeted deliberate practice rather than passive revision"
+          },
+          {
+            "concept": "Search-Space Invariants",
+            "topic": "Binary Search",
+            "totalAttempts": 1,
+            "correctCount": 0,
+            "mistakeCount": 1,
+            "accuracy": 0,
+            "avgDifficultyScore": 2,
+            "isRecurringWeakness": false,
+            "primaryMistakeType": "CONCEPTUAL",
+            "mistakeTypeCounts": {
+              "CONCEPTUAL": 1,
+              "LOGICAL": 0,
+              "IMPLEMENTATION": 0,
+              "CARELESS": 0,
+              "MISINTERPRETATION": 0,
+              "TIME_MANAGEMENT": 0,
+              "UNKNOWN": 0
+            },
+            "learningPriority": "HIGH PRIORITY",
+            "priorityScore": 67,
+            "evidence": "Accuracy is 0% across 1 attempt with 1 mistake (1 Conceptual).",
+            "before": 0,
+            "after": 1,
+            "beforeAccuracy": 0,
+            "nowAccuracy": 0,
+            "trend": "emerging_gap",
+            "needsAttention": true,
+            "mistakePattern": "Emerging error pattern",
+            "whyItHappened": "Initial assessment attempts show partial accuracy",
+            "whatChanged": "Practice additional questions to stabilize concept"
+          }
+        ]
+      }
+    },
+    {
+      "id": "CHECK-5",
+      "title": "SkillGap calculation against career requirements & unassessed competencies",
+      "expected": "Comprehensive curriculum gap analysis showing tested + unassessed career requirements (>= 5 skills)",
+      "actual": "Target career: 'Software Developer', Skills count returned: 10, Skills: [Programming Fundamentals, Version Control (Git), Arrays, JavaScript, REST APIs, Searching Algorithms, SQL Databases, Sorting Algorithms, HTML & CSS, Binary Search]",
+      "status": "PASS",
+      "details": {
+        "skillsCount": 10,
+        "overallProficiency": 20
+      }
+    },
+    {
+      "id": "CHECK-6",
+      "title": "Roadmap adapts Phase 1 to weak concepts and targets career goal",
+      "expected": "Phase 1 isWeakConcept: true, priority: 'High', targetCareer: 'Data Scientist'",
+      "actual": "isWeakConcept: true, priority: 'High', targetCareer: 'Data Scientist', Phase 1 title: 'Phase 1: Foundations & Weak Concept Remediation'",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "id": "CHECK-7",
+      "title": "Roadmap stage toggle progression persistence (PUT /api/analytics/roadmap)",
+      "expected": "Status 200 OK, completedStageIds includes [1]",
+      "actual": "Status: 200, completedStageIds: [1]",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "id": "CHECK-8",
+      "title": "Roadmap updates targetCareer when student updates profile career goal",
+      "expected": "targetCareer switches from 'Software Developer' to 'Data Scientist'",
+      "actual": "Initial career: 'Software Developer', Updated career: 'Data Scientist'",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "id": "CHECK-9",
+      "title": "Revision Center spaced repetition progression upon session completion",
+      "expected": "Status 200, status updated to COMPLETED, intervalDays advanced (> 1 day)",
+      "actual": "compStatus: 200, status: 'COMPLETED', intervalDays: 3, nextReviewAt: 2026-10-21T12:38:01.200Z",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "id": "CHECK-10",
+      "title": "Confidence formula penalizes confidence upon recent student improvement",
+      "expected": "Initial confidence (0.60) drops after 100% attempt to (0.25) due to recent accuracy penalty",
+      "actual": "conf1 (Failed): 0.6, conf2 (Recovered): 0.25, historicalAccuracy: 0.5",
+      "status": "PASS",
+      "details": {}
+    },
+    {
+      "id": "CHECK-11",
+      "title": "Personal Intelligence AI Chat assistant response",
+      "expected": "Status 200 OK, personalized message returned",
+      "actual": "Status: 200, Message: 🎯 **Your Focus**  \nBegin gathering concrete data on your current knowledge by c...",
+      "status": "PASS",
+      "details": {}
+    }
+  ]
+}

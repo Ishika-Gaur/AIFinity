@@ -52,9 +52,9 @@ import CourseRequests from './pages/admin/CourseRequests';
 
 function PublicLayout() {
   return (
-    <div className="flex flex-col min-h-screen bg-grid">
+    <div className="flex flex-col min-h-screen min-h-[100dvh] w-full max-w-full bg-grid">
       <Navbar />
-      <main className="flex-1">
+      <main className="flex-1 w-full min-w-0">
         <Outlet />
       </main>
       <Footer />
@@ -66,9 +66,9 @@ function PublicLayout() {
 // Sidebar uses sticky (not fixed) so it never covers the footer.
 function AppLayout() {
   return (
-    <div className="flex flex-col min-h-screen bg-grid">
+    <div className="flex flex-col min-h-screen min-h-[100dvh] w-full max-w-full bg-grid">
       <Navbar />
-      <main className="flex-1">
+      <main className="flex-1 w-full min-w-0">
         <Outlet />
       </main>
       <Footer />

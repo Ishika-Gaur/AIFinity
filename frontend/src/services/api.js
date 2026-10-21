@@ -188,7 +188,8 @@ export const assessmentApi = {
 };
 
 export const analyticsApi = {
-  getRoadmap: () => request("/analytics/roadmap"),
+  getRoadmap: (courseId) => request(`/analytics/roadmap${courseId ? `?courseId=${encodeURIComponent(courseId)}` : ""}`),
+  getAllRoadmaps: () => request("/analytics/roadmaps"),
   updateRoadmap: (payload) =>
     request("/analytics/roadmap", {
       method: "PUT",

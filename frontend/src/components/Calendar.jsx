@@ -38,10 +38,8 @@ function DayCell({ daily, onDailyClick }) {
       <span
         className={`h-1.5 w-1.5 rounded-full ${
           isCompleted
-            ? "bg-green-400 shadow-sm shadow-green-400"
-            : isFuture
-              ? "bg-transparent"
-              : "bg-[var(--color-primary-400)]"
+            ? "bg-green-500 shadow-sm shadow-green-400"
+            : "bg-transparent"
         }`}
       />
     </div>
@@ -89,15 +87,49 @@ export default function Calendar({
   const firstWeekdayOffset = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
 
   const currentStreak = useMemo(() => {
-    if (streak !== undefined) return streak;
-    let calculatedStreak = 0;
-    for (let i = dailyAssessments.length - 1; i >= 0; i--) {
-      const d = dailyAssessments[i];
-      if (d.status === "Completed") calculatedStreak++;
-      else if (d.isToday) continue;
-      else break;
+    if (streak !== undefined && streak !== null) return streak;
+    if (!dailyAssessments || dailyAssessments.length === 0) return 0;
+    
+    // Find today's index in dailyAssessments
+    const todayIndex = dailyAssessments.findIndex((d) => d.isToday);
+    if (todayIndex === -1) {
+      // Fallback: count from most recent non-future day
+      const pastDays = dailyAssessments.filter((d) => !d.isFuture && d.day);
+      if (pastDays.length === 0) return 0;
+      let count = 0;
+      for (let i = pastDays.length - 1; i >= 0; i--) {
+        if (pastDays[i].status === "Completed") count++;
+        else break;
+      }
+      return count;
     }
-    return calculatedStreak;
+
+    let calculated = 0;
+    const today = dailyAssessments[todayIndex];
+    let startIndex = todayIndex;
+
+    if (today.status === "Completed") {
+      calculated = 1;
+      startIndex = todayIndex - 1;
+    } else {
+      // If today is not completed yet, streak is preserved if yesterday was completed
+      const yesterday = todayIndex > 0 ? dailyAssessments[todayIndex - 1] : null;
+      if (yesterday && yesterday.status === "Completed") {
+        calculated = 1;
+        startIndex = todayIndex - 2;
+      } else {
+        return 0;
+      }
+    }
+
+    for (let i = startIndex; i >= 0; i--) {
+      if (dailyAssessments[i] && dailyAssessments[i].status === "Completed") {
+        calculated++;
+      } else {
+        break;
+      }
+    }
+    return calculated;
   }, [dailyAssessments, streak]);
 
   const completionPct = dailyAssessments.length

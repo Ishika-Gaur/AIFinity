@@ -1,4 +1,6 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { callGroq } from "./groqService.js";
+import { filterUniqueQuestions, isQuestionDuplicate } from "./uniquenessService.js";
 
 let genAI = null;
 
@@ -47,46 +49,64 @@ const safeParseJSON = (text) => {
 };
 
 /**
- * Centralized AI Service function with multi-model fallback
+ * Centralized AI Service function with multi-provider and multi-model fallback (Gemini -> Groq)
  */
 const callAI = async (prompt, schema, isChat = false, history = []) => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is missing");
-  }
-
-  const ai = getGenAI();
-  const candidateModels = getCandidateModels();
-  
-  let generationConfig = { responseMimeType: "application/json" };
-  if (schema) {
-    generationConfig.responseSchema = schema;
-  } else {
-    generationConfig = {}; 
-  }
-
+  const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   let lastError = null;
-  for (const modelName of candidateModels) {
+
+  if (geminiApiKey) {
     try {
-      const model = ai.getGenerativeModel({ model: modelName, generationConfig });
+      const ai = getGenAI();
+      const candidateModels = getCandidateModels();
       
-      if (isChat) {
-        const chat = model.startChat({ history });
-        const result = await chat.sendMessage(prompt);
-        return result.response.text();
+      let generationConfig = { responseMimeType: "application/json" };
+      if (schema) {
+        generationConfig.responseSchema = schema;
       } else {
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
-        return schema ? safeParseJSON(text) : text;
+        generationConfig = {}; 
+      }
+
+      for (const modelName of candidateModels) {
+        try {
+          const model = ai.getGenerativeModel({ model: modelName, generationConfig });
+          
+          if (isChat) {
+            const chat = model.startChat({ history });
+            const result = await chat.sendMessage(prompt);
+            return result.response.text();
+          } else {
+            const result = await model.generateContent(prompt);
+            const text = result.response.text();
+            return schema ? safeParseJSON(text) : text;
+          }
+        } catch (err) {
+          console.warn(`[callAI] Error with Gemini model ${modelName}:`, err.message);
+          lastError = err;
+          // Continue to next candidate model
+        }
       }
     } catch (err) {
-      console.warn(`[callAI] Error with model ${modelName}:`, err.message);
+      console.warn("[callAI] Gemini initialization failed:", err.message);
       lastError = err;
-      // Continue to next candidate model
+    }
+  } else {
+    lastError = new Error("GEMINI_API_KEY is missing or unconfigured");
+  }
+
+  // Multi-provider fallback: Groq API
+  if (process.env.GROQ_API_KEY) {
+    try {
+      console.info("[callAI] Primary Gemini provider failed. Initiating multi-provider fallback to Groq...");
+      const groqResult = await callGroq(prompt, schema, isChat, history);
+      return groqResult;
+    } catch (groqErr) {
+      console.error("[callAI] Groq fallback also failed:", groqErr.message);
+      lastError = groqErr;
     }
   }
 
-  console.error(`[callAI] All AI candidate models failed. Last error:`, lastError?.message);
+  console.error(`[callAI] All AI providers (Gemini & Groq) failed. Last error:`, lastError?.message);
   throw new Error("AI_SERVICE_UNAVAILABLE");
 };
 
@@ -344,7 +364,7 @@ const DASHBOARD_CONCEPT_ROOT_SCHEMA = {
  * Dynamic curriculum fallback questions tailored to field & topic.
  * Ensures students (school, college, competitive exam) are NEVER blocked.
  */
-export const generateCurriculumQuestions = (field = "General Knowledge", topic = "Fundamentals", difficulty = "Medium", count = 5) => {
+export const generateCurriculumQuestions = (field = "General Knowledge", topic = "Fundamentals", difficulty = "Medium", count = 5, excludedQuestions = []) => {
   const isSchool = /class\s*\d+|10th|12th|school|cbse|icse/i.test(field + " " + topic);
   const isSocialScience = /social\s*science|history|geography|civics|economics|polity/i.test(field + " " + topic);
   const isScience = /science|physics|chemistry|biology/i.test(field + " " + topic);
@@ -559,8 +579,34 @@ export const generateCurriculumQuestions = (field = "General Knowledge", topic =
     ];
   }
 
+  const uniqueTemplates = filterUniqueQuestions(templateBank, excludedQuestions);
+  let finalQuestions = uniqueTemplates.slice(0, Math.min(count, uniqueTemplates.length));
+
+  if (finalQuestions.length < count) {
+    const needed = count - finalQuestions.length;
+    for (let i = 1; i <= needed; i++) {
+      const syntheticQ = {
+        question: `In a practical scenario regarding ${topic} within ${field}, how should a practitioner handle case ${i}?`,
+        options: [
+          `Apply standard ${topic} principles with systematic verification (Approach ${i})`,
+          `Bypass validation and assume default state`,
+          `Ignore constraints and proceed without logging`,
+          `Terminate the workflow immediately without error handling`
+        ],
+        correctAnswer: `Apply standard ${topic} principles with systematic verification (Approach ${i})`,
+        explanation: `Systematic verification and application of established principles guarantees correctness and reliability.`,
+        difficulty,
+        topic,
+        concept: topic
+      };
+      if (!isQuestionDuplicate(syntheticQ.question, excludedQuestions)) {
+        finalQuestions.push(syntheticQ);
+      }
+    }
+  }
+
   return {
-    questions: templateBank.slice(0, Math.min(count, templateBank.length)).map((q) => ({
+    questions: finalQuestions.map((q) => ({
       ...q,
       topic: q.topic || topic,
       concept: q.concept || topic,
@@ -568,7 +614,13 @@ export const generateCurriculumQuestions = (field = "General Knowledge", topic =
   };
 };
 
-export const generateQuestions = async (field, topic, difficulty, count, audienceContext = "") => {
+export const generateQuestions = async (field, topic, difficulty, count, audienceContext = "", excludedQuestions = []) => {
+  let exclusionInstruction = "";
+  if (Array.isArray(excludedQuestions) && excludedQuestions.length > 0) {
+    const sample = excludedQuestions.slice(0, 15);
+    exclusionInstruction = `\n7. STRICT CROSS-COURSE UNIQUENESS: The student has already completed assessments with the following questions in previous courses. You MUST NOT repeat or closely rephrase any of these questions:\n${sample.map((q, i) => `   - "${q}"`).join("\n")}`;
+  }
+
   const prompt = `You are an expert examiner and professional assessor specializing in ${field || "General Knowledge"}.
 Generate exactly ${count} realistic, high-quality multiple-choice questions testing knowledge of the topic "${topic}".
 Difficulty level: ${difficulty}.
@@ -581,17 +633,27 @@ Guidelines:
 3. Provide exactly 4 clear options for each question.
 4. Make sure the correctAnswer is an exact string match with one of the options.
 5. Include a concise, illuminating explanation for why that answer is correct.
-6. Set difficulty to "${difficulty}", topic to "${topic}", and identify the specific granular concept or skill being tested (e.g. "Frequency Map", "Binary Search", "Power Sharing", "Two Pointer") in "concept".`;
+6. Set difficulty to "${difficulty}", topic to "${topic}", and identify the specific granular concept or skill being tested (e.g. "Frequency Map", "Binary Search", "Power Sharing", "Two Pointer") in "concept".${exclusionInstruction}`;
 
   try {
     const res = await callAI(prompt, QUESTIONS_SCHEMA);
     if (res && Array.isArray(res.questions) && res.questions.length > 0) {
-      return res;
+      const uniqueAIQuestions = filterUniqueQuestions(res.questions, excludedQuestions);
+      if (uniqueAIQuestions.length >= count) {
+        return { questions: uniqueAIQuestions.slice(0, count) };
+      }
+
+      const needed = count - uniqueAIQuestions.length;
+      const combinedExcluded = [...excludedQuestions, ...uniqueAIQuestions.map(q => q.question)];
+      const fallbackData = generateCurriculumQuestions(field, topic, difficulty, needed, combinedExcluded);
+      return {
+        questions: [...uniqueAIQuestions, ...(fallbackData.questions || [])]
+      };
     }
     throw new Error("Empty AI response");
   } catch (err) {
     console.warn(`[geminiService] AI generation failed (${err.message}), using rich curriculum questions for ${field} - ${topic}`);
-    return generateCurriculumQuestions(field, topic, difficulty, count);
+    return generateCurriculumQuestions(field, topic, difficulty, count, excludedQuestions);
   }
 };
 
@@ -607,6 +669,10 @@ export const evaluateAssessmentWithAI = async ({ assessmentTitle, assessmentCate
 export const chatCompletion = async (systemPrompt, messages) => {
   const lastMessage = messages[messages.length - 1].content;
   const history = messages.slice(0, -1).map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
+  if (systemPrompt) {
+    history.unshift({ role: "user", parts: [{ text: `System Instruction: ${systemPrompt}` }] });
+    history.splice(1, 0, { role: "model", parts: [{ text: "Understood. I will strictly act according to these system instructions." }] });
+  }
   try {
     return await callAI(lastMessage, null, true, history);
   } catch (err) {

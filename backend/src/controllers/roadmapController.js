@@ -1,11 +1,21 @@
 import UserRoadmap from "../models/UserRoadmap.js";
 import { generateAndSaveRoadmap } from "../services/roadmapService.js";
 import { updateSkillStatus } from "../services/roadmapProgressService.js";
+import { normalizeCourseId } from "./analyticsController.js";
 
 export async function getRoadmap(req, res) {
   try {
     const user = req.user;
-    const roadmap = await UserRoadmap.findOne({ userId: user._id }).lean();
+    const courseId = req.query.courseId ? normalizeCourseId(req.query.courseId) : null;
+    
+    // Objective 1 & 2: Strict user isolation & multi-course persistence
+    const query = { userId: user._id };
+    if (courseId) query.courseId = courseId;
+
+    let roadmap = await UserRoadmap.findOne(query).sort({ lastAccessed: -1 }).lean();
+    if (!roadmap && courseId) {
+      roadmap = await UserRoadmap.findOne({ userId: user._id }).sort({ lastAccessed: -1 }).lean();
+    }
     
     if (!roadmap) {
       return res.json({ success: true, data: { hasRoadmap: false } });
@@ -21,9 +31,11 @@ export async function getRoadmap(req, res) {
 export async function generateRoadmap(req, res) {
   try {
     const user = req.user;
-    const careerGoal = user.onboardingProfile?.careerGoal || user.selectedField || "Software Engineer";
+    const { courseId: rawCourseId, careerGoal: bodyCareer } = req.body || {};
+    const careerGoal = bodyCareer || user.onboardingProfile?.careerGoal || user.selectedField || "Software Engineer";
+    const courseId = rawCourseId ? normalizeCourseId(rawCourseId) : normalizeCourseId(careerGoal);
     
-    const roadmapDoc = await generateAndSaveRoadmap(user, careerGoal);
+    const roadmapDoc = await generateAndSaveRoadmap(user, careerGoal, courseId);
     
     return res.json({ success: true, data: { hasRoadmap: true, roadmap: roadmapDoc } });
   } catch (err) {
@@ -41,10 +53,10 @@ export async function regenerateRoadmap(req, res) {
 
 export async function updateStepStatus(req, res) {
   try {
-    const { stepId } = req.params; // Maintaining param name for compatibility, though it represents a skillId now
-    const { status } = req.body; 
+    const { stepId } = req.params;
+    const { status, courseId } = req.body; 
 
-    const roadmap = await updateSkillStatus(req.user._id, stepId, status);
+    const roadmap = await updateSkillStatus(req.user._id, stepId, status, courseId);
     
     return res.json({ success: true, data: { roadmap } });
   } catch (err) {

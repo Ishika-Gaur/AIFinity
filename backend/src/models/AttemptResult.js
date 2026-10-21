@@ -48,6 +48,10 @@ const attemptResultSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    attemptId: {
+      type: String,
+      trim: true,
+    },
     assessmentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Assessment",
@@ -148,6 +152,8 @@ const attemptResultSchema = new mongoose.Schema(
 
 // Compound index: efficiently fetch all attempts for a user sorted by date
 attemptResultSchema.index({ userId: 1, completedAt: -1 });
+// Compound unique index: guarantees submission idempotency while preserving legacy documents without attemptId
+attemptResultSchema.index({ userId: 1, attemptId: 1 }, { unique: true, sparse: true });
 
 const AttemptResult = mongoose.model("AttemptResult", attemptResultSchema);
 

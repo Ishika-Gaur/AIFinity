@@ -16,6 +16,7 @@ import mistakeMapRoutes from "./routes/mistakeMapRoutes.js";
 import skillGapRoutes from "./routes/skillGapRoutes.js";
 import revisionRoutes from "./routes/revisionRoutes.js";
 import courseRequestRoutes from "./routes/courseRequestRoutes.js";
+import roadmapRoutes from "./routes/roadmapRoutes.js";
 import CourseRequest from "./models/CourseRequest.js";
 import { authenticate, isAdmin } from "./middleware/authMiddleware.js";
 
@@ -103,6 +104,7 @@ app.use("/api/mistake-map", mistakeMapRoutes);
 app.use("/api/skill-gap", skillGapRoutes);
 app.use("/api/revision", revisionRoutes);
 app.use("/api/course-requests", courseRequestRoutes);
+app.use("/api/roadmap", roadmapRoutes);
 
 // Protected Admin Test Route
 app.get("/api/admin/test", authenticate, isAdmin, (req, res) => {
@@ -143,7 +145,24 @@ export async function startServer() {
     // Ensure Mongoose models sync indexes (e.g. partial unique index on role: "admin")
     await mongoose.model("User").syncIndexes();
     await CourseRequest.syncIndexes();
-    console.log("MongoDB User and CourseRequest indexes synchronized successfully.");
+
+    // Ensure UserRoadmap multi-course composite index is synced and drop legacy single-field index
+    try {
+      const userRoadmapColl = mongoose.model("UserRoadmap").collection;
+      const urIndexes = await userRoadmapColl.indexes();
+      const legacyIdx = urIndexes.find((idx) => idx.name === "userId_1" && idx.unique);
+      if (legacyIdx) {
+        console.log("[UserRoadmap] Dropping legacy single-field unique index userId_1...");
+        await userRoadmapColl.dropIndex("userId_1");
+        console.log("[UserRoadmap] Successfully dropped legacy userId_1 index.");
+      }
+      await mongoose.model("UserRoadmap").syncIndexes();
+      console.log("[UserRoadmap] Multi-course composite index { userId: 1, courseId: 1 } synchronized.");
+    } catch (urErr) {
+      console.warn("[UserRoadmap] Index synchronization notice:", urErr.message);
+    }
+
+    console.log("MongoDB User, CourseRequest, and UserRoadmap indexes synchronized successfully.");
 
     const server = app.listen(PORT, () => {
       console.log(`AIFinity Express server running on port ${PORT}`);

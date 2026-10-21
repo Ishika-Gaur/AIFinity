@@ -423,6 +423,9 @@ export default function Roadmap() {
   const [showCareerSelector, setShowCareerSelector] = useState(false);
 
   const [completedTasks, setCompletedTasks] = useState({});
+  const [currentCourseId, setCurrentCourseId] = useState("");
+  const [enrolledRoadmaps, setEnrolledRoadmaps] = useState([]);
+  const [resumptionState, setResumptionState] = useState(null);
 
   const navigate = useNavigate();
 
@@ -479,16 +482,30 @@ export default function Roadmap() {
     { id: "res-4", title: "Project Ideas", type: "projects", icon: "💡", url: `/resources/project-ideas?topic=${encodeURIComponent(targetCareer)}`, isExternal: false },
   ];
 
-  // Load roadmap from backend API
-  const fetchRoadmap = async () => {
+  // Load roadmap from backend API with multi-course support and resumption state
+  const fetchRoadmap = async (targetCourseId) => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await analyticsApi.getRoadmap();
+      const activeId = targetCourseId || currentCourseId || null;
+      const res = await analyticsApi.getRoadmap(activeId);
       if (res && res.success && res.data) {
         setHasHistory(res.data.hasHistory ?? true);
         const career = res.data.targetCareer || "Frontend Developer";
         setTargetCareer(career);
+        if (res.data.courseId) setCurrentCourseId(res.data.courseId);
+
+        // Store progress resumption state ("Pick Up Where You Left Off")
+        const activeStageId = res.data.activeStageId || ((res.data.currentNodeIndex ?? 0) + 1);
+        setResumptionState({
+          activeStageId,
+          currentNodeIndex: res.data.currentNodeIndex ?? 0,
+          currentTopic: res.data.currentTopic || "",
+          lastAccessed: res.data.lastAccessed,
+        });
+
+        // Focus and auto-expand the active milestone where the user stopped
+        setExpandedPhases({ [activeStageId]: true });
 
         if (Array.isArray(res.data.stages) && res.data.stages.length > 0) {
           // Map backend stages into enriched interactive structure
@@ -567,6 +584,16 @@ export default function Roadmap() {
         }
       } else {
         setStages([]);
+      }
+
+      // Concurrently query user enrolled multi-course roadmaps
+      try {
+        const allRes = await analyticsApi.getAllRoadmaps();
+        if (allRes && allRes.success && Array.isArray(allRes.data?.roadmaps)) {
+          setEnrolledRoadmaps(allRes.data.roadmaps);
+        }
+      } catch (rmErr) {
+        console.warn("Could not query all roadmaps:", rmErr.message);
       }
     } catch (err) {
       console.warn("Failed to load roadmap:", err);
@@ -719,6 +746,73 @@ export default function Roadmap() {
       {/* MAIN ROADMAP CONTAINER */}
       {!isLoading && (stages.length > 0 || hasHistory) && (
       <div id="roadmap-content" className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {/* MULTI-COURSE ROADMAP SWITCHER (Concurrent Multi-Course Persistence) */}
+        {enrolledRoadmaps && enrolledRoadmaps.length > 1 && (
+          <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 border-b border-gray-100">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
+              <span>📚</span> Enrolled Courses:
+            </span>
+            {enrolledRoadmaps.map((rm) => {
+              const isSelected = (currentCourseId && rm.courseId === currentCourseId) || (!currentCourseId && rm.targetCareer === targetCareer);
+              return (
+                <button
+                  key={rm._id || rm.courseId}
+                  onClick={() => {
+                    setCurrentCourseId(rm.courseId);
+                    fetchRoadmap(rm.courseId);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all border ${
+                    isSelected
+                      ? "bg-[#2E4F42] text-white border-[#2E4F42] shadow-sm"
+                      : "bg-white text-gray-700 border-gray-200 hover:border-gray-400"
+                  }`}
+                >
+                  {rm.targetCareer || rm.courseId} ({rm.readinessScore || 0}% Ready)
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* PROGRESS STATE RESUMPTION ("Pick Up Where You Left Off") */}
+        {resumptionState && resumptionState.currentTopic && (
+          <div
+            className="mb-6 rounded-2xl border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
+            style={{ borderColor: "rgba(46, 79, 66, 0.25)", background: "linear-gradient(135deg, rgba(232, 197, 71, 0.08) 0%, rgba(46, 79, 66, 0.04) 100%)" }}
+          >
+            <div className="flex items-center gap-3.5">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E8C547]/20 text-lg">
+                📍
+              </span>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#2E4F42] bg-[#2E4F42]/10 px-2 py-0.5 rounded-full">
+                    Pick Up Where You Left Off
+                  </span>
+                  {resumptionState.lastAccessed && (
+                    <span className="text-[11px] text-[#5B6B5F]">
+                      Last active: {new Date(resumptionState.lastAccessed).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                </div>
+                <h4 className="text-sm sm:text-base font-bold text-[#1B332C] mt-1">
+                  Phase {resumptionState.activeStageId}: {resumptionState.currentTopic}
+                </h4>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setExpandedPhases({ [resumptionState.activeStageId]: true });
+                const el = document.getElementById(`phase-${resumptionState.activeStageId}`);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#2E4F42] hover:bg-[#1B332C] transition-all shadow-xs shrink-0"
+            >
+              Resume Course →
+            </button>
+          </div>
+        )}
+
         {/* STAT OVERVIEW CARDS (Career Goal, Total Duration, Total Skills, Focus Areas) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {/* Card 1: Career Goal */}

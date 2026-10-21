@@ -82,11 +82,16 @@ function generateDeterministicFallback(orderedSkills, careerGoal, studentContext
   };
 }
 
-export async function generateAndSaveRoadmap(user, careerGoal) {
+import { normalizeCourseId } from "../controllers/analyticsController.js";
+
+export async function generateAndSaveRoadmap(user, careerGoal, customCourseId = null) {
   const attempts = await AttemptResult.find({ userId: user._id }).lean();
   if (attempts.length === 0) {
     throw new Error("Insufficient assessment data. Complete an assessment first.");
   }
+
+  const courseId = normalizeCourseId(customCourseId || careerGoal);
+  const existingRoadmap = await UserRoadmap.findOne({ userId: user._id, courseId }).lean();
 
   const studentContext = await buildStudentContext(user._id, careerGoal);
   
@@ -131,6 +136,7 @@ export async function generateAndSaveRoadmap(user, careerGoal) {
   // Map JSON into the mongoose schema format safely
   const { roadmap } = finalAiRoadmap;
 
+  const completedSet = new Set(existingRoadmap?.completedStageIds || []);
   const stages = (roadmap.phases || []).map((phase, pIndex) => {
     let concepts = [];
     let learningTasks = [];
@@ -140,15 +146,17 @@ export async function generateAndSaveRoadmap(user, careerGoal) {
       if (skill.learning_tasks) learningTasks.push(...skill.learning_tasks);
       if (skill.practice_tasks) practiceTasks.push(...skill.practice_tasks);
     });
+
+    const isCompleted = completedSet.has(pIndex + 1);
     return {
       id: pIndex + 1,
       title: phase.title || `Phase ${pIndex + 1}`,
       phase: phase.objective || `Phase ${pIndex + 1}`,
-      status: pIndex === 0 ? "current" : "locked",
+      status: isCompleted ? "completed" : pIndex === 0 ? "current" : "locked",
       duration: phase.estimated_duration || "4 Weeks",
       priority: phase.priority || "Standard",
       why: phase.objective || "",
-      progress: 0,
+      progress: isCompleted ? 100 : 0,
       concepts,
       description: phase.title || "",
       learningTasks,
@@ -158,17 +166,29 @@ export async function generateAndSaveRoadmap(user, careerGoal) {
     };
   });
 
+  const activeStage = stages.find((s) => s.status === "current") || stages[0];
+  const activeStageId = activeStage?.id || 1;
+  const currentNodeIndex = Math.max(0, stages.findIndex((s) => s.id === activeStageId));
+  const currentTopic = activeStage?.concepts?.[0] || activeStage?.title || "";
+
   const newRoadmap = {
     userId: user._id,
+    courseId,
     targetCareer: roadmap.career_goal || careerGoal,
     readinessScore: roadmap.confidence || 0,
     hasHistory: true,
+    completedStageIds: Array.from(completedSet),
     stages: stages,
+    currentNodeIndex,
+    currentTopic,
+    completedTopics: existingRoadmap?.completedTopics || [],
+    lastAccessed: new Date(),
+    activeStageId,
     lastEvaluatedAt: new Date()
   };
 
   const roadmapDoc = await UserRoadmap.findOneAndUpdate(
-    { userId: user._id },
+    { userId: user._id, courseId },
     newRoadmap,
     { new: true, upsert: true }
   );

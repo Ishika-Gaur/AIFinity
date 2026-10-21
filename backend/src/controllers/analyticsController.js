@@ -415,18 +415,51 @@ function getRequiredSkillsForRole(role) {
   return ["Core Logic", "Problem Solving", "Domain Fundamentals", "Best Practices", "Applied Execution"];
 }
 
+/**
+ * Normalizes course / career identifier for multi-course tracking
+ */
+export function normalizeCourseId(str) {
+  if (!str || typeof str !== "string") return "default";
+  return (
+    str
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .trim() || "default"
+  );
+}
+
 // ─────────────────────────────────────────────
 // HELPER: Generate personalized roadmap stages from real assessment data
 // ─────────────────────────────────────────────
-export async function generatePersonalizedRoadmap(userId, customTargetCareer = null) {
+export async function generatePersonalizedRoadmap(userId, customTargetCareer = null, customCourseId = null) {
   const user = await User.findById(userId).lean();
-  const attempts = await AttemptResult.find({ userId }).sort({ completedAt: -1 }).lean();
-  const existingRoadmap = await UserRoadmap.findOne({ userId }).lean();
-
   const selectedField = user?.selectedField || user?.onboardingProfile?.field || "Technology";
-  const targetCareer = customTargetCareer || existingRoadmap?.targetCareer || user?.onboardingProfile?.careerGoal || selectedField;
+  const targetCareer = customTargetCareer || user?.onboardingProfile?.careerGoal || selectedField;
+  const courseId = normalizeCourseId(customCourseId || targetCareer || selectedField);
+
+  // Objective 1 & 2: Strict user isolation & multi-course persistence
+  let existingRoadmap = await UserRoadmap.findOne({ userId, courseId }).lean();
+  if (!existingRoadmap && courseId === "default") {
+    existingRoadmap = await UserRoadmap.findOne({ userId }).lean();
+  }
+
+  // Fetch attempts strictly scoped to the authenticated user
+  const allAttempts = await AttemptResult.find({ userId }).sort({ completedAt: -1 }).lean();
+  
+  // Prioritize attempts matching the target career or course topic if available
+  const courseAttempts = allAttempts.filter(a => {
+    const cat = (a.assessmentCategory || "").toLowerCase();
+    const title = (a.assessmentTitle || "").toLowerCase();
+    const fld = (a.assessmentField || "").toLowerCase();
+    const target = targetCareer.toLowerCase();
+    return cat.includes(target) || title.includes(target) || fld.includes(target);
+  });
+  const attempts = courseAttempts.length > 0 ? courseAttempts : allAttempts;
 
   const academic = getAcademicCurriculum(targetCareer, selectedField);
+  const completedSet = new Set(existingRoadmap?.completedStageIds || []);
+  const completedTopics = Array.isArray(existingRoadmap?.completedTopics) ? [...existingRoadmap.completedTopics] : [];
 
   if (!attempts || attempts.length === 0) {
     let stages = [];
@@ -583,18 +616,29 @@ export async function generatePersonalizedRoadmap(userId, customTargetCareer = n
       ];
     }
 
+    const activeStage = stages.find((s) => s.status === "current") || stages[0];
+    const activeStageId = activeStage?.id || 1;
+    const currentNodeIndex = Math.max(0, stages.findIndex((s) => s.id === activeStageId));
+    const currentTopic = activeStage?.concepts?.[0] || activeStage?.title || "";
+
     const roadmapData = {
       hasHistory: false,
       userId,
+      courseId,
       targetCareer,
       selectedField,
       readinessScore: 0,
-      completedStageIds: [],
+      completedStageIds: Array.from(completedSet),
       stages: stages,
+      currentNodeIndex,
+      currentTopic,
+      completedTopics,
+      lastAccessed: new Date(),
+      activeStageId,
       lastEvaluatedAt: new Date(),
     };
 
-    await UserRoadmap.findOneAndUpdate({ userId }, roadmapData, { upsert: true, new: true });
+    await UserRoadmap.findOneAndUpdate({ userId, courseId }, roadmapData, { upsert: true, new: true });
     return roadmapData;
   }
 
@@ -662,9 +706,6 @@ export async function generatePersonalizedRoadmap(userId, customTargetCareer = n
   // Identify weak concepts (accuracy < 70% or incorrect > 0)
   const weakConcepts = learningStats.filter((c) => c.avgScore < 70 || c.incorrect > 0).sort((a, b) => a.avgScore - b.avgScore);
   const strongConcepts = learningStats.filter((c) => c.avgScore >= 75);
-
-  const completedSet = new Set(existingRoadmap?.completedStageIds || []);
-
   let stages = [];
 
   if (academic.isAcademic) {
@@ -911,20 +952,32 @@ export async function generatePersonalizedRoadmap(userId, customTargetCareer = n
   const completedCount = stages.filter((s) => s.status === "completed").length;
   const readinessScore = Math.min(100, Math.max(overallAvgScore, Math.round((completedCount / 4) * 100)));
 
-  // Save or update UserRoadmap in MongoDB
+  // Objective 3: Progress State Resumption ("Pick Up Where You Left Off")
+  const activeStage = stages.find((s) => s.status === "current") || stages[0];
+  const activeStageId = activeStage?.id || 1;
+  const currentNodeIndex = Math.max(0, stages.findIndex((s) => s.id === activeStageId));
+  const currentTopic = activeStage?.concepts?.[0] || activeStage?.title || "";
+
+  // Save or update UserRoadmap in MongoDB with composite (userId, courseId) index
   const roadmapData = {
     userId,
+    courseId,
     targetCareer,
     selectedField,
     readinessScore,
     hasHistory: true,
     completedStageIds: Array.from(completedSet),
     stages,
+    currentNodeIndex,
+    currentTopic,
+    completedTopics,
+    lastAccessed: new Date(),
+    activeStageId,
     lastEvaluatedAt: new Date(),
   };
 
   await UserRoadmap.findOneAndUpdate(
-    { userId },
+    { userId, courseId },
     roadmapData,
     { upsert: true, new: true }
   );
@@ -934,13 +987,16 @@ export async function generatePersonalizedRoadmap(userId, customTargetCareer = n
 
 // ─────────────────────────────────────────────
 // 4. GET /api/analytics/roadmap
+// Returns personalized roadmap strictly isolated to the authenticated user and course
 // ─────────────────────────────────────────────
 export async function getRoadmapAnalytics(req, res) {
   try {
     const userId = req.user._id;
+    const courseId = req.query.courseId || req.query.course || null;
+    const targetCareer = req.query.targetCareer || null;
 
     // Generate or update roadmap using real user assessment results
-    const roadmap = await generatePersonalizedRoadmap(userId);
+    const roadmap = await generatePersonalizedRoadmap(userId, targetCareer, courseId);
 
     return res.json({
       success: true,
@@ -953,15 +1009,49 @@ export async function getRoadmapAnalytics(req, res) {
 }
 
 // ─────────────────────────────────────────────
+// 4B. GET /api/analytics/roadmaps
+// Returns all active course roadmaps for the authenticated user (multi-course switching)
+// ─────────────────────────────────────────────
+export async function getUserRoadmaps(req, res) {
+  try {
+    const userId = req.user._id;
+    const roadmaps = await UserRoadmap.find({ userId }).sort({ lastAccessed: -1 }).lean();
+
+    return res.json({
+      success: true,
+      data: {
+        roadmaps,
+        totalCourses: roadmaps.length,
+      },
+    });
+  } catch (err) {
+    console.error("[Analytics] Error in getUserRoadmaps:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch user roadmaps." });
+  }
+}
+
+// ─────────────────────────────────────────────
 // 5. PUT /api/analytics/roadmap
-// Persists user modifications (e.g. stage completion toggle, target career goal)
+// Persists user modifications (e.g. stage completion toggle, target career goal, node resumption)
 // ─────────────────────────────────────────────
 export async function updateUserRoadmap(req, res) {
   try {
     const userId = req.user._id;
-    const { stageId, customCareer, completedStageIds } = req.body;
+    const {
+      courseId: rawCourseId,
+      stageId,
+      customCareer,
+      completedStageIds,
+      currentNodeIndex,
+      currentTopic,
+      completedTopics,
+    } = req.body;
 
-    let userRoadmap = await UserRoadmap.findOne({ userId });
+    const courseId = normalizeCourseId(rawCourseId || customCareer || "default");
+    let userRoadmap = await UserRoadmap.findOne({ userId, courseId });
+    if (!userRoadmap && courseId === "default") {
+      userRoadmap = await UserRoadmap.findOne({ userId });
+    }
 
     let updatedCompletedIds = userRoadmap?.completedStageIds ? [...userRoadmap.completedStageIds] : [];
 
@@ -976,20 +1066,39 @@ export async function updateUserRoadmap(req, res) {
       }
     }
 
+    let updatedCompletedTopics = userRoadmap?.completedTopics ? [...userRoadmap.completedTopics] : [];
+    if (Array.isArray(completedTopics)) {
+      updatedCompletedTopics = completedTopics;
+    }
+
     if (!userRoadmap) {
       userRoadmap = await UserRoadmap.create({
         userId,
+        courseId,
         targetCareer: customCareer || "Full-Stack Software Engineer",
         completedStageIds: updatedCompletedIds,
+        completedTopics: updatedCompletedTopics,
+        currentNodeIndex: typeof currentNodeIndex === "number" ? currentNodeIndex : 0,
+        currentTopic: currentTopic || "",
+        lastAccessed: new Date(),
       });
     } else {
       if (customCareer) userRoadmap.targetCareer = customCareer;
+      userRoadmap.courseId = courseId;
       userRoadmap.completedStageIds = updatedCompletedIds;
+      if (Array.isArray(completedTopics)) userRoadmap.completedTopics = updatedCompletedTopics;
+      if (typeof currentNodeIndex === "number") userRoadmap.currentNodeIndex = currentNodeIndex;
+      if (currentTopic) userRoadmap.currentTopic = currentTopic;
+      userRoadmap.lastAccessed = new Date();
       await userRoadmap.save();
     }
 
-    // Regenerate roadmap using updated parameters
-    const updatedRoadmap = await generatePersonalizedRoadmap(userId, customCareer || userRoadmap.targetCareer);
+    // Regenerate roadmap using updated parameters for this specific course
+    const updatedRoadmap = await generatePersonalizedRoadmap(
+      userId,
+      customCareer || userRoadmap.targetCareer,
+      courseId
+    );
 
     return res.json({
       success: true,

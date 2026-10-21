@@ -76,6 +76,7 @@ function extractEvidence(q, attempt) {
   
   return {
     questionId: q.questionId,
+    question: q.questionText || q.question || "",
     attemptId: attempt._id.toString(),
     canonicalConcept,
     skillId,
@@ -329,7 +330,7 @@ export async function calculateConceptRoot(userId) {
       rootConceptName: bestRootProfile.canonicalConcept
     },
 
-    evidence: combinedEvidence.filter(e => !e.isCorrect).slice(0, 8), // Provide max 8 key mistakes for LLM reasoning
+    evidence: combinedEvidence.filter(e => !e.isCorrect), // Full 1-to-1 breakdown of all incorrect submissions without truncation
     
     dependencies,
     

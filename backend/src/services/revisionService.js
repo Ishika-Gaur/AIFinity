@@ -224,9 +224,17 @@ export async function getRevisionSession(userId, conceptId) {
 export async function completeRevisionSession(userId, conceptId, performance) {
   const { practiceAccuracy, confidence } = performance;
   
-  const revision = await Revision.findOne({ userId, conceptId });
+  let revision = await Revision.findOne({ userId, conceptId });
   if (!revision) {
-    throw new Error("Revision record not found for completion.");
+    revision = new Revision({
+      userId,
+      conceptId,
+      conceptName: conceptId,
+      status: "DUE",
+      intervalDays: 1,
+      revisionCount: 0,
+      nextReviewAt: new Date()
+    });
   }
 
   revision.revisionCount += 1;
