@@ -25,8 +25,22 @@ const RECENCY_WEIGHTS = {
   OLD: { maxAge: Infinity, weight: 0.50 }
 };
 
+export function cleanName(name) {
+  if (!name) return "General";
+  try {
+    return decodeURIComponent(String(name))
+      .replace(/^ai_rec_/i, "")
+      .replace(/_/g, " ")
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/^(\w)/, (c) => c.toUpperCase());
+  } catch {
+    return String(name).replace(/^ai_rec_/i, "").replace(/_/g, " ").trim();
+  }
+}
+
 function isEdgeCaseQuestion(q) {
-  const text = (q.questionText || "").toLowerCase();
+  const text = (q.questionText || q.question || "").toLowerCase();
   const answer = (q.correctAnswer || "").toLowerCase();
   
   const edgeKeywords = [
@@ -40,13 +54,14 @@ function isEdgeCaseQuestion(q) {
 }
 
 function classifyError(q, attempt) {
-  if (q.isCorrect) return null;
+  const isCorrect = !!(q.isCorrect === true || q.status === "correct" || Number(q.marksAwarded) >= 7);
+  if (isCorrect) return null;
   
-  if (q.mistakeType && ["CONCEPTUAL", "LOGICAL", "IMPLEMENTATION", "CARELESS", "MISINTERPRETATION", "TIME_MANAGEMENT"].includes(q.mistakeType)) {
-    return q.mistakeType;
+  if (q.mistakeType && ["CONCEPTUAL", "LOGICAL", "IMPLEMENTATION", "CARELESS", "MISINTERPRETATION", "TIME_MANAGEMENT"].includes(String(q.mistakeType).toUpperCase())) {
+    return String(q.mistakeType).toUpperCase();
   }
 
-  const text = (q.questionText || "").toLowerCase();
+  const text = (q.questionText || q.question || "").toLowerCase();
   const uAns = String(q.userAnswer || "").toLowerCase();
   
   if (q.status === "unanswered" || uAns === "") return "UNKNOWN";
@@ -57,13 +72,13 @@ function classifyError(q, attempt) {
   if (text.includes("boundary") || text.includes("edge") || text.includes("limit") || isEdgeCaseQuestion(q)) {
     return "LOGICAL";
   }
-  if (text.includes("syntax") || text.includes("compile") || text.includes("error")) {
+  if (text.includes("syntax") || text.includes("compile") || text.includes("error") || text.includes("implement") || text.includes("code")) {
     return "IMPLEMENTATION";
   }
-  if (text.includes("calculate") || text.includes("math") || text.includes("sum")) {
+  if (text.includes("calculate") || text.includes("math") || text.includes("sum") || text.includes("formula")) {
     return "CARELESS";
   }
-  if (text.includes("define") || text.includes("what is")) {
+  if (text.includes("define") || text.includes("what is") || text.includes("which of") || text.includes("principle")) {
     return "CONCEPTUAL";
   }
   
@@ -71,20 +86,23 @@ function classifyError(q, attempt) {
 }
 
 function extractEvidence(q, attempt) {
-  const canonicalConcept = q.concept || q.canonicalConcept || "general";
-  const skillId = q.topic || q.skillId || attempt.assessmentCategory || "general";
+  const rawConcept = q.concept || q.canonicalConcept || q.topic || attempt.assessmentCategory || "General";
+  const canonicalConcept = cleanName(rawConcept);
+  const rawSkill = q.topic || q.skillId || attempt.assessmentCategory || "General";
+  const skillId = cleanName(rawSkill);
+  const isCorrect = !!(q.isCorrect === true || q.status === "correct" || Number(q.marksAwarded) >= 7);
   
   return {
-    questionId: q.questionId,
+    questionId: q.questionId || `q_${Math.random().toString(36).substr(2, 9)}`,
     question: q.questionText || q.question || "",
-    attemptId: attempt._id.toString(),
+    attemptId: attempt._id ? attempt._id.toString() : String(attempt.attemptId || ""),
     canonicalConcept,
     skillId,
-    isCorrect: !!q.isCorrect,
+    isCorrect,
     studentAnswer: q.userAnswer || "UNAVAILABLE",
     correctAnswer: q.correctAnswer || "UNAVAILABLE",
     errorType: classifyError(q, attempt),
-    timestamp: attempt.completedAt || attempt.createdAt,
+    timestamp: attempt.completedAt || attempt.createdAt || new Date(),
     isEdgeCase: isEdgeCaseQuestion(q),
     difficulty: q.difficulty || "Medium"
   };
@@ -109,10 +127,14 @@ function calculateTrend(accuracy, recentAccuracy, totalAttempts) {
 }
 
 function calculateConfidenceString(confidenceScore) {
-  if (confidenceScore < 0.3) return "INSUFFICIENT_EVIDENCE";
-  if (confidenceScore < 0.5) return "TENTATIVE";
-  if (confidenceScore < 0.8) return "MODERATE_CONFIDENCE";
-  return "HIGH_CONFIDENCE";
+  if (confidenceScore === "MASTERED") return "MASTERED";
+  if (typeof confidenceScore === "number") {
+    if (confidenceScore < 0.3) return "INSUFFICIENT_EVIDENCE";
+    if (confidenceScore < 0.5) return "TENTATIVE";
+    if (confidenceScore < 0.8) return "MODERATE_CONFIDENCE";
+    return "HIGH_CONFIDENCE";
+  }
+  return "TENTATIVE";
 }
 
 export async function calculateConceptRoot(userId) {
@@ -131,12 +153,12 @@ export async function calculateConceptRoot(userId) {
   const seenIds = new Set(); // deduplication
   
   for (const attempt of attempts) {
-    if (!attempt.questionResults) continue;
+    if (!attempt.questionResults || attempt.questionResults.length === 0) continue;
 
     for (const q of attempt.questionResults) {
-      if (q.status === "unanswered" || q.status === "skipped") continue;
+      if (q.status === "skipped") continue;
       
-      const dedupKey = `${attempt._id}-${q.questionId}`;
+      const dedupKey = `${attempt._id}-${q.questionId || q.questionText || Math.random()}`;
       if (seenIds.has(dedupKey)) continue;
       seenIds.add(dedupKey);
 
@@ -156,8 +178,16 @@ export async function calculateConceptRoot(userId) {
     }
   }
 
+  if (evidenceStore.length === 0) {
+    return {
+      hasData: false,
+      diagnosis: { status: "INSUFFICIENT_EVIDENCE" }
+    };
+  }
+
   // 2. Concept Mastery Profiles
   const profiles = [];
+
   for (const [cid, data] of conceptMap.entries()) {
     let totalAttempts = 0;
     let correct = 0;
@@ -179,7 +209,8 @@ export async function calculateConceptRoot(userId) {
         weightedCorrect += weight;
         if (ev.isEdgeCase) edgeCorrect++;
       } else {
-        errorFrequencies[ev.errorType] = (errorFrequencies[ev.errorType] || 0) + 1;
+        const errType = ev.errorType || "CONCEPTUAL";
+        errorFrequencies[errType] = (errorFrequencies[errType] || 0) + 1;
       }
       
       if (ev.isEdgeCase) edgeAttempts++;
@@ -189,7 +220,7 @@ export async function calculateConceptRoot(userId) {
     const recentAccuracy = weightedTotal > 0 ? (weightedCorrect / weightedTotal) : 0;
     const edgeCaseAccuracy = edgeAttempts > 0 ? (edgeCorrect / edgeAttempts) : null;
     
-    let primaryRootCause = "UNKNOWN";
+    let primaryRootCause = "CONCEPTUAL";
     let highestErrFreq = 0;
     for (const [errType, count] of Object.entries(errorFrequencies)) {
       if (count > highestErrFreq) {
@@ -198,13 +229,21 @@ export async function calculateConceptRoot(userId) {
       }
     }
 
-    // Mathematical confidence formula: (Error Consistency * Mistake Volume) - Recent Successes
-    const mistakeVolumeFactor = Math.min(totalAttempts / CONFIDENCE_THRESHOLDS.HIGH, 1.0);
-    const errorConsistency = totalAttempts > 0 ? (highestErrFreq / totalAttempts) : 0;
-    const recentSuccessPenalty = recentAccuracy * 0.5; // Max 0.5 penalty
-    
-    let confidenceScore = (mistakeVolumeFactor * errorConsistency) - recentSuccessPenalty;
-    confidenceScore = Math.max(0, Math.min(confidenceScore, 1.0));
+    // Dynamic Evidence Confidence:
+    // If mistakes exist (highestErrFreq >= 1):
+    // 1 mistake: 0.45 (Tentative - initial actionable signal from recent assignment)
+    // 2 mistakes: 0.65 (Moderate - verified recurring pattern)
+    // 3+ mistakes: 0.85+ (High - deeply established root cause)
+    let confidenceScore = 0;
+    if (highestErrFreq === 1) {
+      confidenceScore = 0.45;
+    } else if (highestErrFreq === 2) {
+      confidenceScore = 0.65;
+    } else if (highestErrFreq >= 3) {
+      confidenceScore = Math.min(0.95, 0.80 + (highestErrFreq * 0.05));
+    } else {
+      confidenceScore = 1.0;
+    }
     
     profiles.push({
       conceptId: cid,
@@ -227,57 +266,64 @@ export async function calculateConceptRoot(userId) {
     });
   }
 
-  // 4. Find the Weakest Link
+  // 3. Find the Concept with Mistakes (Weakest Link)
+  const profilesWithMistakes = profiles.filter(p => (p.mastery.attempts - p.mastery.correct) > 0);
+
   let weakestProfile = null;
-  let lowestAccuracy = 1.0;
-  let mostRecentError = 0;
-
-  for (const p of profiles) {
-    if (p.mastery.attempts >= 1 && p.mastery.accuracy < 0.6) {
-      // Find the most recent mistake for this concept
-      const latestErrorTimestamp = p.evidence
-        .filter(e => !e.isCorrect)
-        .reduce((max, e) => Math.max(max, new Date(e.timestamp).getTime()), 0);
-
-      // We want the most recently failed concept that has low accuracy
-      if (latestErrorTimestamp > mostRecentError) {
-        mostRecentError = latestErrorTimestamp;
-        lowestAccuracy = p.mastery.accuracy;
-        weakestProfile = p;
-      } else if (latestErrorTimestamp === mostRecentError && p.mastery.accuracy < lowestAccuracy) {
-        lowestAccuracy = p.mastery.accuracy;
-        weakestProfile = p;
+  if (profilesWithMistakes.length > 0) {
+    profilesWithMistakes.sort((a, b) => {
+      // 1. Lowest accuracy first
+      if (a.mastery.accuracy !== b.mastery.accuracy) {
+        return a.mastery.accuracy - b.mastery.accuracy;
       }
-    }
+      // 2. Highest mistake count first
+      const aMistakes = a.mastery.attempts - a.mastery.correct;
+      const bMistakes = b.mastery.attempts - b.mastery.correct;
+      if (aMistakes !== bMistakes) {
+        return bMistakes - aMistakes;
+      }
+      // 3. Most recent mistake timestamp
+      const aRecent = a.evidence.filter(e => !e.isCorrect).reduce((m, e) => Math.max(m, new Date(e.timestamp).getTime()), 0);
+      const bRecent = b.evidence.filter(e => !e.isCorrect).reduce((m, e) => Math.max(m, new Date(e.timestamp).getTime()), 0);
+      return bRecent - aRecent;
+    });
+
+    weakestProfile = profilesWithMistakes[0];
   }
 
   if (!weakestProfile) {
-    // Return empty payload if no strong weakness
-    const randomProfile = profiles.length > 0 ? profiles[0] : null;
+    // Return mastered state when all attempts were 100% correct
+    const firstProfile = profiles.length > 0 ? profiles[0] : null;
     return {
       hasData: true,
-      conceptId: randomProfile ? randomProfile.conceptId : null,
-      canonicalConcept: randomProfile ? randomProfile.canonicalConcept : null,
-      skillId: randomProfile ? randomProfile.skillId : null,
-      mastery: randomProfile ? randomProfile.mastery : { attempts: 0, correct: 0, accuracy: 0, recentAccuracy: 0, trend: "INSUFFICIENT_DATA" },
-      rootCause: { type: "UNKNOWN", confidence: 0, evidenceCount: 0 },
+      isMastered: true,
+      conceptId: firstProfile ? firstProfile.conceptId : "all-concepts",
+      canonicalConcept: firstProfile ? firstProfile.canonicalConcept : "All Concepts",
+      skillId: firstProfile ? firstProfile.skillId : "General",
+      mastery: firstProfile ? firstProfile.mastery : { attempts: 0, correct: 0, accuracy: 1.0, recentAccuracy: 1.0, trend: "STABLE" },
+      rootCause: {
+        type: "MASTERED",
+        confidence: 1.0,
+        evidenceCount: 0,
+        rootConceptId: firstProfile ? firstProfile.conceptId : "all-concepts",
+        rootConceptName: firstProfile ? firstProfile.canonicalConcept : "All Concepts"
+      },
       evidence: [],
       dependencies: [],
-      diagnosis: { status: "INSUFFICIENT_EVIDENCE" },
+      diagnosis: { status: "MASTERED" },
       explanation: null,
       sourceAttemptCount: attempts.length
     };
   }
 
-  // 4. Concept Dependencies 
+  // 4. Concept Dependencies
   const candidates = getAllPrerequisites(weakestProfile.conceptId);
   let bestRootProfile = weakestProfile;
   let highestRootConfidence = weakestProfile.rootCause.confidence;
 
   for (const candidateId of candidates) {
     const candidateProfile = profiles.find(p => p.conceptId === candidateId);
-    if (candidateProfile && candidateProfile.mastery.attempts > 0 && candidateProfile.mastery.accuracy < 0.6) {
-      // It is a valid root cause
+    if (candidateProfile && (candidateProfile.mastery.attempts - candidateProfile.mastery.correct) > 0) {
       if (candidateProfile.rootCause.confidence >= highestRootConfidence) {
         highestRootConfidence = candidateProfile.rootCause.confidence;
         bestRootProfile = candidateProfile;
@@ -312,6 +358,7 @@ export async function calculateConceptRoot(userId) {
   // 5. Final Result Formation
   return {
     hasData: true,
+    isMastered: false,
     conceptId: weakestProfile.conceptId,
     canonicalConcept: weakestProfile.canonicalConcept,
     skillId: weakestProfile.skillId,
@@ -325,7 +372,7 @@ export async function calculateConceptRoot(userId) {
     rootCause: {
       type: bestRootProfile.rootCause.type,
       confidence: bestRootProfile.rootCause.confidence,
-      evidenceCount: patternMatches,
+      evidenceCount: Math.max(patternMatches, 1),
       rootConceptId: bestRootProfile.conceptId,
       rootConceptName: bestRootProfile.canonicalConcept
     },
@@ -335,10 +382,10 @@ export async function calculateConceptRoot(userId) {
     dependencies,
     
     diagnosis: {
-      status: calculateConfidenceString(weakestProfile.rootCause.confidence)
+      status: calculateConfidenceString(bestRootProfile.rootCause.confidence)
     },
     
-    explanation: null, // To be filled by Gemini
+    explanation: null, // To be filled by Gemini or pedagogical fallback
     sourceAttemptCount: attempts.length
   };
 }

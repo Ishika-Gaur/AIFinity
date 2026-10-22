@@ -130,7 +130,7 @@ export default function ConceptRoot() {
               {/* Root Cause */}
               <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6 shadow-sm border-t-4 border-t-[var(--color-primary-600)]">
                 <span className="text-xs font-bold text-[var(--color-primary-700)] uppercase tracking-wider mb-3 block">Root Cause</span>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">{data.rootCause.rootConceptName}</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">{data.rootCause?.rootConceptName || data.canonicalConcept}</h3>
                 <p className="text-gray-600 font-medium mb-1">
                   Detected Pattern: <span className="capitalize text-gray-900">{data.rootCause.type.replace(/_/g, ' ').toLowerCase()}</span>
                 </p>

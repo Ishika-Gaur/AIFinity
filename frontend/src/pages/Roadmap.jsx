@@ -422,6 +422,12 @@ export default function Roadmap() {
   const [customCareerInput, setCustomCareerInput] = useState("");
   const [showCareerSelector, setShowCareerSelector] = useState(false);
 
+  // Roadmap & Progress State
+  const [completedStageIds, setCompletedStageIds] = useState([]);
+  const [weakConcepts, setWeakConcepts] = useState([]);
+  const [totalMistakes, setTotalMistakes] = useState(0);
+  const [overallAvgScore, setOverallAvgScore] = useState(0);
+
   const [completedTasks, setCompletedTasks] = useState({});
   const [currentCourseId, setCurrentCourseId] = useState("");
   const [enrolledRoadmaps, setEnrolledRoadmaps] = useState([]);
@@ -432,12 +438,48 @@ export default function Roadmap() {
   // Track per-phase loading state for Continue Learning button
   const [continueLearningLoading, setContinueLearningLoading] = useState(null);
 
+  // Toggle stage completion (persisted to backend MongoDB)
+  const handleToggleStageCompletion = async (stageId) => {
+    try {
+      const res = await analyticsApi.updateRoadmap({
+        stageId,
+        courseId: currentCourseId,
+      });
+      if (res && res.success && res.data) {
+        const newlyCompleted = res.data.completedStageIds || [];
+        setCompletedStageIds(newlyCompleted);
+        const isNowComplete = newlyCompleted.includes(Number(stageId));
+        if (isNowComplete) {
+          setNotification(`🎉 Phase ${stageId} completed! Phase ${Number(stageId) + 1} is now unlocked.`);
+          // Auto-expand next phase
+          setExpandedPhases({ [Number(stageId) + 1]: true });
+        } else {
+          setNotification(`Phase ${stageId} reopened. Subsequent phases locked.`);
+        }
+        await fetchRoadmap(currentCourseId);
+      }
+    } catch (err) {
+      console.error("Failed to toggle phase completion:", err);
+      const msg = err.response?.data?.message || err.message || "Failed to update phase completion status.";
+      setNotification(msg);
+    }
+  };
+
   /**
    * Generates an AI assessment scoped to the phase's first topic + career field,
    * then navigates directly into that assessment. Falls back to the
    * assessment page with a topic query param if generation fails.
    */
   const handleTestKnowledge = async (phase) => {
+    // Sequential guard: verify previous phases are completed
+    const idx = activePhases.findIndex((p) => p.id === phase.id);
+    const prevPhase = idx > 0 ? activePhases[idx - 1] : null;
+    const isPrevDone = idx === 0 || (prevPhase && (prevPhase.status === "completed" || completedStageIds.includes(prevPhase.id)));
+    if (!isPrevDone) {
+      setNotification(`🔒 Phase ${phase.phaseNum} is locked. Please complete Phase ${phase.phaseNum - 1} first.`);
+      return;
+    }
+
     const topic = phase.topics?.[0] || phase.title;
     const field = targetCareer || "Software Development";
     setContinueLearningLoading(phase.id);
@@ -503,6 +545,15 @@ export default function Roadmap() {
           currentTopic: res.data.currentTopic || "",
           lastAccessed: res.data.lastAccessed,
         });
+
+        // Store persistent stage completion and concept health analytics
+        setCompletedStageIds(res.data.completedStageIds || []);
+        setWeakConcepts(res.data.weakConcepts || []);
+        setTotalMistakes(res.data.totalMistakes || 0);
+        setOverallAvgScore(res.data.overallAvgScore || 0);
+        if (typeof res.data.readinessScore === "number") {
+          setReadinessScore(res.data.readinessScore);
+        }
 
         // Focus and auto-expand the active milestone where the user stopped
         setExpandedPhases({ [activeStageId]: true });
@@ -970,41 +1021,68 @@ export default function Roadmap() {
               >
                 <h3 className="text-lg font-bold text-[#1B332C] mb-4">All Actionable Milestones</h3>
                 <div className="space-y-4">
-                  {activePhases.map((phase) => (
-                    <div key={phase.id} className="rounded-xl border p-4 bg-[#EDE6D3]/40 border-[#2E4F42]/10">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[#2E4F42]">
-                          Phase {phase.phaseNum}: {phase.title}
-                        </span>
-                        <span className="text-[11px] font-mono text-[#5B6B5F]">{phase.weeks}</span>
-                      </div>
-                      <div className="space-y-2">
-                        {phase.tasks.map((task) => {
-                          const isDone = !!completedTasks[task.id];
-                          return (
-                            <label
-                              key={task.id}
-                              className="flex items-start gap-3 cursor-pointer group p-1.5 rounded-lg hover:bg-white/60 transition"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isDone}
-                                onChange={() => handleToggleTask(task.id)}
-                                className="mt-0.5 h-4 w-4 rounded accent-[#2E4F42] cursor-pointer"
-                              />
-                              <span
-                                className={`text-xs font-medium transition ${
-                                  isDone ? "line-through text-[#8B9690]" : "text-[#24413A] group-hover:text-[#1B332C]"
+                  {activePhases.map((phase, idx) => {
+                    const isPhaseDone = phase.status === "completed" || completedStageIds.includes(phase.id);
+                    const prevPhase = idx > 0 ? activePhases[idx - 1] : null;
+                    const isPrevDone = idx === 0 || (prevPhase && (prevPhase.status === "completed" || completedStageIds.includes(prevPhase.id)));
+                    const isPhaseLocked = !isPhaseDone && !isPrevDone;
+
+                    return (
+                      <div
+                        key={phase.id}
+                        className={`rounded-xl border p-4 transition-all ${
+                          isPhaseLocked ? "bg-gray-100/60 border-gray-200 opacity-75" : "bg-[#EDE6D3]/40 border-[#2E4F42]/10"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#2E4F42]">
+                              Phase {phase.phaseNum}: {phase.title}
+                            </span>
+                            {isPhaseLocked && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
+                                🔒 Locked
+                              </span>
+                            )}
+                            {isPhaseDone && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                ✓ Completed
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] font-mono text-[#5B6B5F]">{phase.weeks}</span>
+                        </div>
+                        <div className="space-y-2">
+                          {phase.tasks.map((task) => {
+                            const isDone = !!completedTasks[task.id];
+                            return (
+                              <label
+                                key={task.id}
+                                className={`flex items-start gap-3 p-1.5 rounded-lg transition ${
+                                  isPhaseLocked ? "cursor-not-allowed opacity-60" : "cursor-pointer group hover:bg-white/60"
                                 }`}
                               >
-                                {task.text}
-                              </span>
-                            </label>
-                          );
-                        })}
+                                <input
+                                  type="checkbox"
+                                  disabled={isPhaseLocked}
+                                  checked={isDone}
+                                  onChange={() => !isPhaseLocked && handleToggleTask(task.id)}
+                                  className="mt-0.5 h-4 w-4 rounded accent-[#2E4F42] cursor-pointer disabled:cursor-not-allowed"
+                                />
+                                <span
+                                  className={`text-xs font-medium transition ${
+                                    isDone ? "line-through text-[#8B9690]" : "text-[#24413A] group-hover:text-[#1B332C]"
+                                  }`}
+                                >
+                                  {task.text}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1111,10 +1189,21 @@ export default function Roadmap() {
                     const isExpanded = !!expandedPhases[phase.id];
                     const isLast = idx === activePhases.length - 1;
 
+                    // Calculate phase completion & sequential locking
+                    const isPhaseCompleted = phase.status === "completed" || completedStageIds.includes(phase.id);
+                    const prevPhase = idx > 0 ? activePhases[idx - 1] : null;
+                    const isPrevDone = idx === 0 || (prevPhase && (prevPhase.status === "completed" || completedStageIds.includes(prevPhase.id)));
+                    const isLocked = !isPhaseCompleted && !isPrevDone;
+                    const isCurrent = !isPhaseCompleted && isPrevDone;
+
                     // Calculate phase task progress
                     const phaseTasks = phase.tasks || [];
                     const completedInPhase = phaseTasks.filter((t) => completedTasks[t.id]).length;
-                    const phaseProgress = phaseTasks.length > 0
+                    const phaseProgress = isPhaseCompleted
+                      ? 100
+                      : isLocked
+                      ? 0
+                      : phaseTasks.length > 0
                       ? Math.round((completedInPhase / phaseTasks.length) * 100)
                       : phase.baseProgress || 0;
 
@@ -1149,30 +1238,60 @@ export default function Roadmap() {
                       <div key={phase.id} className="relative flex flex-col sm:flex-row gap-4 sm:gap-6 group">
                         {/* Step Marker on the Left */}
                         <div className="relative z-10 flex sm:flex-col items-center sm:items-center gap-3 sm:gap-1.5 shrink-0">
-                          {/* Numbered Circle Badge */}
-                          <div
-                            className={`flex h-11 w-11 items-center justify-center rounded-full font-bold text-sm border-2 shadow-xs transition-transform duration-200 group-hover:scale-105 ${
-                              phaseProgress === 100
-                                ? "bg-[#2E4F42] text-white border-[#2E4F42]"
-                                : idx === 0
-                                ? "bg-[#D9A62B] text-[#1B332C] border-[#B9860F] ring-4 ring-[#E8C547]/25"
+                          {/* Numbered Circle Badge / Interactive Step Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isLocked) {
+                                setNotification(`🔒 Phase ${phase.phaseNum} is locked. Complete Phase ${phase.phaseNum - 1} first.`);
+                                return;
+                              }
+                              handleToggleStageCompletion(phase.id);
+                            }}
+                            title={
+                              isLocked
+                                ? `Locked: Complete Phase ${phase.phaseNum - 1} first`
+                                : isPhaseCompleted
+                                ? `Phase ${phase.phaseNum} Completed! Click to re-open`
+                                : `Active Phase ${phase.phaseNum}: Click to mark complete`
+                            }
+                            disabled={isLocked}
+                            className={`flex h-11 w-11 items-center justify-center rounded-full font-bold text-sm border-2 shadow-xs transition-transform duration-200 ${
+                              isLocked
+                                ? "bg-[#EDE6D3] text-[#8B9690] border-[#2E4F42]/15 cursor-not-allowed opacity-75"
+                                : isPhaseCompleted
+                                ? "bg-[#2E4F42] text-white border-[#2E4F42] hover:scale-105 active:scale-95 cursor-pointer"
+                                : isCurrent
+                                ? "bg-[#D9A62B] text-[#1B332C] border-[#B9860F] ring-4 ring-[#E8C547]/30 hover:scale-105 active:scale-95 cursor-pointer"
                                 : "bg-[#EDE6D3] text-[#5B6B5F] border-[#2E4F42]/20"
                             }`}
                           >
-                            {phaseProgress === 100 ? "✓" : phase.phaseNum}
-                          </div>
+                            {isLocked ? <LockIcon className="w-4 h-4" /> : isPhaseCompleted ? "✓" : phase.phaseNum}
+                          </button>
 
                           {/* Phase Label & Weeks under step circle */}
                           <div className="text-left sm:text-center sm:w-20">
-                            <p className="text-xs font-bold text-[#1B332C]">Phase {phase.phaseNum}</p>
+                            <p className={`text-xs font-bold ${isLocked ? "text-[#8B9690]" : "text-[#1B332C]"}`}>
+                              Phase {phase.phaseNum}
+                            </p>
                             <p className="text-[11px] font-mono text-[#8B9690]">{phase.weeks}</p>
                           </div>
                         </div>
 
                         {/* Phase Card */}
                         <div
-                          className="flex-1 rounded-2xl border transition-all duration-300 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] overflow-hidden"
-                          style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+                          id={`phase-${phase.id}`}
+                          className={`flex-1 rounded-2xl border transition-all duration-300 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)] overflow-hidden ${
+                            isLocked ? "opacity-85 border-dashed" : ""
+                          }`}
+                          style={{
+                            borderColor: isCurrent
+                              ? "var(--color-primary-400, #2E4F42)"
+                              : isLocked
+                              ? "rgba(46, 79, 66, 0.15)"
+                              : "var(--color-border)",
+                            background: isLocked ? "var(--color-surface-secondary)" : "var(--color-surface)",
+                          }}
                         >
                           {/* Phase Card Header / Toggle Row */}
                           <div
@@ -1183,22 +1302,41 @@ export default function Roadmap() {
                               {/* Title & Priority Badge */}
                               <div className="flex flex-wrap items-center gap-2.5">
                                 <h3
-                                  className="text-lg sm:text-xl font-bold text-[#1B332C]"
+                                  className={`text-lg sm:text-xl font-bold ${isLocked ? "text-[#5B6B5F]" : "text-[#1B332C]"}`}
                                   style={{ fontFamily: "var(--font-display)" }}
                                 >
                                   {phase.title}
                                 </h3>
 
-                                <span
-                                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider border"
-                                  style={{
-                                    backgroundColor: priorityConfig.bg,
-                                    color: priorityConfig.text,
-                                    borderColor: priorityConfig.border,
-                                  }}
-                                >
-                                  {priorityConfig.label}
-                                </span>
+                                {isLocked ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider border border-gray-300 bg-gray-100 text-gray-600">
+                                    <LockIcon className="w-3 h-3" />
+                                    Locked Phase
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider border"
+                                    style={{
+                                      backgroundColor: priorityConfig.bg,
+                                      color: priorityConfig.text,
+                                      borderColor: priorityConfig.border,
+                                    }}
+                                  >
+                                    {priorityConfig.label}
+                                  </span>
+                                )}
+
+                                {isCurrent && (
+                                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider bg-[#E8C547]/20 border border-[#D9A62B]/30 text-[#855D0A]">
+                                    ⚡ Active Milestone
+                                  </span>
+                                )}
+
+                                {isPhaseCompleted && (
+                                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider bg-emerald-50 border border-emerald-300 text-emerald-800">
+                                    ✓ Completed
+                                  </span>
+                                )}
                               </div>
 
                               {/* Progress bar + percentage + Chevron */}
@@ -1240,8 +1378,41 @@ export default function Roadmap() {
                               className="px-5 sm:px-6 pb-6 pt-2 border-t flex flex-col gap-5"
                               style={{ borderColor: "rgba(46, 79, 66, 0.08)" }}
                             >
+                              {/* If locked, display sequential prerequisite banner */}
+                              {isLocked && (
+                                <div className="rounded-xl border border-amber-300/60 bg-amber-50/80 p-4 text-xs shadow-xs">
+                                  <div className="flex items-start gap-3">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-200/70 text-base">
+                                      🔒
+                                    </div>
+                                    <div className="flex-1">
+                                      <h4 className="font-bold text-amber-950 text-sm">
+                                        Phase {phase.phaseNum} is Locked
+                                      </h4>
+                                      <p className="mt-1 text-amber-900 leading-relaxed">
+                                        To maintain sequential learning integrity and prevent prerequisite gaps, you must first complete <strong>Phase {phase.phaseNum - 1}: {prevPhase?.title || "Previous Phase"}</strong> before unlocking this milestone.
+                                      </p>
+                                      {prevPhase && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedPhases({ [prevPhase.id]: true });
+                                            const el = document.getElementById(`phase-${prevPhase.id}`);
+                                            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                          }}
+                                          className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#2E4F42] text-white font-bold text-xs hover:bg-[#1B332C] transition-all shadow-xs"
+                                        >
+                                          <span>← Go to Phase {phase.phaseNum - 1}</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Topics in this phase */}
-                              <div>
+                              <div className={isLocked ? "opacity-60 pointer-events-none" : ""}>
                                 <p className="text-[11px] font-bold uppercase tracking-wider text-[#8B9690] mb-2.5">
                                   Topics in this phase:
                                 </p>
@@ -1276,7 +1447,7 @@ export default function Roadmap() {
                               </div>
 
                               {/* Sample Tasks / Actionable Checklist */}
-                              <div>
+                              <div className={isLocked ? "opacity-60" : ""}>
                                 <p className="text-[11px] font-bold uppercase tracking-wider text-[#8B9690] mb-2.5">
                                   Sample Tasks:
                                 </p>
@@ -1286,18 +1457,23 @@ export default function Roadmap() {
                                     return (
                                       <label
                                         key={task.id}
-                                        className="flex items-start gap-3 p-2 rounded-lg hover:bg-[#EDE6D3]/50 cursor-pointer transition select-none"
+                                        className={`flex items-start gap-3 p-2 rounded-lg transition select-none ${
+                                          isLocked ? "cursor-not-allowed opacity-70" : "hover:bg-[#EDE6D3]/50 cursor-pointer"
+                                        }`}
                                       >
                                         <input
                                           type="checkbox"
+                                          disabled={isLocked}
                                           checked={isDone}
-                                          onChange={() => handleToggleTask(task.id)}
-                                          className="mt-0.5 h-4 w-4 rounded accent-[#2E4F42] cursor-pointer"
+                                          onChange={() => !isLocked && handleToggleTask(task.id)}
+                                          className="mt-0.5 h-4 w-4 rounded accent-[#2E4F42] cursor-pointer disabled:cursor-not-allowed"
                                         />
                                         <span
                                           className={`text-xs sm:text-sm font-medium transition ${
                                             isDone
                                               ? "line-through text-[#8B9690]"
+                                              : isLocked
+                                              ? "text-[#5B6B5F]"
                                               : "text-[#24413A]"
                                           }`}
                                         >
@@ -1329,92 +1505,137 @@ export default function Roadmap() {
                               {/* ===== 3-STEP LEARNING FLOW CTA ===== */}
                               <div className="pt-4 border-t border-[#2E4F42]/08 mt-2">
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-[#8B9690] mb-3">Your Learning Path for This Phase</p>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  {/* Step 1A: Read NCERT (academic) or Official Docs (professional) */}
-                                  {isAcademic ? (
-                                    <a
-                                      href="https://ncert.nic.in/textbook.php"
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs"
-                                      style={{ background: "#EDE6D3", color: "#1B332C", border: "1px solid rgba(46,79,66,0.18)" }}
-                                    >
-                                      <span>🏛️</span>
-                                      <span>1. NCERT Textbook ↗</span>
-                                    </a>
-                                  ) : (
-                                    <a
-                                      href={getPrimaryDocUrl(phase.topics?.[0] || phase.title, targetCareer)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs"
-                                      style={{ background: "#EDE6D3", color: "#1B332C", border: "1px solid rgba(46,79,66,0.18)" }}
-                                    >
-                                      <span>📖</span>
-                                      <span>1. Read Official Docs ↗</span>
-                                    </a>
-                                  )}
+                                {isLocked ? (
+                                  <div className="flex items-center gap-2.5 p-3.5 rounded-xl border border-gray-200 bg-gray-50/80 text-gray-500 text-xs font-semibold">
+                                    <span className="text-base">🔒</span>
+                                    <span>
+                                      Learning materials, projects, and knowledge assessments for Phase {phase.phaseNum} unlock when Phase {phase.phaseNum - 1} is marked completed.
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {/* Step 1A: Read NCERT (academic) or Official Docs (professional) */}
+                                    {isAcademic ? (
+                                      <a
+                                        href="https://ncert.nic.in/textbook.php"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs"
+                                        style={{ background: "#EDE6D3", color: "#1B332C", border: "1px solid rgba(46,79,66,0.18)" }}
+                                      >
+                                        <span>🏛️</span>
+                                        <span>1. NCERT Textbook ↗</span>
+                                      </a>
+                                    ) : (
+                                      <a
+                                        href={getPrimaryDocUrl(phase.topics?.[0] || phase.title, targetCareer)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs"
+                                        style={{ background: "#EDE6D3", color: "#1B332C", border: "1px solid rgba(46,79,66,0.18)" }}
+                                      >
+                                        <span>📖</span>
+                                        <span>1. Read Official Docs ↗</span>
+                                      </a>
+                                    )}
 
-                                  {/* Step 1B: Study Hub / Revision Notes */}
-                                  <Link
-                                    to={`/resources/handbook?topic=${encodeURIComponent(phase.topics?.[0] || phase.title)}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-200 hover:bg-[#E8C547]/20 text-[#1B332C] border border-[#2E4F42]/15"
-                                  >
-                                    <span>📚</span>
-                                    <span>{isAcademic ? "Revision Notes" : "Study Hub"}</span>
-                                  </Link>
-
-                                  {/* Step 2: Board PYQs (academic) or Build a Project (professional) */}
-                                  {isAcademic ? (
+                                    {/* Step 1B: Study Hub / Revision Notes */}
                                     <Link
-                                      to="/assessment"
+                                      to={`/resources/handbook?topic=${encodeURIComponent(phase.topics?.[0] || phase.title)}`}
                                       onClick={(e) => e.stopPropagation()}
-                                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95"
-                                      style={{ background: "#DBEAFE", color: "#1D4ED8", border: "1px solid rgba(29,78,216,0.15)" }}
+                                      className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all duration-200 hover:bg-[#E8C547]/20 text-[#1B332C] border border-[#2E4F42]/15"
                                     >
-                                      <span>✍️</span>
-                                      <span>2. Board PYQs</span>
+                                      <span>📚</span>
+                                      <span>{isAcademic ? "Revision Notes" : "Study Hub"}</span>
                                     </Link>
-                                  ) : (
-                                    <Link
-                                      to={`/resources/project-ideas?topic=${encodeURIComponent(phase.topics?.[0] || phase.title)}&difficulty=${phase.priority === "High" ? "Beginner" : phase.priority === "Medium" ? "Intermediate" : "Advanced"}`}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95"
-                                      style={{ background: "#DBEAFE", color: "#1D4ED8", border: "1px solid rgba(29,78,216,0.15)" }}
-                                    >
-                                      <span>💡</span>
-                                      <span>2. Build a Project</span>
-                                    </Link>
-                                  )}
 
-                                  {/* Step 3: Test Knowledge */}
+                                    {/* Step 2: Board PYQs (academic) or Build a Project (professional) */}
+                                    {isAcademic ? (
+                                      <Link
+                                        to="/assessment"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95"
+                                        style={{ background: "#DBEAFE", color: "#1D4ED8", border: "1px solid rgba(29,78,216,0.15)" }}
+                                      >
+                                        <span>✍️</span>
+                                        <span>2. Board PYQs</span>
+                                      </Link>
+                                    ) : (
+                                      <Link
+                                        to={`/resources/project-ideas?topic=${encodeURIComponent(phase.topics?.[0] || phase.title)}&difficulty=${phase.priority === "High" ? "Beginner" : phase.priority === "Medium" ? "Intermediate" : "Advanced"}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95"
+                                        style={{ background: "#DBEAFE", color: "#1D4ED8", border: "1px solid rgba(29,78,216,0.15)" }}
+                                      >
+                                        <span>💡</span>
+                                        <span>2. Build a Project</span>
+                                      </Link>
+                                    )}
+
+                                    {/* Step 3: Test Knowledge */}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleTestKnowledge(phase); }}
+                                      disabled={continueLearningLoading === phase.id}
+                                      className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
+                                      style={{ background: "#1B332C", color: "#E8C547", border: "1px solid rgba(46,79,66,0.3)" }}
+                                    >
+                                      {continueLearningLoading === phase.id ? (
+                                        <>
+                                          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                          </svg>
+                                          <span>Preparing…</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span>⚡</span>
+                                          <span>{isAcademic ? "3. Practice Assessment" : "3. Test Knowledge"}</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Phase Completion & Unlock Button (for unlocked phases) */}
+                              {!isLocked && (
+                                <div className="pt-4 border-t border-[#2E4F42]/10 mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                  <span className="text-xs text-[#5B6B5F]">
+                                    {isPhaseCompleted
+                                      ? "Phase marked as completed. You can re-open it to review materials."
+                                      : "Finished learning and practicing this milestone?"}
+                                  </span>
                                   <button
                                     type="button"
-                                    onClick={(e) => { e.stopPropagation(); handleTestKnowledge(phase); }}
-                                    disabled={continueLearningLoading === phase.id}
-                                    className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
-                                    style={{ background: "#1B332C", color: "#E8C547", border: "1px solid rgba(46,79,66,0.3)" }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleStageCompletion(phase.id);
+                                    }}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs"
+                                    style={{
+                                      background: isPhaseCompleted ? "#EDE6D3" : "#2E4F42",
+                                      color: isPhaseCompleted ? "#1B332C" : "#E8C547",
+                                      border: "1px solid rgba(46,79,66,0.2)",
+                                    }}
                                   >
-                                    {continueLearningLoading === phase.id ? (
+                                    {isPhaseCompleted ? (
                                       <>
-                                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                        </svg>
-                                        <span>Preparing…</span>
+                                        <span>↩</span>
+                                        <span>Re-open Phase {phase.phaseNum}</span>
                                       </>
                                     ) : (
                                       <>
-                                        <span>⚡</span>
-                                        <span>{isAcademic ? "3. Practice Assessment" : "3. Test Knowledge"}</span>
+                                        <span>✓</span>
+                                        <span>Mark Phase {phase.phaseNum} Complete & Unlock Next →</span>
                                       </>
                                     )}
                                   </button>
                                 </div>
-                              </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1513,7 +1734,220 @@ export default function Roadmap() {
               </div>
             </div>
 
-            {/* Widget 2: This Week's Focus */}
+            {/* Widget 2: Sequential Milestone Gateways (Phase Progression Pipeline) */}
+            <div
+              className="rounded-2xl border p-5 sm:p-6 shadow-[var(--shadow-card)]"
+              style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#E8C547]/30 text-[#1B332C] text-sm">
+                    🔐
+                  </span>
+                  <h3 className="text-base font-bold text-[#1B332C]">Milestone Gateways</h3>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#2E4F42] bg-[#2E4F42]/10 px-2 py-0.5 rounded-full">
+                  Sequential
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {activePhases.map((phase, idx) => {
+                  const isPhaseDone = phase.status === "completed" || completedStageIds.includes(phase.id);
+                  const prevP = idx > 0 ? activePhases[idx - 1] : null;
+                  const isPrevDone = idx === 0 || (prevP && (prevP.status === "completed" || completedStageIds.includes(prevP.id)));
+                  const isPhaseLocked = !isPhaseDone && !isPrevDone;
+                  const isPhaseCurrent = !isPhaseDone && isPrevDone;
+
+                  return (
+                    <div
+                      key={phase.id}
+                      onClick={() => {
+                        if (isPhaseLocked) {
+                          setNotification(`🔒 Phase ${phase.phaseNum} is locked. Complete Phase ${phase.phaseNum - 1} first.`);
+                          return;
+                        }
+                        setExpandedPhases({ [phase.id]: true });
+                        const el = document.getElementById(`phase-${phase.id}`);
+                        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }}
+                      className={`flex items-center justify-between p-3 rounded-xl border transition-all select-none ${
+                        isPhaseLocked
+                          ? "bg-gray-50/70 border-gray-200 cursor-not-allowed opacity-75"
+                          : isPhaseCurrent
+                          ? "bg-[#E8C547]/10 border-[#D9A62B]/40 hover:bg-[#E8C547]/20 cursor-pointer shadow-xs"
+                          : "bg-emerald-50/50 border-emerald-200/60 hover:bg-emerald-50 cursor-pointer"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                            isPhaseDone
+                              ? "bg-[#2E4F42] text-white"
+                              : isPhaseCurrent
+                              ? "bg-[#D9A62B] text-[#1B332C]"
+                              : "bg-gray-200 text-gray-500"
+                          }`}
+                        >
+                          {isPhaseDone ? "✓" : isPhaseLocked ? "🔒" : phase.phaseNum}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-[#1B332C] truncate">
+                            Phase {phase.phaseNum}: {phase.title}
+                          </p>
+                          <p className="text-[10px] text-[#5B6B5F] font-mono">{phase.weeks}</p>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${
+                          isPhaseDone
+                            ? "bg-emerald-100 text-emerald-800"
+                            : isPhaseCurrent
+                            ? "bg-[#E8C547]/30 text-[#855D0A]"
+                            : "bg-gray-200 text-gray-500"
+                        }`}
+                      >
+                        {isPhaseDone ? "Complete" : isPhaseCurrent ? "Active" : "Locked"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="mt-3 text-[11px] text-[#5B6B5F] leading-relaxed italic border-t border-[#2E4F42]/10 pt-3">
+                💡 Sequential Rule: You must complete earlier phases to unlock subsequent learning modules and tests.
+              </p>
+            </div>
+
+            {/* Widget 3: ConceptRoot™ Prerequisite Diagnostics (Knowledge Health) */}
+            <div
+              className="rounded-2xl border p-5 sm:p-6 shadow-[var(--shadow-card)]"
+              style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FEE2E2] text-[#B91C1C] text-sm">
+                    🧠
+                  </span>
+                  <div>
+                    <h3 className="text-base font-bold text-[#1B332C]">Concept Diagnostics</h3>
+                    <p className="text-[10px] text-[#8B9690] uppercase tracking-wider font-semibold">ConceptRoot™ Knowledge Health</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">
+                  Live
+                </span>
+              </div>
+
+              {weakConcepts && weakConcepts.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-amber-300/40 bg-amber-50/70 p-3 text-xs text-amber-900">
+                    <span className="font-bold block mb-1">⚠️ Prerequisite Remediation Needed</span>
+                    Your latest assessments detected weak accuracy in these concepts. Phase 1 & 3 are personalized to target them:
+                  </div>
+
+                  <div className="space-y-2">
+                    {weakConcepts.slice(0, 3).map((wc, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-[#2E4F42]/08 bg-[#EDE6D3]/40"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <p className="text-xs font-bold text-[#1B332C] truncate">{wc.category}</p>
+                          <p className="text-[10px] text-[#5B6B5F]">{wc.incorrect || 0} missed question(s)</p>
+                        </div>
+                        <span className="text-xs font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200 shrink-0 font-mono">
+                          {wc.avgScore || 0}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 flex flex-col gap-2">
+                    <Link
+                      to="/concept-root"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-[#2E4F42] text-white hover:bg-[#1B332C] transition-all shadow-xs"
+                    >
+                      <span>View Concept Root Analysis</span>
+                      <ArrowRightIcon className="w-3.5 h-3.5" />
+                    </Link>
+                    <Link
+                      to="/mistake-map"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-[#EDE6D3] text-[#1B332C] hover:bg-[#EDE6D3]/70 transition-all border border-[#2E4F42]/15"
+                    >
+                      <span>Inspect Mistake Map</span>
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-emerald-300/50 bg-emerald-50/80 p-3 text-xs text-emerald-900">
+                    <span className="font-bold block mb-1">✅ Strong Prerequisite Foundations</span>
+                    No conceptual gaps currently flagged. Baseline assessment accuracy is {overallAvgScore || 85}%.
+                  </div>
+                  <Link
+                    to="/assessment"
+                    className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-xl text-xs font-bold bg-[#2E4F42] text-white hover:bg-[#1B332C] transition-all"
+                  >
+                    <span>Take Practice Assessment</span>
+                    <ArrowRightIcon className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Widget 4: Study Velocity & Daily Momentum Tracker */}
+            <div
+              className="rounded-2xl border p-5 sm:p-6 shadow-[var(--shadow-card)]"
+              style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+            >
+              <div className="flex items-center gap-2.5 mb-4">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#D1FAE5] text-[#047857] text-sm">
+                  ⚡
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-[#1B332C]">Study Velocity</h3>
+                  <p className="text-[10px] text-[#8B9690] uppercase tracking-wider font-semibold">Pacing & Habit Metrics</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 mb-4">
+                <div className="p-3 rounded-xl border border-[#2E4F42]/10 bg-[#EDE6D3]/40">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#5B6B5F]">Daily Target</p>
+                  <p className="text-sm font-extrabold text-[#1B332C] mt-0.5">1 Test + 2 Tasks</p>
+                </div>
+                <div className="p-3 rounded-xl border border-[#2E4F42]/10 bg-[#EDE6D3]/40">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#5B6B5F]">Learning Streak</p>
+                  <p className="text-sm font-extrabold text-amber-700 mt-0.5">🔥 Active Habit</p>
+                </div>
+                <div className="p-3 rounded-xl border border-[#2E4F42]/10 bg-[#EDE6D3]/40">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#5B6B5F]">Sprint Progress</p>
+                  <p className="text-sm font-extrabold text-[#1B332C] mt-0.5 font-mono">{checkedTasksCount}/{totalTasksCount || 12}</p>
+                </div>
+                <div className="p-3 rounded-xl border border-[#2E4F42]/10 bg-[#EDE6D3]/40">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#5B6B5F]">Est. Duration</p>
+                  <p className="text-sm font-extrabold text-[#1B332C] mt-0.5">~{Math.max(2, (activePhases.length - completedStageIds.length) * 2)} Wks</p>
+                </div>
+              </div>
+
+              {resumptionState && resumptionState.activeStageId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExpandedPhases({ [resumptionState.activeStageId]: true });
+                    const el = document.getElementById(`phase-${resumptionState.activeStageId}`);
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-[#1B332C] bg-[#E8C547]/30 hover:bg-[#E8C547]/50 border border-[#D9A62B]/30 transition-all shadow-2xs"
+                >
+                  <span>⚡ Jump to Active Phase {resumptionState.activeStageId}</span>
+                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Widget 5: This Week's Focus */}
             <div
               className="rounded-2xl border p-6 shadow-[var(--shadow-card)]"
               style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
@@ -1563,7 +1997,51 @@ export default function Roadmap() {
               </div>
             </div>
 
-            {/* Widget 3: Helpful Resources */}
+            {/* Widget 6: Target Career Alignment & Skill Gap */}
+            <div
+              className="rounded-2xl border p-5 sm:p-6 shadow-[var(--shadow-card)]"
+              style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
+            >
+              <div className="flex items-center gap-2.5 mb-3">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EDE9FE] text-[#6D28D9] text-sm">
+                  🎯
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-[#1B332C]">Role Alignment</h3>
+                  <p className="text-[10px] text-[#8B9690] uppercase tracking-wider font-semibold">{targetCareer}</p>
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-[#5B6B5F]">Current Readiness</span>
+                  <span className="font-extrabold text-[#1B332C] font-mono">{readinessScore}%</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-[#EDE6D3] overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      width: `${readinessScore}%`,
+                      background: readinessScore >= 75 ? "var(--color-confirm)" : "#D9A62B",
+                    }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-[#8B9690] mt-1 font-mono">
+                  <span>0% Beginner</span>
+                  <span>Target: 85% Industry Ready</span>
+                </div>
+              </div>
+
+              <Link
+                to="/skill-gap"
+                className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-xl text-xs font-bold bg-[#EDE6D3] text-[#1B332C] hover:bg-[#EDE6D3]/70 border border-[#2E4F42]/15 transition-all shadow-2xs"
+              >
+                <span>Analyze Skill Gap Matrix</span>
+                <ArrowRightIcon className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {/* Widget 7: Helpful Resources */}
             <div
               className="rounded-2xl border p-6 shadow-[var(--shadow-card)]"
               style={{ borderColor: "var(--color-border)", background: "var(--color-surface)" }}
@@ -1607,7 +2085,7 @@ export default function Roadmap() {
               </div>
             </div>
 
-            {/* Widget 4: Motivational Mini Banner with Summit theme */}
+            {/* Widget 8: Motivational Mini Banner with Summit theme */}
             <div
               className="rounded-2xl border p-6 relative overflow-hidden transition-all duration-300 hover:shadow-md"
               style={{

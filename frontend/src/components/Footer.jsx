@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import Container from "../components/Container";
 import logo from "../assets/logo.svg";
 
@@ -61,7 +62,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 gap-10 py-16 sm:grid-cols-2 lg:grid-cols-5">
           {/* Brand Col */}
           <div className="flex flex-col gap-4 sm:col-span-2">
-            <a href="/" className="group flex items-center gap-3 w-fit">
+            <Link to="/" className="group flex items-center gap-3 w-fit">
               {/* Logo Image */}
               <div className="relative flex h-14 w-14 items-center justify-center rounded-xl bg-white p-1.5 shadow-sm transition-transform duration-300 group-hover:scale-105">
                 <img
@@ -79,7 +80,7 @@ export default function Footer() {
                   Learning Intelligence
                 </span>
               </div>
-            </a>
+            </Link>
 
             <div className="flex flex-col gap-1">
               <p className="font-sans text-sm text-[#E8C547] font-semibold italic">
@@ -130,12 +131,12 @@ export default function Footer() {
               <ul className="flex flex-col gap-2">
                 {col.links.map((link) => (
                   <li key={link.href}>
-                    <a
-                      href={link.href}
+                    <Link
+                      to={link.href}
                       className="text-xs font-sans text-[#EDE6D3]/90 transition-colors duration-200 hover:text-[#E8C547] hover:underline decoration-[#E8C547]/40"
                     >
                       {link.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -149,12 +150,12 @@ export default function Footer() {
             © {new Date().getFullYear()} AIFinity. All rights reserved. Developed by Faiz, Isika, and Aman Negi.
           </p>
           <div className="flex gap-6">
-            <a href="/privacy" className="transition-colors hover:text-[#E8C547]">
+            <Link to="/privacy" className="transition-colors hover:text-[#E8C547]">
               Privacy Policy
-            </a>
-            <a href="/terms" className="transition-colors hover:text-[#E8C547]">
+            </Link>
+            <Link to="/terms" className="transition-colors hover:text-[#E8C547]">
               Terms of Service
-            </a>
+            </Link>
           </div>
         </div>
       </Container>

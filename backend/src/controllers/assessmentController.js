@@ -79,6 +79,9 @@ export async function startAttempt(req, res) {
 
   if (mongoose.Types.ObjectId.isValid(targetId)) {
     assessment = await Assessment.findOne({ _id: targetId, status: "published" });
+    if (!assessment) {
+      return res.status(404).json({ success: false, message: "Assessment not found." });
+    }
   } else {
     assessment = await Assessment.findOne({
       $or: [
@@ -88,6 +91,11 @@ export async function startAttempt(req, res) {
       ],
       status: "published",
     });
+  }
+
+  // Ownership validation for AI assessments
+  if (assessment && assessment.isAiGenerated && (!req.user || String(assessment.userId) !== String(req.user._id))) {
+    return res.status(403).json({ success: false, message: "You do not have permission to access this assessment." });
   }
 
   if (!assessment) {
@@ -583,7 +591,7 @@ export async function submitAttempt(req, res) {
 
   // 1. Idempotency Check: prevent duplicate assessment submissions with same attemptId
   if (req.user && attemptId) {
-    const existingAttempt = await AttemptResult.findOne({ attemptId });
+    const existingAttempt = await AttemptResult.findOne({ attemptId }).lean();
     if (existingAttempt) {
       if (String(existingAttempt.userId) !== String(req.user._id)) {
         return res.status(403).json({
@@ -592,28 +600,8 @@ export async function submitAttempt(req, res) {
         });
       }
       return res.status(200).json({
-        success: true,
+        ...formatSubmitResponse(existingAttempt),
         duplicateHandled: true,
-        scorePercent: existingAttempt.scorePercent,
-        totalScore: existingAttempt.totalScore,
-        maxScore: existingAttempt.maxScore,
-        percentage: existingAttempt.scorePercent,
-        correctCount: existingAttempt.correctCount,
-        incorrectCount: existingAttempt.incorrectCount,
-        unansweredCount: existingAttempt.unansweredCount,
-        attemptedCount: existingAttempt.attemptedCount,
-        answeredCount: existingAttempt.attemptedCount,
-        gradableCount: existingAttempt.gradableCount,
-        attemptedGradableCount: existingAttempt.attemptedCount,
-        unansweredTotalCount: existingAttempt.unansweredCount,
-        totalQuestions: existingAttempt.totalQuestions,
-        questionResults: existingAttempt.questionResults,
-        incorrectSubmissions: (existingAttempt.questionResults || []).filter((q) => !q.isCorrect && q.status !== "correct"),
-        sessionMistakes: (existingAttempt.questionResults || []).filter((q) => !q.isCorrect && q.status !== "correct"),
-        elapsedSeconds: existingAttempt.elapsedSeconds,
-        violationsCount: existingAttempt.violations?.length || 0,
-        violations: existingAttempt.violations || [],
-        autoSubmitted: (existingAttempt.violations?.length || 0) >= 3,
       });
     }
   }

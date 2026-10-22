@@ -698,9 +698,130 @@ Code: ${submission.code || 'N/A'}`;
   }
 };
 
+
+export const generateDeterministicConceptExplanation = (deterministicData) => {
+  const conceptName = deterministicData.canonicalConcept || deterministicData.rootCause?.rootConceptName || "this concept";
+  const rootConcept = deterministicData.rootCause?.rootConceptName || conceptName;
+  const errorType = (deterministicData.rootCause?.type || "CONCEPTUAL").toUpperCase();
+  const skill = deterministicData.skillId || "Core Subject Knowledge";
+
+  if (deterministicData.diagnosis?.status === "MASTERED" || deterministicData.isMastered || errorType === "MASTERED") {
+    return {
+      explanation: `Outstanding performance on ${conceptName}. You demonstrated accurate understanding across all assessed questions with zero detected errors.`,
+      whyMistakeHappens: "No conceptual or procedural errors were detected in your assessment.",
+      misconception: "No misconceptions found. Core foundational concepts are well understood.",
+      conceptRelationship: `${conceptName} is solidly mastered. You are ready to tackle more advanced topics.`,
+      whatToUnderstand: [
+        `You have demonstrated firm command of ${conceptName} principles.`,
+        `Your responses accurately reflected domain conventions and logic.`,
+        `Continue applying these principles as you progress to higher-level challenges.`
+      ],
+      mentalModel: `Maintain your structured approach: verify requirements and build upon your solid foundation.`,
+      howToAvoid: [
+        `Continue practicing regularly to maintain fluency and speed.`,
+        `Challenge yourself with advanced edge cases and real-world projects.`,
+        `Help peers or write summary notes to further solidify your expertise.`
+      ],
+      recommendedRevision: [
+        `Review the next milestone or module in your Roadmap.`,
+        `Explore advanced real-world applications of ${conceptName}.`
+      ],
+      recommendedPractice: [
+        `Attempt advanced-level assessments on your Roadmap.`,
+        `Apply ${conceptName} in an end-to-end practical project.`
+      ],
+      confidenceNote: "Mastery confirmed based on 100% accuracy in your recent assessment."
+    };
+  }
+
+  const errorTypeDescriptions = {
+    CONCEPTUAL: {
+      why: `You encountered difficulty with the foundational principles of ${conceptName}. The mistakes suggest an incomplete mental model of how ${rootConcept} operates.`,
+      misconception: `Assuming surface familiarity with ${conceptName} without mastering the foundational rules of ${rootConcept}.`,
+      model: `Think of ${rootConcept} as the prerequisite anchor. Before applying advanced techniques, verify that the base definitions and invariants hold true.`,
+      avoid: [
+        `Review the core definition and rules of ${rootConcept} before attempting practice questions.`,
+        `When reading a problem, identify the underlying principle being tested before jumping to options.`,
+        `Double-check whether your chosen answer satisfies all theoretical constraints.`
+      ]
+    },
+    LOGICAL: {
+      why: `The approach used broke down during step-by-step reasoning or boundary condition analysis in ${conceptName}.`,
+      misconception: `Overlooking boundary conditions, edge cases, or condition sequencing required by ${rootConcept}.`,
+      model: `Trace problems like a state machine: verify the base case, transition logic, and termination conditions systematically.`,
+      avoid: [
+        `Explicitly test boundary values (e.g. minimum, maximum, empty, or zero states).`,
+        `Walk through each step logically rather than estimating the outcome.`,
+        `Verify that each logical deduction directly follows from given premises.`
+      ]
+    },
+    IMPLEMENTATION: {
+      why: `The conceptual idea was right, but syntax, specific conventions, or structural implementation details in ${conceptName} caused the mistake.`,
+      misconception: `Conflating similar syntax patterns or omitting required language/framework constructs.`,
+      model: `Separate syntax rules from conceptual logic: verify grammatical and structural correctness line by line.`,
+      avoid: [
+        `Practice writing exact syntax for ${conceptName} without reliance on auto-complete.`,
+        `Pay close attention to keywords, parameter orders, and return type signatures.`,
+        `Validate each structural component independently.`
+      ]
+    },
+    CARELESS: {
+      why: `A minor calculation, sign error, or oversight occurred despite having the conceptual knowledge to solve ${conceptName}.`,
+      misconception: `Rushing through intermediate calculations or reading questions too quickly.`,
+      model: `Slow is smooth, smooth is fast: verify calculations and re-read the final question prompt before submitting.`,
+      avoid: [
+        `Underline or highlight the exact quantity or condition the question asks for.`,
+        `Perform a 5-second sanity check on numerical results or option wording.`,
+        `Eliminate obviously incorrect distractors before finalizing your pick.`
+      ]
+    },
+    TIME_MANAGEMENT: {
+      why: `Time constraints led to hurried answers or skipped validation in ${conceptName}.`,
+      misconception: `Spending disproportionate time on difficult questions at the expense of accessible ones.`,
+      model: `Pace yourself: allocate fixed time limits per question and flag unsure items for a second pass.`,
+      avoid: [
+        `Practice with a visible timer to calibrate answering speed.`,
+        `Skip and mark difficult questions immediately rather than getting stalled.`,
+        `Leave 2 minutes at the end of every section for quick review.`
+      ]
+    }
+  };
+
+  const defaultType = errorTypeDescriptions[errorType] || errorTypeDescriptions.CONCEPTUAL;
+
+  return {
+    explanation: `Targeted analysis for ${conceptName} within ${skill}. Focusing on ${rootConcept} will address the root source of recent errors.`,
+    whyMistakeHappens: defaultType.why,
+    misconception: defaultType.misconception,
+    conceptRelationship: `Proficiency in ${conceptName} depends directly on a solid grasp of ${rootConcept}. Strengthening ${rootConcept} resolves recurrent errors in ${conceptName}.`,
+    whatToUnderstand: [
+      `Master the core rules and definitions of ${rootConcept}.`,
+      `Learn how ${rootConcept} connects directly to practical scenarios in ${conceptName}.`,
+      `Recognize typical distractor patterns associated with ${errorType.toLowerCase()} mistakes.`
+    ],
+    mentalModel: defaultType.model,
+    howToAvoid: defaultType.avoid,
+    recommendedRevision: [
+      `Review key notes and reference documentation for ${rootConcept}.`,
+      `Examine solved examples showing step-by-step application of ${conceptName}.`,
+      `Conduct a quick self-quiz on the fundamental principles before practicing.`
+    ],
+    recommendedPractice: [
+      `Solve 3-5 targeted practice exercises focused specifically on ${rootConcept}.`,
+      `Attempt mixed-difficulty questions on ${conceptName} to reinforce the mental model.`,
+      `Review incorrect attempts immediately and write down why the correct choice works.`
+    ],
+    confidenceNote: `Diagnosis generated using evidence from your latest assessment attempts.`
+  };
+};
+
 export const explainConceptRootWithAI = async (deterministicData) => {
   if (!deterministicData || !deterministicData.hasData || !deterministicData.conceptId) {
     throw new Error("No data provided to explain.");
+  }
+
+  if (deterministicData.diagnosis?.status === "MASTERED" || deterministicData.isMastered) {
+    return generateDeterministicConceptExplanation(deterministicData);
   }
 
   const prompt = `You are the ConceptRoot reasoning component of an educational platform.
@@ -729,8 +850,8 @@ Based on this evidence, explain WHY the student is struggling, what misconceptio
   try {
     return await callAI(prompt, EXPLAIN_CONCEPT_ROOT_SCHEMA);
   } catch (err) {
-    console.error("[Gemini] explainConceptRootWithAI Error:", err.message);
-    throw new Error("AI_SERVICE_UNAVAILABLE");
+    console.warn("[Gemini] explainConceptRootWithAI callAI failed, using pedagogical fallback:", err.message);
+    return generateDeterministicConceptExplanation(deterministicData);
   }
 };
 
@@ -771,9 +892,11 @@ export const analyzeSkillGapWithAI = async (careerGoal, attempts, conceptRoots) 
     'Mistakes: ' + (a.questionResults || []).filter(q => q.status === 'incorrect').map(q => q.concept).join(', ')
   ).join('\n');
   
-  const rootSummaries = conceptRoots.map(c => 
-    'Concept Root Analysis: ' + (c.analysis?.primaryRootCause?.concept || '') + ' - ' + (c.analysis?.primaryRootCause?.explanation || '')
-  ).join('\n');
+  const rootSummaries = conceptRoots.map(c => {
+    const root = c.deterministicRoot || c.analysis || {};
+    const insights = c.aiInsights || {};
+    return 'Concept: ' + (root.canonicalConcept || root.primaryRootCause?.concept || 'N/A') + ' - Root: ' + (root.rootCause?.type || 'N/A') + ' - Misconception: ' + (insights.misconception || 'N/A');
+  }).join('\n');
 
   const prompt = `Perform a deep Skill Gap Analysis for the career goal: ${careerGoal || 'None'}.
 Identify the required industry skills, compare them against real student evidence, and calculate true gaps.

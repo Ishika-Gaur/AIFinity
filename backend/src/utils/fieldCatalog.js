@@ -395,26 +395,109 @@ export function getRecommendedTopicsForField(field, careerGoal) {
 
 export function isValidField(field) {
   if (!field || typeof field !== "string") return false;
-  const trimmed = field.trim();
-  if (trimmed.length < 3) return false;
 
+  // Clean URL-encoding, internal prefixes like ai_rec_, and formatting
+  let clean = field.replace(/^ai_rec_/i, "").replace(/_/g, " ").trim();
+  try {
+    clean = decodeURIComponent(clean).replace(/^ai_rec_/i, "").replace(/_/g, " ").trim();
+  } catch (_) {}
+
+  if (!clean) return false;
+
+  const lower = clean.toLowerCase();
+
+  // Spam detection
   const spam = ["hi", "hii", "hello", "test", "testing", "asdf", "qwerty", "1234", "none", "null", "undefined"];
-  if (spam.includes(trimmed.toLowerCase())) return false;
+  if (spam.includes(lower)) return false;
 
+  // Single or double character valid programming / tech acronyms
+  const SHORT_VALID_DOMAINS = {
+    c: "C Programming",
+    r: "R Programming",
+    go: "Go Programming",
+    ai: "AI & Machine Learning",
+    ml: "AI & Machine Learning",
+    ui: "Graphic Design & UI/UX",
+    ux: "Graphic Design & UI/UX",
+    qa: "Software Development",
+    it: "Information Technology",
+    js: "Web Development",
+    "c++": "C++ Programming",
+    "c#": "C# Programming",
+    os: "Computer Science",
+    db: "Database Systems",
+  };
+  if (SHORT_VALID_DOMAINS[lower]) {
+    return SHORT_VALID_DOMAINS[lower];
+  }
+
+  if (clean.length < 2) return false;
+
+  // Recognized fields in CAREER_GOALS_BY_FIELD
   const validFields = Object.keys(CAREER_GOALS_BY_FIELD);
-  const matched = validFields.find((f) => f.toLowerCase() === trimmed.toLowerCase());
+  const matched = validFields.find((f) => f.toLowerCase() === lower);
   if (matched) return matched;
 
+  // Check if it matches a career track / goal inside any field
+  // (e.g., "Frontend Development" or "Frontend Developer" -> "Software Development")
+  for (const [fName, goals] of Object.entries(CAREER_GOALS_BY_FIELD)) {
+    const matchedGoal = goals.find(
+      (g) =>
+        g.toLowerCase() === lower ||
+        g.toLowerCase().replace(/er$/, "ment").includes(lower) ||
+        lower.includes(g.toLowerCase()) ||
+        lower.includes(g.toLowerCase().replace(/er$/, ""))
+    );
+    if (matchedGoal) return fName;
+  }
+
   // Academic boards / classes
-  if (/class\s*(10|12|9|11)/i.test(trimmed) || /board/i.test(trimmed) || /cbse/i.test(trimmed)) {
-    return trimmed;
+  if (/class\s*(10|12|9|11)/i.test(clean) || /board/i.test(clean) || /cbse/i.test(clean) || /icse/i.test(clean)) {
+    if (/social|sst|history|civics|geography/i.test(clean)) return "Class 10 Social Science (SST)";
+    if (/science|physics|chemistry|biology/i.test(clean)) return "Class 10 Science";
+    if (/math/i.test(clean)) return "Class 10 Mathematics";
+    return clean;
+  }
+
+  // Common academic and science subjects
+  if (/social\s*science|history|geography|civics|economics|political\s*science/i.test(clean)) {
+    return "Class 10 Social Science (SST)";
+  }
+  if (/physics|chemistry|biology|natural\s*science/i.test(clean)) {
+    return "Class 10 Science";
+  }
+  if (/mathematics|calculus|algebra|geometry|statistics|arithmetic/i.test(clean)) {
+    return "Class 10 Mathematics";
+  }
+
+  // Keys in FIELD_CORE_TOPICS
+  const coreTopicKeys = Object.keys(FIELD_CORE_TOPICS);
+  const matchedCore = coreTopicKeys.find((k) => k.toLowerCase() === lower);
+  if (matchedCore) return matchedCore;
+
+  // Programming and tech keywords
+  if (/software|programming|coding|web\s*dev|app\s*dev|algorithms|data\s*structures/i.test(clean)) {
+    return "Software Development";
+  }
+  if (/data\s*science|analytics|machine\s*learning|artificial\s*intelligence/i.test(clean)) {
+    return "Data Science & Analytics";
   }
 
   // Partial match against recognized fields
   const partial = validFields.find(
-    (f) => f.toLowerCase().includes(trimmed.toLowerCase()) || trimmed.toLowerCase().includes(f.toLowerCase())
+    (f) => f.toLowerCase().includes(lower) || lower.includes(f.toLowerCase())
   );
   if (partial) return partial;
+
+  // General or general knowledge
+  if (lower === "general" || lower === "general knowledge" || lower === "all") {
+    return "General Knowledge";
+  }
+
+  // For any other legitimate academic, technical, or custom topic of reasonable length (>= 3 chars)
+  if (clean.length >= 3) {
+    return clean;
+  }
 
   return false;
 }

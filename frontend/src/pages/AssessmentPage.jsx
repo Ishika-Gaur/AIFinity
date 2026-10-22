@@ -332,7 +332,7 @@ function CategoryTile({ category, count, index, isGenerating, onSelect }) {
     <div className="rounded-2xl border border-[var(--color-border)] bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="truncate text-base font-bold text-[var(--color-text-h)]">{category}</h3>
+          <h3 className="truncate text-base font-bold text-[var(--color-text-h)]">{String(category).replace(/^ai_rec_/i, "").replace(/_/g, " ").trim()}</h3>
           <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
             {count} assessment{count === 1 ? "" : "s"}
           </p>
@@ -724,7 +724,10 @@ export default function AssessmentPage() {
         })
       : assessments;
 
-    const existingCats = relevantAssessments.map((a) => a.category).filter(Boolean);
+    const existingCats = relevantAssessments
+      .map((a) => a.category)
+      .filter(Boolean)
+      .map((cat) => cat.replace(/^ai_rec_/i, "").replace(/_/g, " ").trim());
     const combined = Array.from(new Set([...fieldGoals, ...existingCats]));
     return ["All", ...combined];
   }, [assessments, selectedField, profile]);
@@ -762,17 +765,18 @@ export default function AssessmentPage() {
   const handleCategorySelect = async (categoryName) => {
     setGeneratingCategory(categoryName);
     try {
-      const userField = profile?.field || "General";
+      const cleanCategory = String(categoryName).replace(/^ai_rec_/i, "").replace(/_/g, " ").trim();
+      const userField = profile?.field && profile.field !== "General" ? profile.field : cleanCategory;
       const res = await assessmentApi.generateAI({
         field: userField,
-        topic: categoryName,
+        topic: cleanCategory,
         difficulty: "Medium",
         count: 5
       });
       if (res.success && res.assessmentId) {
         navigate(`/assessment/${res.assessmentId}`);
       } else {
-        alert(res.error || res.message || `Failed to generate AI assessment for ${categoryName}`);
+        alert(res.error || res.message || `Failed to generate AI assessment for ${cleanCategory}`);
       }
     } catch (err) {
       alert(`An error occurred while generating AI assessment for ${categoryName}`);
@@ -785,17 +789,18 @@ export default function AssessmentPage() {
     if (assessment.isReadyToGenerate || assessment.id?.startsWith("ai_rec_")) {
       setGeneratingCardId(assessment.id);
       try {
-        const userField = profile?.field || assessment.field || "General";
+        const cleanTopic = String(assessment.category || assessment.title || "").replace(/^ai_rec_/i, "").replace(/_/g, " ").trim();
+        const userField = profile?.field && profile.field !== "General" ? profile.field : (assessment.field || cleanTopic);
         const res = await assessmentApi.generateAI({
           field: userField,
-          topic: assessment.category || assessment.title,
+          topic: cleanTopic,
           difficulty: assessment.difficulty || "Medium",
           count: 5
         });
         if (res.success && res.assessmentId) {
           navigate(`/assessment/${res.assessmentId}`);
         } else {
-          alert(res.error || res.message || `Failed to generate assessment for ${assessment.title}`);
+          alert(res.error || res.message || `Failed to generate assessment for ${cleanTopic}`);
         }
       } catch (err) {
         alert("An error occurred while generating AI assessment. Please try again.");

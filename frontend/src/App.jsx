@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import ScrollToTop from './components/ScrollToTop';
 
 import Home from './pages/Home';
 import About from './pages/About';
@@ -94,6 +95,7 @@ function App() {
     <AdminAuthProvider>
       <StudentAuthProvider>
       <Router>
+        <ScrollToTop />
         <Routes>
 
           {/* =====================================================

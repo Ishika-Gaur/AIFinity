@@ -712,10 +712,15 @@ export async function generatePersonalizedRoadmap(userId, customTargetCareer = n
     const weakList = weakConcepts.map((w) => cleanTopicName(w.category)).filter(Boolean);
     const topWeak = weakList[0] || "NCERT Textbook Units";
 
-    let stage1Status = completedSet.has(1) ? "completed" : "current";
-    let stage2Status = completedSet.has(2) ? "completed" : (stage1Status === "completed" ? "current" : "upcoming");
-    let stage3Status = completedSet.has(3) ? "completed" : (stage2Status === "completed" ? "current" : "upcoming");
-    let stage4Status = completedSet.has(4) ? "completed" : (stage3Status === "completed" ? "current" : (overallAvgScore >= 80 ? "upcoming" : "locked"));
+    const isStage1Complete = completedSet.has(1);
+    const isStage2Complete = isStage1Complete && completedSet.has(2);
+    const isStage3Complete = isStage2Complete && completedSet.has(3);
+    const isStage4Complete = isStage3Complete && completedSet.has(4);
+
+    let stage1Status = isStage1Complete ? "completed" : "current";
+    let stage2Status = isStage2Complete ? "completed" : (isStage1Complete ? "current" : "locked");
+    let stage3Status = isStage3Complete ? "completed" : (isStage2Complete ? "current" : "locked");
+    let stage4Status = isStage4Complete ? "completed" : (isStage3Complete ? "current" : "locked");
 
     stages = [
       {
@@ -856,11 +861,19 @@ export async function generatePersonalizedRoadmap(userId, customTargetCareer = n
       ? `Your ${overallAvgScore}% assessment average supports advanced work in your strongest concepts and the remaining ${targetCareer} skill gap.`
       : `Advanced work unlocks after the foundation and practice phases address the concepts missed in your assessments.`;
 
-    // Stage status determination
-    let stage1Status = completedSet.has(1) ? "completed" : phase1Status;
-    let stage2Status = completedSet.has(2) ? "completed" : (stage1Status === "completed" ? "current" : "upcoming");
-    let stage3Status = completedSet.has(3) ? "completed" : (stage2Status === "completed" ? "current" : "upcoming");
-    let stage4Status = completedSet.has(4) ? "completed" : (stage3Status === "completed" ? "current" : (overallAvgScore >= 80 ? "upcoming" : "locked"));
+    // Strict sequential stage status determination:
+    const isStage1Complete = completedSet.has(1) || phase1Status === "completed";
+    if (isStage1Complete) {
+      completedSet.add(1);
+    }
+    const isStage2Complete = isStage1Complete && completedSet.has(2);
+    const isStage3Complete = isStage2Complete && completedSet.has(3);
+    const isStage4Complete = isStage3Complete && completedSet.has(4);
+
+    let stage1Status = isStage1Complete ? "completed" : "current";
+    let stage2Status = isStage2Complete ? "completed" : (isStage1Complete ? "current" : "locked");
+    let stage3Status = isStage3Complete ? "completed" : (isStage2Complete ? "current" : "locked");
+    let stage4Status = isStage4Complete ? "completed" : (isStage3Complete ? "current" : "locked");
 
     stages = [
       {
@@ -974,6 +987,18 @@ export async function generatePersonalizedRoadmap(userId, customTargetCareer = n
     lastAccessed: new Date(),
     activeStageId,
     lastEvaluatedAt: new Date(),
+    weakConcepts: weakConcepts.slice(0, 5).map((w) => ({
+      category: cleanTopicName(w.category),
+      avgScore: w.avgScore,
+      incorrect: w.incorrect,
+    })),
+    strongConcepts: strongConcepts.slice(0, 5).map((s) => ({
+      category: cleanTopicName(s.category),
+      avgScore: s.avgScore,
+    })),
+    overallAvgScore,
+    totalMistakes,
+    totalCorrect,
   };
 
   await UserRoadmap.findOneAndUpdate(
@@ -1056,13 +1081,35 @@ export async function updateUserRoadmap(req, res) {
     let updatedCompletedIds = userRoadmap?.completedStageIds ? [...userRoadmap.completedStageIds] : [];
 
     if (Array.isArray(completedStageIds)) {
-      updatedCompletedIds = completedStageIds;
+      // Validate sequential array (cannot skip stages)
+      const sorted = [...new Set(completedStageIds.map(Number))].sort((a, b) => a - b);
+      const valid = [];
+      for (let i = 0; i < sorted.length; i++) {
+        if (sorted[i] === i + 1) {
+          valid.push(sorted[i]);
+        } else {
+          break;
+        }
+      }
+      updatedCompletedIds = valid;
     } else if (stageId != null) {
-      const idx = updatedCompletedIds.indexOf(Number(stageId));
+      const targetId = Number(stageId);
+      const idx = updatedCompletedIds.indexOf(targetId);
       if (idx >= 0) {
-        updatedCompletedIds.splice(idx, 1);
+        // Uncompleting targetId also removes any subsequent stages that depend on it
+        updatedCompletedIds = updatedCompletedIds.filter((id) => id < targetId);
       } else {
-        updatedCompletedIds.push(Number(stageId));
+        // Enforce sequential completion: targetId can only be completed if targetId - 1 is already completed
+        if (targetId === 1 || updatedCompletedIds.includes(targetId - 1)) {
+          if (!updatedCompletedIds.includes(targetId)) {
+            updatedCompletedIds.push(targetId);
+          }
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: `Cannot complete Phase ${targetId} before completing Phase ${targetId - 1}. Phases must be completed sequentially.`,
+          });
+        }
       }
     }
 

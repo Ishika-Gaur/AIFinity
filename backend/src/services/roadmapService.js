@@ -33,7 +33,14 @@ async function buildStudentContext(userId, careerGoal) {
     mistakeMap: {
       recurringMistakes: Object.entries(mistakeMap).sort((a,b)=>b[1]-a[1]).map(e => `${e[0]} (${e[1]} times)`).slice(0,10)
     },
-    conceptRoot: conceptRoots.map(c => c.analysis),
+    conceptRoot: conceptRoots.map(c => ({
+      concept: c.deterministicRoot?.canonicalConcept || c.deterministicRoot?.rootCause?.rootConceptName || "",
+      rootCause: c.deterministicRoot?.rootCause?.type || "",
+      confidence: c.deterministicRoot?.rootCause?.confidence || 0,
+      misconception: c.aiInsights?.misconception || "",
+      whyMistakeHappens: c.aiInsights?.whyMistakeHappens || "",
+      explanation: c.aiInsights?.explanation || "",
+    })),
     assessmentHistorySummary: attempts.slice(0, 10).map(a => `Assessed ${a.assessmentCategory}: ${a.scorePercent}%`),
     learningProgress: { completedAssessments: totalAttempts, avgScore }
   };
