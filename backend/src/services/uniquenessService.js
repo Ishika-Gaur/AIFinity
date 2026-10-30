@@ -68,10 +68,21 @@ export function calculateTokenSimilarity(text1, text2) {
  * Checks if a candidate question semantically or structurally matches any encountered question
  */
 export function isQuestionDuplicate(candidateText, encounteredQuestions = []) {
-  if (!candidateText || !Array.isArray(encounteredQuestions) || encounteredQuestions.length === 0) return false;
+  if (!candidateText) return false;
+  const list = Array.isArray(encounteredQuestions) ? encounteredQuestions : [];
+  if (list.length === 0) return false;
 
-  for (const prev of encounteredQuestions) {
-    const similarity = calculateTokenSimilarity(candidateText, prev);
+  const candText = typeof candidateText === "string"
+    ? candidateText
+    : (candidateText?.question || candidateText?.questionText || "");
+  if (!candText) return false;
+
+  for (const prev of list) {
+    const prevText = typeof prev === "string"
+      ? prev
+      : (prev?.question || prev?.questionText || "");
+    if (!prevText) continue;
+    const similarity = calculateTokenSimilarity(candText, prevText);
     if (similarity >= 0.55) {
       return true;
     }
@@ -115,23 +126,56 @@ export async function getUserEncounteredQuestions(userId) {
 
 /**
  * Filters a list of candidate questions to guarantee cross-course uniqueness
+ * and eliminate intra-session duplicates while preserving ordering and immutability.
  */
 export function filterUniqueQuestions(candidateQuestions = [], encounteredQuestions = []) {
-  if (!Array.isArray(candidateQuestions)) return [];
-  if (encounteredQuestions.length === 0) return candidateQuestions;
+  if (!Array.isArray(candidateQuestions) || candidateQuestions.length === 0) return [];
 
+  const pastQuestions = Array.isArray(encounteredQuestions) ? encounteredQuestions : [];
   const unique = [];
-  const sessionSeen = [];
+  const sessionSeenTexts = [];
+  const sessionSeenIds = new Set();
+
+  const pastIds = new Set();
+  for (const eq of pastQuestions) {
+    if (eq && typeof eq === "object") {
+      const id = eq.id || eq._id || eq.questionId;
+      if (id) pastIds.add(String(id));
+    }
+  }
 
   for (const q of candidateQuestions) {
-    const qText = q.question || q.questionText || "";
-    // Must be unique against past cross-course questions AND unique within this session
-    if (!isQuestionDuplicate(qText, encounteredQuestions) && !isQuestionDuplicate(qText, sessionSeen)) {
-      unique.push(q);
-      sessionSeen.push(qText);
-    } else {
-      console.info(`[UniquenessService] Filtered out cross-course duplicate question: "${qText.substring(0, 60)}..."`);
+    if (!q || typeof q !== "object") continue;
+
+    const qId = q.id || q._id || q.questionId;
+    const qIdStr = qId ? String(qId) : null;
+    const rawText = typeof q.question === "string" ? q.question : (typeof q.questionText === "string" ? q.questionText : "");
+    const qText = rawText.trim();
+
+    // 1. Identifier-based uniqueness check (if available)
+    if (qIdStr) {
+      if (sessionSeenIds.has(qIdStr) || pastIds.has(qIdStr)) {
+        console.info(`[UniquenessService] Filtered duplicate question by identifier: "${qIdStr}"`);
+        continue;
+      }
     }
+
+    // Skip question items missing both text and identifier
+    if (!qText && !qIdStr) {
+      continue;
+    }
+
+    // 2. Semantic & structural token similarity check
+    if (qText) {
+      if (isQuestionDuplicate(qText, pastQuestions) || isQuestionDuplicate(qText, sessionSeenTexts)) {
+        console.info(`[UniquenessService] Filtered out duplicate question: "${qText.substring(0, 60)}..."`);
+        continue;
+      }
+    }
+
+    unique.push(q);
+    if (qIdStr) sessionSeenIds.add(qIdStr);
+    if (qText) sessionSeenTexts.push(qText);
   }
 
   return unique;

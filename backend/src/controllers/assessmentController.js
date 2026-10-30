@@ -6,6 +6,7 @@ import MistakeMapAnalysis from "../models/MistakeMapAnalysis.js";
 import { generatePersonalizedRoadmap } from "./analyticsController.js";
 import { generateQuestions, evaluateAssessmentWithAI } from "../services/geminiService.js";
 import { getRecommendedTopicsForField, isValidField } from "../utils/fieldCatalog.js";
+import { getUserEncounteredQuestions, filterUniqueQuestions } from "../services/uniquenessService.js";
 
 // Active in-memory attempt sessions cache for server-side evaluation
 const activeAttemptSessions = new Map();
@@ -118,8 +119,9 @@ export async function startAttempt(req, res) {
         const userCareerGoal = req.user?.onboardingProfile?.careerGoal || "";
         const audienceContext = `Level: ${userLevel}${userCareerGoal ? `, Goal: ${userCareerGoal}` : ""}`;
 
-        const generated = await generateQuestions(userField, topic, "Medium", 5, audienceContext);
-        const formattedQuestions = (generated.questions || []).map((q) => ({
+        const encounteredQuestions = await getUserEncounteredQuestions(req.user?._id);
+        const generated = await generateQuestions(userField, topic, "Medium", 5, audienceContext, encounteredQuestions);
+        const candidateQuestions = (generated.questions || []).map((q) => ({
           type: q.type || "mcq",
           difficulty: q.difficulty || "Medium",
           topic: q.topic || topic,
@@ -143,7 +145,9 @@ export async function startAttempt(req, res) {
           isAiGenerated: true,
           userId: req.user?._id,
           createdBy: req.user?._id,
-          questions: formattedQuestions,
+          questions: filterUniqueQuestions(candidateQuestions, encounteredQuestions).length > 0
+            ? filterUniqueQuestions(candidateQuestions, encounteredQuestions)
+            : candidateQuestions,
         });
       } catch (genErr) {
         console.error("Auto-generate assessment in startAttempt failed:", genErr.message);
@@ -555,6 +559,8 @@ function formatSubmitResponse(record) {
     unansweredTotalCount: unansweredCount,
     totalQuestions: totalQ,
     questionResults: qResults,
+    incorrectSubmissions: qResults.filter((q) => !q.isCorrect && q.status !== "correct"),
+    sessionMistakes: qResults.filter((q) => !q.isCorrect && q.status !== "correct"),
     elapsedSeconds: record.elapsedSeconds || 0,
     violationsCount: violations.length,
     violations,
@@ -1017,8 +1023,11 @@ export async function generateAIAssessment(req, res) {
     const userCareerGoal = req.user?.onboardingProfile?.careerGoal || "";
     const audienceContext = `Level: ${userLevel}${userCareerGoal ? `, Goal: ${userCareerGoal}` : ""}`;
 
-    // Call Gemini API
-    const generatedData = await generateQuestions(field, topic, difficulty, questionCount, audienceContext);
+    // Cross-course uniqueness check: fetch all questions previously attempted by user
+    const encounteredQuestions = await getUserEncounteredQuestions(req.user?._id);
+
+    // Call Gemini API with exclusion list
+    const generatedData = await generateQuestions(field, topic, difficulty, questionCount, audienceContext, encounteredQuestions);
 
     if (!generatedData || !generatedData.questions || !Array.isArray(generatedData.questions) || generatedData.questions.length === 0) {
       return res.status(500).json({ success: false, message: "AI returned invalid format." });
@@ -1046,6 +1055,7 @@ export async function generateAIAssessment(req, res) {
     });
 
     const formattedQuestions = filterUniqueQuestions(candidateQuestions, encounteredQuestions);
+    const finalQuestions = formattedQuestions.length > 0 ? formattedQuestions : candidateQuestions;
 
     // Create and save new assessment
     const assessment = new Assessment({
@@ -1059,7 +1069,7 @@ export async function generateAIAssessment(req, res) {
       isAiGenerated: true,
       userId: req.user._id,
       createdBy: req.user._id,
-      questions: formattedQuestions,
+      questions: finalQuestions,
     });
 
     await assessment.save();
@@ -1328,8 +1338,9 @@ export async function generateDailyAIAssessment(req, res) {
       targetTopic = fieldTopics[0] || careerGoal || userField;
     }
 
-    // 3. Generate 5 questions with Gemini
-    const generatedData = await generateQuestions(userField, targetTopic, "Medium", 5);
+    // 3. Generate 5 questions with cross-course uniqueness
+    const encounteredQuestions = await getUserEncounteredQuestions(userId);
+    const generatedData = await generateQuestions(userField, targetTopic, "Medium", 5, "", encounteredQuestions);
 
     if (!generatedData || !generatedData.questions || !Array.isArray(generatedData.questions) || generatedData.questions.length === 0) {
       return res.status(500).json({ success: false, message: "AI returned invalid format." });
@@ -1352,6 +1363,7 @@ export async function generateDailyAIAssessment(req, res) {
     });
 
     const formattedQuestions = filterUniqueQuestions(candidateQuestions, encounteredQuestions);
+    const finalQuestions = formattedQuestions.length > 0 ? formattedQuestions : candidateQuestions;
 
     // 4. Save
     const assessment = new Assessment({
@@ -1365,7 +1377,7 @@ export async function generateDailyAIAssessment(req, res) {
       isAiGenerated: true,
       userId: userId,
       createdBy: userId,
-      questions: formattedQuestions,
+      questions: finalQuestions,
     });
 
     await assessment.save();
