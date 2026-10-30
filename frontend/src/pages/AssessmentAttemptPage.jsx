@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams, useNavigate } from "react-router-dom";
 import Section from "../components/Section";
 import Container from "../components/Container";
 import Button from "../components/Button";
@@ -193,6 +193,8 @@ function QuestionBody({ question, response, onAnswer }) {
 
 export default function AssessmentAttemptPage() {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [assessment, setAssessment] = useState(null);
   const [attemptId, setAttemptId] = useState(null);
   const [loadingAssessment, setLoadingAssessment] = useState(true);
@@ -304,8 +306,25 @@ export default function AssessmentAttemptPage() {
     [id]
   );
 
+  // If ?fresh=1 is in the URL (set by AssessmentPage when retaking or starting),
+  // force a new attempt and immediately strip the param so a page-refresh
+  // does NOT re-trigger a forced fresh start on an in-progress attempt.
   useEffect(() => {
-    initAttempt(false);
+    const isFresh = searchParams.get('fresh') === '1';
+    if (isFresh) {
+      // Strip the ?fresh param from the URL without adding a history entry
+      const cleaned = new URLSearchParams(searchParams);
+      cleaned.delete('fresh');
+      const newSearch = cleaned.toString();
+      navigate(
+        { pathname: window.location.pathname, search: newSearch ? ('?' + newSearch) : '' },
+        { replace: true }
+      );
+      initAttempt(true);
+    } else {
+      initAttempt(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initAttempt]);
 
   // Elapsed time timer

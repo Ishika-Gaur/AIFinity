@@ -751,7 +751,7 @@ export default function AssessmentPage() {
         count: aiCount
       });
       if (res.success && res.assessmentId) {
-        window.location.href = `/assessment/${res.assessmentId}`;
+        window.location.href = `/assessment/${res.assessmentId}?fresh=1`;
       } else {
         setAiError(res.error || res.message || "Failed to generate assessment.");
       }
@@ -774,7 +774,7 @@ export default function AssessmentPage() {
         count: 5
       });
       if (res.success && res.assessmentId) {
-        navigate(`/assessment/${res.assessmentId}`);
+        navigate(`/assessment/${res.assessmentId}?fresh=1`);
       } else {
         alert(res.error || res.message || `Failed to generate AI assessment for ${cleanCategory}`);
       }
@@ -798,7 +798,7 @@ export default function AssessmentPage() {
           count: 5
         });
         if (res.success && res.assessmentId) {
-          navigate(`/assessment/${res.assessmentId}`);
+          navigate(`/assessment/${res.assessmentId}?fresh=1`);
         } else {
           alert(res.error || res.message || `Failed to generate assessment for ${cleanTopic}`);
         }
@@ -808,7 +808,7 @@ export default function AssessmentPage() {
         setGeneratingCardId(null);
       }
     } else {
-      navigate(`/assessment/${assessment.id}`);
+      navigate(`/assessment/${assessment.id}?fresh=1`);
     }
   };
 
@@ -817,7 +817,7 @@ export default function AssessmentPage() {
     try {
       const res = await assessmentApi.generateDailyAI(targetDate || undefined);
       if (res.success && res.assessmentId) {
-        window.location.href = `/assessment/${res.assessmentId}`;
+        window.location.href = `/assessment/${res.assessmentId}?fresh=1`;
       } else {
         alert(res.error || res.message || "Failed to start daily challenge");
       }
