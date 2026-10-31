@@ -2,9 +2,11 @@ import mongoose from "mongoose";
 import Assessment from "../models/Assessment.js";
 import AttemptResult from "../models/AttemptResult.js";
 import UserRoadmap from "../models/UserRoadmap.js";
+import MistakeMapAnalysis from "../models/MistakeMapAnalysis.js";
 import { generatePersonalizedRoadmap } from "./analyticsController.js";
 import { generateQuestions, evaluateAssessmentWithAI } from "../services/geminiService.js";
-import { getRecommendedTopicsForField } from "../utils/fieldCatalog.js";
+import { getRecommendedTopicsForField, isValidField } from "../utils/fieldCatalog.js";
+import { getUserEncounteredQuestions, filterUniqueQuestions } from "../services/uniquenessService.js";
 
 // Active in-memory attempt sessions cache for server-side evaluation
 const activeAttemptSessions = new Map();
@@ -30,7 +32,14 @@ const serialize = (assessment, includeAnswers = false) => {
 };
 
 export async function listPublished(req, res) {
-  const assessments = await Assessment.find({ status: "published", isAiGenerated: { $ne: true } }).sort({ publishedAt: -1, createdAt: -1 });
+  const filter = {
+    status: "published",
+    category: { $not: /^DailyChallenge-/ },
+  };
+  if (req.query.field && req.query.field !== "All") {
+    filter.field = new RegExp(`^${req.query.field}$`, "i");
+  }
+  const assessments = await Assessment.find(filter).sort({ publishedAt: -1, createdAt: -1 });
   res.json({ success: true, assessments: assessments.map((a) => serialize(a, false)) });
 }
 
@@ -57,7 +66,8 @@ export async function getPublished(req, res) {
     return res.status(404).json({ success: false, message: "Assessment not found." });
   }
 
-  if (assessment.isAiGenerated && (!req.user || String(assessment.userId) !== String(req.user._id))) {
+  // Only protect personal daily challenges
+  if (assessment.category && assessment.category.startsWith("DailyChallenge-") && (!req.user || String(assessment.userId) !== String(req.user._id))) {
     return res.status(403).json({ success: false, message: "You do not have permission to view this assessment." });
   }
 
@@ -70,17 +80,21 @@ export async function startAttempt(req, res) {
 
   if (mongoose.Types.ObjectId.isValid(targetId)) {
     assessment = await Assessment.findOne({ _id: targetId, status: "published" });
+    if (!assessment) {
+      return res.status(404).json({ success: false, message: "Assessment not found." });
+    }
   } else {
     assessment = await Assessment.findOne({
       $or: [
-        { category: new RegExp(`^${targetId}$`, "i") },
-        { field: new RegExp(`^${targetId}$`, "i") },
-        { title: new RegExp(`^${targetId}$`, "i") },
+        { category: new RegExp(targetId, "i") },
+        { field: new RegExp(targetId, "i") },
+        { title: new RegExp(targetId, "i") },
       ],
       status: "published",
     });
   }
 
+  // If still not found, match by user's selectedField or dynamically generate on the fly
   if (!assessment) {
     const userField = req.user?.selectedField || req.user?.onboardingProfile?.field || targetId || "General";
     assessment = await Assessment.findOne({
@@ -126,7 +140,9 @@ export async function startAttempt(req, res) {
           isAiGenerated: true,
           userId: req.user?._id,
           createdBy: req.user?._id,
-          questions: formattedQuestions,
+          questions: filterUniqueQuestions(candidateQuestions, encounteredQuestions).length > 0
+            ? filterUniqueQuestions(candidateQuestions, encounteredQuestions)
+            : candidateQuestions,
         });
       } catch (genErr) {
         console.error("Auto-generate assessment in startAttempt failed:", genErr.message);
@@ -180,114 +196,80 @@ export async function startAttempt(req, res) {
 
     const attemptId = `att_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
-    const answersMap = new Map();
+    if (assessment) {
+      const rawData = assessment.toObject ? assessment.toObject() : assessment;
+      const answersMap = new Map();
 
-    const shuffledQuestions = shuffleArray(attemptQuestions || []).map((q) => {
-      const qId = String(q._id || q.id);
-      const originalAnswer = q.answer;
-      const originalOptions = q.options ? [...q.options] : null;
+      const shuffledQuestions = shuffleArray(rawData.questions || []).map((q) => {
+        const qId = String(q._id || q.id);
+        const originalAnswer = q.answer;
+        const originalOptions = q.options ? [...q.options] : null;
 
-      answersMap.set(qId, {
-        type: q.type,
-        answer: originalAnswer,
-        options: originalOptions,
-        topic: q.topic || assessment.field || assessment.category || "General",
-        concept: q.concept || assessment.category || "General",
-        difficulty: q.difficulty || assessment.difficulty || "Medium",
+        answersMap.set(qId, {
+          type: q.type,
+          answer: originalAnswer,
+          options: originalOptions,
+          topic: q.topic || assessment.field || assessment.category || "General",
+          concept: q.concept || assessment.category || "General",
+          difficulty: q.difficulty || assessment.difficulty || "Medium",
+        });
+
+        const questionItem = {
+          id: qId,
+          type: q.type,
+          difficulty: q.difficulty || assessment.difficulty || "Medium",
+          topic: q.topic || assessment.field || assessment.category || "General",
+          concept: q.concept || assessment.category || "General",
+          question: q.question,
+          context: q.context,
+        };
+
+        if (Array.isArray(originalOptions) && originalOptions.length > 0) {
+          const shuffledOptions = shuffleArray(originalOptions);
+          questionItem.options = shuffledOptions;
+          answersMap.get(qId).shuffledOptions = shuffledOptions;
+        }
+
+        return questionItem;
       });
 
-      const questionItem = {
-        id: qId,
-        type: q.type,
-        difficulty: q.difficulty || assessment.difficulty || "Medium",
-        topic: q.topic || assessment.field || assessment.category || "General",
-        concept: q.concept || assessment.category || "General",
-        question: q.question,
-        context: q.context,
-      };
+      activeAttemptSessions.set(attemptId, {
+        userId: String(req.user._id),
+        assessmentId: String(assessment._id),
+        assessmentTitle: assessment.title,
+        assessmentCategory: assessment.category || "General",
+        assessmentField: assessment.field || "",
+        createdAt: Date.now(),
+        answersMap,
+        completed: false,
+        result: null,
+      });
 
-      if (Array.isArray(originalOptions) && originalOptions.length > 0) {
-        const shuffledOptions = shuffleArray(originalOptions);
-        questionItem.options = shuffledOptions;
-        answersMap.get(qId).shuffledOptions = shuffledOptions;
-      }
+      const assessmentMeta = serialize(assessment, false);
+      assessmentMeta.questions = shuffledQuestions;
 
-      return questionItem;
-    });
+      return res.json({
+        success: true,
+        attemptId,
+        assessment: assessmentMeta,
+      });
+    }
 
+    // Session metadata fallback for client side or preset assessments
     activeAttemptSessions.set(attemptId, {
-      assessmentId: String(assessment._id),
-      assessmentTitle: assessment.title,
-      assessmentCategory: assessment.category || "General",
-      assessmentField: assessment.field || "",
+      assessmentId: targetId,
+      assessmentTitle: req.body.assessmentTitle || targetId,
+      assessmentCategory: req.body.assessmentCategory || "General",
       createdAt: Date.now(),
-      answersMap,
+      answersMap: new Map(),
     });
-
-    const assessmentMeta = serialize(assessment, false);
-    assessmentMeta.questions = shuffledQuestions;
 
     return res.json({
       success: true,
       attemptId,
-      assessment: assessmentMeta,
+      assessment: null,
     });
   }
-
-  // Session metadata fallback: assessment found directly by ID on first try
-  const fallbackAttemptId = `att_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  const rawData2 = assessment.toObject ? assessment.toObject() : assessment;
-  const answersMap2 = new Map();
-  const shuffledQuestions2 = shuffleArray(rawData2.questions || []).map((q) => {
-    const qId = String(q._id || q.id);
-    const originalAnswer = q.answer;
-    const originalOptions = q.options ? [...q.options] : null;
-    answersMap2.set(qId, {
-      question: q.question,
-      type: q.type,
-      answer: originalAnswer,
-      options: originalOptions,
-      topic: q.topic || assessment.field || assessment.category || "General",
-      concept: q.concept || assessment.category || "General",
-      difficulty: q.difficulty || assessment.difficulty || "Medium",
-    });
-    const questionItem = {
-      id: qId,
-      type: q.type,
-      difficulty: q.difficulty || assessment.difficulty || "Medium",
-      topic: q.topic || assessment.field || assessment.category || "General",
-      concept: q.concept || assessment.category || "General",
-      question: q.question,
-      context: q.context,
-    };
-    if (Array.isArray(originalOptions) && originalOptions.length > 0) {
-      const shuffledOptions = shuffleArray(originalOptions);
-      questionItem.options = shuffledOptions;
-      answersMap2.get(qId).shuffledOptions = shuffledOptions;
-    }
-    return questionItem;
-  });
-
-  activeAttemptSessions.set(fallbackAttemptId, {
-    userId: req.user ? String(req.user._id) : null,
-    assessmentId: String(assessment._id),
-    assessmentTitle: assessment.title,
-    assessmentCategory: assessment.category || "General",
-    assessmentField: assessment.field || "",
-    createdAt: Date.now(),
-    answersMap: answersMap2,
-    completed: false,
-    result: null,
-  });
-
-  const assessmentMeta2 = serialize(assessment, false);
-  assessmentMeta2.questions = shuffledQuestions2;
-
-  return res.json({
-    success: true,
-    attemptId: fallbackAttemptId,
-    assessment: assessmentMeta2,
-  });
 }
 
 function getNormalizedType(q) {
@@ -369,6 +351,11 @@ export function classifyMistakeDeterministically(q, evalResult, sessionQ, userRe
 
   // 5. Conceptual / Definition / Theoretical principle
   if (qType.includes("conceptual") || rubric.includes("concept") || qPrompt.includes("which of the following defines") || qPrompt.includes("definition") || qPrompt.includes("fundamental principle")) {
+    return "CONCEPTUAL";
+  }
+
+  // Improved evidence-driven fallback for standard academic/technical questions
+  if (qType.includes("multiple_choice") || qType.includes("true_false") || qType.includes("mcq")) {
     return "CONCEPTUAL";
   }
 
@@ -584,285 +571,123 @@ function evaluateSingleQuestion(q, userResp, sessionQ) {
   };
 }
 
-/**
- * Constructs a standardized attempt submission response from an AttemptResult record.
- */
-function formatSubmitResponse(record) {
-  if (!record) return { success: true, scorePercent: 0, totalQuestions: 0, questionResults: [] };
-  const qResults = record.questionResults || [];
-  const unansweredCount = record.unansweredCount ?? qResults.filter((q) => q.status === "unanswered").length;
-  const totalQ = record.totalQuestions || qResults.length || 1;
-  const attemptedCount = record.attemptedCount ?? (totalQ - unansweredCount);
-  const scorePercent = record.scorePercent ?? 0;
-  const totalScore = record.totalScore ?? 0;
-  const maxScore = record.maxScore ?? (totalQ * 10);
-  const correctCount = record.correctCount ?? 0;
-  const incorrectCount = record.incorrectCount ?? 0;
-  const violations = record.violations || [];
-  return {
-    success: true,
-    resultId: record._id,
-    scorePercent,
-    totalScore,
-    maxScore,
-    percentage: scorePercent,
-    correctCount,
-    incorrectCount,
-    unansweredCount,
-    attemptedCount,
-    answeredCount: attemptedCount,
-    gradableCount: record.gradableCount ?? totalQ,
-    attemptedGradableCount: attemptedCount,
-    unansweredTotalCount: unansweredCount,
-    totalQuestions: totalQ,
-    questionResults: qResults,
-    elapsedSeconds: record.elapsedSeconds || 0,
-    violationsCount: violations.length,
-    violations,
-    autoSubmitted: violations.length >= 3,
-  };
-}
-
 export async function submitAttempt(req, res) {
-  try {
-    const {
-      attemptId,
-      responses = {},
-      elapsedSeconds = 0,
-      violations = [],
-      assessmentTitle: bodyTitle,
-      assessmentCategory: bodyCategory,
-      assessmentField: bodyField,
-    } = req.body;
+  const {
+    attemptId,
+    responses = {},
+    elapsedSeconds = 0,
+    violations = [],
+    assessmentTitle: bodyTitle,
+    assessmentCategory: bodyCategory,
+    assessmentField: bodyField,
+  } = req.body;
 
-    if (!attemptId) {
-      return res.status(400).json({ success: false, message: "Attempt ID is required." });
-    }
-
-    const session = activeAttemptSessions.get(attemptId);
-    const targetId = req.params.id;
-    let assessment = null;
-
-    // Try to find assessment via session first
-    if (session?.assessmentId && mongoose.Types.ObjectId.isValid(session.assessmentId)) {
-      assessment = await Assessment.findById(session.assessmentId);
-    }
-
-    // Fallback to route targetId
-    if (!assessment && targetId) {
-      if (mongoose.Types.ObjectId.isValid(targetId)) {
-        assessment = await Assessment.findById(targetId);
-      } else {
-        assessment = await Assessment.findOne({
-          $or: [
-            { category: new RegExp(`^${targetId}$`, "i") },
-            { field: new RegExp(`^${targetId}$`, "i") },
-            { title: new RegExp(`^${targetId}$`, "i") },
-          ],
-        });
-      }
-    }
-
-    if (!assessment) {
-      return res.status(404).json({ success: false, message: "Assessment not found." });
-    }
-
-    // Ownership validation for AI assessments
-    if (assessment.isAiGenerated && (!req.user || String(assessment.userId) !== String(req.user._id))) {
-      return res.status(403).json({ success: false, message: "You do not have permission to submit this assessment." });
-    }
-
-    // Gracefully restore session if server reloaded while user was taking the quiz
-    let activeSession = session;
-    if (!activeSession) {
-      const answersMap = new Map();
-      (assessment.questions || []).forEach((q, idx) => {
-        const qId = String(q._id || q.id || `q_${idx}`);
-        answersMap.set(qId, {
-          question: q.question,
-          type: q.type,
-          answer: q.answer,
-          options: q.options,
-          topic: q.topic || assessment.field || assessment.category || "General",
-          concept: q.concept || assessment.category || "General",
-          difficulty: q.difficulty || assessment.difficulty || "Medium",
-        });
-      });
-      activeSession = {
-        userId: req.user ? String(req.user._id) : null,
-        assessmentId: String(assessment._id),
-        assessmentTitle: assessment.title,
-        assessmentCategory: assessment.category || "General",
-        assessmentField: assessment.field || "",
-        createdAt: Date.now(),
-        answersMap,
-        completed: false,
-        result: null,
-      };
-      activeAttemptSessions.set(attemptId, activeSession);
-    }
-
-    // Verify attempt session owner
-    if (activeSession.userId && req.user && String(activeSession.userId) !== String(req.user._id)) {
-      return res.status(403).json({ success: false, message: "You do not have permission to submit this attempt session." });
-    }
-
-    // Idempotency: if already completed in memory, return cached result
-    if (activeSession.completed && activeSession.result) {
-      return res.json(activeSession.result);
-    }
-
-    // Database-backed idempotency check
-    const existingDbAttempt = await AttemptResult.findOne({ attemptId }).lean();
-    if (existingDbAttempt) {
-      activeSession.completed = true;
-      const cachedResult = formatSubmitResponse(existingDbAttempt);
-      activeSession.result = cachedResult;
-      return res.json(cachedResult);
-    }
-
-    // Build question list: prefer session.answersMap for answer keys
-    const questionsToEvaluate = [];
-    if (activeSession.answersMap && activeSession.answersMap.size > 0) {
-      for (const [qId, sQ] of activeSession.answersMap.entries()) {
-        const dbQ = (assessment.questions || []).find((q) => String(q._id || q.id) === qId);
-        questionsToEvaluate.push({
-          _id: qId,
-          id: qId,
-          question: sQ.question || dbQ?.question || "Question Prompt",
-          type: sQ.type || dbQ?.type || "mcq",
-          options: sQ.options || dbQ?.options || [],
-          answer: sQ.answer !== undefined ? sQ.answer : dbQ?.answer,
-          topic: sQ.topic || dbQ?.topic || assessment.field || "General",
-          concept: sQ.concept || dbQ?.concept || assessment.category || "General",
-          difficulty: sQ.difficulty || dbQ?.difficulty || assessment.difficulty || "Medium",
-        });
-      }
-    } else {
-      questionsToEvaluate.push(...(assessment.questions || []));
-    }
-
-    const questionResults = [];
-    let totalScore = 0;
-    let maxScore = 0;
-    let correctCount = 0;
-    let incorrectCount = 0;
-    let unansweredCount = 0;
-
-    if (questionsToEvaluate.length > 0) {
-      questionsToEvaluate.forEach((q) => {
-        const qId = String(q._id || q.id);
-        const userResp = responses ? responses[qId] : undefined;
-        const sessionQ = activeSession.answersMap ? activeSession.answersMap.get(qId) : null;
-
-        const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
-        evalResult.topic = q.topic || sessionQ?.topic || assessment?.field || assessment?.category || bodyField || bodyCategory || "General";
-        evalResult.concept = q.concept || sessionQ?.concept || assessment?.category || bodyCategory || "General";
-        evalResult.difficulty = q.difficulty || sessionQ?.difficulty || assessment?.difficulty || "Medium";
-        evalResult.timeTaken = questionsToEvaluate.length > 0 ? Math.round(Number(elapsedSeconds || 0) / questionsToEvaluate.length) : 0;
-        evalResult.mistakeType = classifyMistakeDeterministically(q, evalResult, sessionQ, userResp, elapsedSeconds, questionsToEvaluate.length);
-        questionResults.push(evalResult);
-
-        totalScore += evalResult.marksAwarded;
-        maxScore += evalResult.maxMarks;
-
-        if (evalResult.status === "correct" || evalResult.marksAwarded >= 7) {
-          correctCount++;
-        } else if (evalResult.status === "unanswered") {
-          unansweredCount++;
-        } else {
-          incorrectCount++;
-        }
-      });
-    } else if (req.body.questionResults && Array.isArray(req.body.questionResults)) {
-      req.body.questionResults.forEach((q) => {
-        const topic = q.topic || bodyField || bodyCategory || "General";
-        const concept = q.concept || bodyCategory || "General";
-        const difficulty = q.difficulty || "Medium";
-        const isCorrect = q.isCorrect || q.status === "correct";
-        const mistakeType = q.mistakeType || (isCorrect ? "" : classifyMistakeDeterministically(q, q, null, q.userAnswer, elapsedSeconds, req.body.questionResults.length));
-        questionResults.push({
-          ...q, topic, concept, difficulty,
-          timeTaken: q.timeTaken || (req.body.questionResults.length > 0 ? Math.round(Number(elapsedSeconds || 0) / req.body.questionResults.length) : 0),
-          mistakeType,
-        });
-        const marks = q.marksAwarded || (q.isCorrect ? 10 : 0);
-        const maxM = q.maxMarks || 10;
-        totalScore += marks;
-        maxScore += maxM;
-        if (q.isCorrect || marks >= 7) correctCount++;
-        else if (q.status === "unanswered") unansweredCount++;
-        else incorrectCount++;
-      });
-    }
-
-    const rawQuestions = assessment?.questions || questionsToEvaluate || [];
-    const totalQuestions = rawQuestions.length || questionResults.length || 1;
-    if (maxScore === 0) maxScore = totalQuestions * 10;
-
-    const percentage = maxScore > 0 ? Math.min(100, Math.round((totalScore / maxScore) * 100)) : (req.body.scorePercent || 0);
-    const title = assessment?.title || bodyTitle || (targetId ? `Assessment (${targetId})` : "General Assessment");
-    const category = assessment?.category || bodyCategory || "General";
-    const field = assessment?.field || bodyField || "";
-
-    if (totalQuestions > 0 && questionResults.length === 0) {
-      return res.status(400).json({ success: false, message: "No question results could be generated. Cannot save empty submission." });
-    }
-
-    let savedAttempt = null;
-    if (req.user) {
-      try {
-        savedAttempt = await AttemptResult.create({
-          attemptId,
-          userId: req.user._id,
-          assessmentId: assessment?._id,
-          assessmentTitle: title,
-          assessmentCategory: category,
-          assessmentField: field,
-          scorePercent: percentage,
-          totalScore,
-          maxScore,
-          correctCount,
-          incorrectCount,
-          unansweredCount,
-          gradableCount: totalQuestions,
-          totalQuestions,
-          elapsedSeconds: elapsedSeconds || 0,
-          violations,
-          questionResults,
-          completedAt: new Date(),
-        });
-        generatePersonalizedRoadmap(req.user._id).catch((err) => console.error("[Dashboard] Roadmap regeneration failed:", err.message));
-      } catch (saveErr) {
-        if (saveErr.code === 11000) {
-          savedAttempt = await AttemptResult.findOne({ attemptId }).lean();
-          if (!savedAttempt) {
-            return res.status(500).json({ success: false, message: "Attempt result could not be found after duplicate-key race." });
-          }
-        } else {
-          console.error("[Dashboard] Failed to persist attempt result:", saveErr.message);
-          return res.status(500).json({ success: false, message: "Failed to persist attempt result." });
-        }
-      }
-    }
-
-    const responsePayload = formatSubmitResponse(savedAttempt);
-    activeSession.completed = true;
-    activeSession.result = responsePayload;
-    setTimeout(() => { activeAttemptSessions.delete(attemptId); }, 30 * 60 * 1000);
-
-    return res.json(responsePayload);
-  } catch (unexpectedErr) {
-    console.error("[submitAttempt] Unhandled error:", unexpectedErr);
-    if (!res.headersSent) {
-      return res.status(500).json({ success: false, message: unexpectedErr.message || "Unexpected server error during submission." });
-    }
+  if (!attemptId) {
+    return res.status(400).json({ success: false, message: "Attempt ID is required." });
   }
+
+  const session = activeAttemptSessions.get(attemptId);
+  const targetId = req.params.id;
+  let assessment = null;
+
+  if (mongoose.Types.ObjectId.isValid(targetId)) {
+    assessment = await Assessment.findById(targetId);
+  }
+
+  if (!assessment) {
+    assessment = await Assessment.findOne({
+      $or: [
+        { category: new RegExp(targetId, "i") },
+        { field: new RegExp(targetId, "i") },
+        { title: new RegExp(targetId, "i") },
+      ],
+    });
+  }
+
+
+  const questionResults = [];
+  let totalScore = 0;
+  let maxScore = 0;
+  let correctCount = 0;
+  let incorrectCount = 0;
+  let unansweredCount = 0;
+
+  if (questionsToEvaluate.length > 0) {
+    questionsToEvaluate.forEach((q) => {
+      const qId = String(q._id || q.id);
+      const userResp = responses ? responses[qId] : undefined;
+      const sessionQ = activeSession.answersMap ? activeSession.answersMap.get(qId) : null;
+
+      const evalResult = evaluateSingleQuestion(q, userResp, sessionQ);
+      evalResult.topic = q.topic || sessionQ?.topic || assessment?.field || assessment?.category || bodyField || bodyCategory || "General";
+      evalResult.concept = q.concept || sessionQ?.concept || assessment?.category || bodyCategory || "General";
+      evalResult.difficulty = q.difficulty || sessionQ?.difficulty || assessment?.difficulty || "Medium";
+      evalResult.timeTaken = questionsToEvaluate.length > 0 ? Math.round(Number(elapsedSeconds || 0) / questionsToEvaluate.length) : 0;
+      evalResult.mistakeType = classifyMistakeDeterministically(q, evalResult, sessionQ, userResp, elapsedSeconds, questionsToEvaluate.length);
+      questionResults.push(evalResult);
+
+      totalScore += evalResult.marksAwarded;
+      maxScore += evalResult.maxMarks;
+
+      if (evalResult.status === "correct" || evalResult.marksAwarded >= 7) {
+        correctCount++;
+      } else if (evalResult.status === "unanswered") {
+        unansweredCount++;
+      } else {
+        incorrectCount++;
+      }
+    });
+  } else if (req.body.questionResults && Array.isArray(req.body.questionResults)) {
+    req.body.questionResults.forEach((q) => {
+      const topic = q.topic || bodyField || bodyCategory || "General";
+      const concept = q.concept || bodyCategory || "General";
+      const difficulty = q.difficulty || "Medium";
+      const isCorrect = q.isCorrect || q.status === "correct";
+      const mistakeType = q.mistakeType || (isCorrect ? "" : classifyMistakeDeterministically(q, q, null, q.userAnswer, elapsedSeconds, req.body.questionResults.length));
+      questionResults.push({
+        ...q, topic, concept, difficulty,
+        timeTaken: q.timeTaken || (req.body.questionResults.length > 0 ? Math.round(Number(elapsedSeconds || 0) / req.body.questionResults.length) : 0),
+        mistakeType,
+      });
+      const marks = q.marksAwarded || (q.isCorrect ? 10 : 0);
+      const maxM = q.maxMarks || 10;
+      totalScore += marks;
+      maxScore += maxM;
+      if (q.isCorrect || marks >= 7) correctCount++;
+      else if (q.status === "unanswered") unansweredCount++;
+      else incorrectCount++;
+    });
+  }
+
+  const rawQuestions = assessment?.questions || questionsToEvaluate || [];
+  const totalQuestions = rawQuestions.length || questionResults.length || 1;
+  if (maxScore === 0) maxScore = totalQuestions * 10;
+
+  const percentage = maxScore > 0 ? Math.min(100, Math.round((totalScore / maxScore) * 100)) : (req.body.scorePercent || 0);
+
+  if (attemptId) {
+    activeAttemptSessions.delete(attemptId);
+  }
+
+  const title = assessment?.title || bodyTitle || (targetId ? `Assessment (${targetId})` : "General Assessment");
+  const category = assessment?.category || bodyCategory || "General";
+  const field = assessment?.field || bodyField || "";
+
+  // Validation: Do not silently save empty evidence if an assessment was actually evaluated
+  if (totalQuestions > 0 && (!questionResults || questionResults.length === 0)) {
+    return res.status(400).json({
+      success: false,
+      message: "No question results provided and unable to reconstruct questions from backend. Cannot save empty evidence.",
+    });
+  }
+
   // Persist the attempt result for the authenticated user (dashboard & roadmap analytics)
   if (req.user) {
     try {
-      await AttemptResult.create({
+      savedAttempt = await AttemptResult.create({
+        attemptId,
         userId: req.user._id,
+        attemptId: attemptId || undefined,
         assessmentId: assessment?._id,
         assessmentTitle: title,
         assessmentCategory: category,
@@ -876,40 +701,44 @@ export async function submitAttempt(req, res) {
         gradableCount: totalQuestions,
         totalQuestions,
         elapsedSeconds: elapsedSeconds || 0,
+        violations,
         questionResults,
         completedAt: new Date(),
       });
 
-      // Fire roadmap regeneration in the background — do NOT await, so response is instant
-      generatePersonalizedRoadmap(req.user._id).catch((err) =>
-        console.error("[Dashboard] Background roadmap regeneration failed:", err.message)
-      );
+      // Fire MistakeMap cache invalidation
+      MistakeMapAnalysis.updateOne({ userId: req.user._id }, { $unset: { aiInsights: 1 } }).catch(err => console.error("[MistakeMap] Cache invalidation failed:", err));
+      // Fire roadmap regeneration in the background
+      generatePersonalizedRoadmap(req.user._id).catch(err => console.error("[Dashboard] Background roadmap regeneration failed:", err.message));
     } catch (saveErr) {
-      console.error("[Dashboard] Failed to persist attempt result:", saveErr.message);
+      if (saveErr.code === 11000) {
+        // Concurrent race condition: another request created the record first
+        try {
+          savedAttempt = await AttemptResult.findOne({ attemptId }).lean();
+        } catch (fetchErr) {
+          console.error("[Dashboard] Failed to retrieve existing attempt after race condition:", fetchErr);
+          return res.status(500).json({ success: false, message: "Failed to retrieve existing attempt result after race condition." });
+        }
+        if (!savedAttempt) {
+          return res.status(500).json({ success: false, message: "Attempt result could not be found after duplicate-key race." });
+        }
+      } else {
+        console.error("[Dashboard] Failed to persist attempt result:", saveErr.message);
+        return res.status(500).json({ success: false, message: "Failed to persist attempt result." });
+      }
     }
   }
 
-  res.json({
-    success: true,
-    scorePercent: percentage,
-    totalScore,
-    maxScore,
-    percentage,
-    correctCount,
-    incorrectCount,
-    unansweredCount,
-    attemptedCount: totalQuestions - unansweredCount,
-    answeredCount: totalQuestions - unansweredCount,
-    gradableCount: totalQuestions,
-    attemptedGradableCount: totalQuestions - unansweredCount,
-    unansweredTotalCount: unansweredCount,
-    totalQuestions,
-    questionResults,
-    elapsedSeconds,
-    violationsCount: violations.length,
-    violations,
-    autoSubmitted: violations.length >= 3,
-  });
+  // Response payload constructed strictly from savedAttempt record
+  const responsePayload = formatSubmitResponse(savedAttempt);
+
+  session.completed = true;
+  session.result = responsePayload;
+  setTimeout(() => {
+    activeAttemptSessions.delete(attemptId);
+  }, 30 * 60 * 1000);
+
+  return res.json(responsePayload);
 }
 
 /**
@@ -968,10 +797,10 @@ export async function syncAttemptResult(req, res) {
       completedAt: new Date(),
     });
 
-    // Fire roadmap regeneration in the background — do NOT await, so response is instant
-    generatePersonalizedRoadmap(userId).catch((err) =>
-      console.error("[Assessment] Background roadmap regeneration failed:", err.message)
-    );
+    // Fire MistakeMap cache invalidation
+    MistakeMapAnalysis.updateOne({ userId }, { $unset: { aiInsights: 1 } }).catch(err => console.error("[MistakeMap] Cache invalidation failed:", err));
+    // Fire roadmap regeneration in the background
+    generatePersonalizedRoadmap(userId).catch(err => console.error("[Assessment] Background roadmap regeneration failed:", err.message));
 
     return res.json({
       success: true,
@@ -1100,16 +929,6 @@ export async function generateAIAssessment(req, res) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    const validatedField = isValidField(field) || (field && field.trim().length >= 2 ? field.trim() : null);
-    if (!validatedField) {
-      return res.status(400).json({ success: false, message: "Cannot generate assessment for an unrecognized course or field. Please select a valid academic or professional domain." });
-    }
-
-    const spam = ["hi", "hii", "hello", "test", "testing", "asdf", "qwerty", "1234"];
-    if (!topic || topic.trim().length < 2 || spam.includes(topic.trim().toLowerCase())) {
-      return res.status(400).json({ success: false, message: "Please enter a valid academic or professional topic." });
-    }
-
     const questionCount = parseInt(count, 10);
     if (isNaN(questionCount) || questionCount < 1 || questionCount > 20) {
       return res.status(400).json({ success: false, message: "Count must be a number between 1 and 20" });
@@ -1119,30 +938,15 @@ export async function generateAIAssessment(req, res) {
     const userCareerGoal = req.user?.onboardingProfile?.careerGoal || "";
     const audienceContext = `Level: ${userLevel}${userCareerGoal ? `, Goal: ${userCareerGoal}` : ""}`;
 
+    // Call Gemini API
     const generatedData = await generateQuestions(field, topic, difficulty, questionCount, audienceContext);
 
     if (!generatedData || !generatedData.questions || !Array.isArray(generatedData.questions) || generatedData.questions.length === 0) {
       return res.status(500).json({ success: false, message: "AI returned invalid format." });
     }
 
-    const formattedQuestions = generatedData.questions.map((q) => {
-      const qDifficulty = q.difficulty || difficulty;
-      const qTopic = q.topic || topic;
-      const qConcept = q.concept || q.topic || topic;
-      return {
-        type: q.type || "mcq",
-        difficulty: ["Easy", "Medium", "Hard"].includes(qDifficulty) ? qDifficulty : "Medium",
-        topic: qTopic,
-        concept: qConcept,
-        question: q.question,
-        options: Array.isArray(q.options) ? q.options : [],
-        answer: q.correctAnswer || (Array.isArray(q.options) ? q.options[0] : ""),
-        context: q.explanation || "",
-        explanation: q.explanation || "",
-        hints: q.hints || [],
-        codeSnippet: q.codeSnippet || "",
-      };
-    });
+    const formattedQuestions = filterUniqueQuestions(candidateQuestions, encounteredQuestions);
+    const finalQuestions = formattedQuestions.length > 0 ? formattedQuestions : candidateQuestions;
 
     const assessment = new Assessment({
       title: `${topic} (${difficulty})`,
@@ -1155,7 +959,7 @@ export async function generateAIAssessment(req, res) {
       isAiGenerated: true,
       userId: req.user._id,
       createdBy: req.user._id,
-      questions: formattedQuestions,
+      questions: finalQuestions,
     });
 
     await assessment.save();
@@ -1439,7 +1243,7 @@ export async function generateDailyAIAssessment(req, res) {
       return res.status(500).json({ success: false, message: "AI returned invalid format." });
     }
 
-    const formattedQuestions = generatedData.questions.map((q) => {
+    const candidateQuestions = generatedData.questions.map((q) => {
       return {
         type: q.type || "mcq",
         difficulty: ["Easy", "Medium", "Hard"].includes(q.difficulty) ? q.difficulty : "Medium",
@@ -1455,6 +1259,9 @@ export async function generateDailyAIAssessment(req, res) {
       };
     });
 
+    const formattedQuestions = filterUniqueQuestions(candidateQuestions, encounteredQuestions);
+    const finalQuestions = formattedQuestions.length > 0 ? formattedQuestions : candidateQuestions;
+
     // 4. Save
     const assessment = new Assessment({
       title: `Daily Challenge - ${targetTopic}`,
@@ -1467,7 +1274,7 @@ export async function generateDailyAIAssessment(req, res) {
       isAiGenerated: true,
       userId: userId,
       createdBy: userId,
-      questions: formattedQuestions,
+      questions: finalQuestions,
     });
 
     await assessment.save();
@@ -1517,23 +1324,107 @@ export async function evaluateAttemptWithAI(req, res) {
       assessmentField: bodyField,
     } = req.body;
 
+    // 1. Idempotency Check: prevent duplicate assessment evaluations with same attemptId
+    if (req.user && attemptId) {
+      const existingAttempt = await AttemptResult.findOne({ attemptId });
+      if (existingAttempt) {
+        if (String(existingAttempt.userId) !== String(req.user._id)) {
+          return res.status(403).json({
+            success: false,
+            message: "You do not have permission to access this attempt session.",
+          });
+        }
+        return res.status(200).json({
+          success: true,
+          duplicateHandled: true,
+          aiEvalApplied: existingAttempt.evaluatedByAI || false,
+          overallFeedback: existingAttempt.overallFeedback || "",
+          overallRating: existingAttempt.overallRating || "",
+          strengths: existingAttempt.strengths || [],
+          areasToImprove: existingAttempt.areasToImprove || [],
+          scorePercent: existingAttempt.scorePercent,
+          totalScore: existingAttempt.totalScore,
+          maxScore: existingAttempt.maxScore,
+          percentage: existingAttempt.scorePercent,
+          correctCount: existingAttempt.correctCount,
+          incorrectCount: existingAttempt.incorrectCount,
+          unansweredCount: existingAttempt.unansweredCount,
+          attemptedCount: existingAttempt.attemptedCount,
+          answeredCount: existingAttempt.attemptedCount,
+          gradableCount: existingAttempt.gradableCount,
+          attemptedGradableCount: existingAttempt.attemptedCount,
+          unansweredTotalCount: existingAttempt.unansweredCount,
+          totalQuestions: existingAttempt.totalQuestions,
+          questionResults: existingAttempt.questionResults,
+          incorrectSubmissions: (existingAttempt.questionResults || []).filter((q) => !q.isCorrect && q.status !== "correct"),
+          sessionMistakes: (existingAttempt.questionResults || []).filter((q) => !q.isCorrect && q.status !== "correct"),
+          elapsedSeconds: existingAttempt.elapsedSeconds,
+          violationsCount: existingAttempt.violations?.length || 0,
+          violations: existingAttempt.violations || [],
+          autoSubmitted: (existingAttempt.violations?.length || 0) >= 3,
+        });
+      }
+    }
+
     const targetId = req.params.id;
     let assessment = null;
 
     if (mongoose.Types.ObjectId.isValid(targetId)) {
       assessment = await Assessment.findById(targetId);
-    }
-    if (!assessment) {
+    } else {
       assessment = await Assessment.findOne({
         $or: [
-          { category: new RegExp(targetId, "i") },
-          { field: new RegExp(targetId, "i") },
-          { title: new RegExp(targetId, "i") },
+          { category: new RegExp(`^${targetId}$`, "i") },
+          { field: new RegExp(`^${targetId}$`, "i") },
+          { title: new RegExp(`^${targetId}$`, "i") },
         ],
       });
     }
 
+    if (!assessment) {
+      return res.status(404).json({ success: false, message: "Assessment not found." });
+    }
+
+    // Ownership validation for AI assessments
+    if (assessment.isAiGenerated && (!req.user || String(assessment.userId) !== String(req.user._id))) {
+      return res.status(403).json({ success: false, message: "You do not have permission to evaluate this assessment." });
+    }
+
+    if (!attemptId) {
+      return res.status(400).json({ success: false, message: "Attempt ID is required." });
+    }
+
     const session = activeAttemptSessions.get(attemptId);
+    if (!session) {
+      return res.status(400).json({ success: false, message: "Invalid or expired attempt session." });
+    }
+
+    // Verify attempt session owner
+    if (session.userId && String(session.userId) !== String(req.user._id)) {
+      return res.status(403).json({ success: false, message: "You do not have permission to submit this attempt session." });
+    }
+
+    // Verify attempt session matches the assessment being submitted
+    if (session.assessmentId && String(session.assessmentId) !== String(assessment._id)) {
+      return res.status(400).json({ success: false, message: "Attempt session does not match this assessment." });
+    }
+
+    // Fast path idempotency: in-memory cache
+    if (session.completed && session.result) {
+      return res.json(session.result);
+    }
+
+    // Database-backed idempotency check: persistent attempt record already created
+    if (attemptId) {
+      const existingDbAttempt = await AttemptResult.findOne({ attemptId }).lean();
+      if (existingDbAttempt) {
+        session.completed = true;
+        const cachedResult = formatAiEvalResponse(existingDbAttempt, existingDbAttempt.evaluatedByAI);
+        session.result = cachedResult;
+        return res.json(cachedResult);
+      }
+    }
+
     const rawQuestions = assessment?.questions || [];
 
     // -----------------------------------------------------------------------
@@ -1632,36 +1523,20 @@ export async function evaluateAttemptWithAI(req, res) {
         aiMap.set(String(ev.questionId), ev);
       });
 
-      // Merge AI feedback into each question result
-      let aiTotalScore = 0;
-      let aiCorrectCount = 0;
-      let aiIncorrectCount = 0;
-
+      // Objective 3: Strict Decoupling of Generation and Evaluation
+      // The evaluation engine relies exclusively on deterministic programmatic checks against
+      // stored, pre-vetted answer keys (evaluateSingleQuestion).
+      // LLM only enriches each question with qualitative feedback (aiFeedback, keyPointsMissed, aiScore)
+      // and is strictly prevented from dynamically altering marksAwarded, status, or isCorrect.
       questionResults.forEach((qr) => {
         const aiEval = aiMap.get(String(qr.questionId));
         if (aiEval) {
           qr.aiFeedback = aiEval.aiFeedback;
           qr.keyPointsMissed = aiEval.keyPointsMissed || [];
           qr.aiScore = aiEval.aiScore;
-
-          // For descriptive/conceptual question types, override marks with AI score
-          if (["long_answer", "short_answer", "code", "descriptive"].includes(qr.type)) {
-            qr.marksAwarded = Math.min(10, Math.max(0, Math.round(aiEval.aiScore)));
-            qr.status = aiEval.status;
-            qr.isCorrect = aiEval.status !== "incorrect";
-            qr.explanation = aiEval.aiFeedback;
-          }
         }
-
-        aiTotalScore += qr.marksAwarded;
-        if (qr.status === "correct" || qr.marksAwarded >= 7) aiCorrectCount++;
-        else if (qr.status !== "unanswered") aiIncorrectCount++;
       });
 
-      // Recalculate totals with AI-adjusted marks
-      totalScore = aiTotalScore;
-      correctCount = aiCorrectCount;
-      incorrectCount = aiIncorrectCount;
       aiEvalApplied = true;
     } catch (aiErr) {
       console.error("[AI Evaluator] Gemini evaluation failed, falling back to deterministic scoring:", aiErr.message);
@@ -1682,10 +1557,13 @@ export async function evaluateAttemptWithAI(req, res) {
     // -----------------------------------------------------------------------
     // Step 3: Persist attempt result with full AI telemetry
     // -----------------------------------------------------------------------
+    let savedAttempt = null;
     if (req.user) {
       try {
-        await AttemptResult.create({
+        savedAttempt = await AttemptResult.create({
+          attemptId,
           userId: req.user._id,
+          attemptId: attemptId || undefined,
           assessmentId: assessment?._id,
           assessmentTitle: title,
           assessmentCategory: category,
@@ -1710,54 +1588,59 @@ export async function evaluateAttemptWithAI(req, res) {
           completedAt: new Date(),
         });
 
-        // Fire roadmap regeneration in the background — do NOT await, so response is instant
-        generatePersonalizedRoadmap(req.user._id).catch((err) =>
-          console.error("[AI Evaluator] Background roadmap regeneration failed:", err.message)
-        );
+        // Fire MistakeMap cache invalidation
+        MistakeMapAnalysis.updateOne({ userId: req.user._id }, { $unset: { aiInsights: 1 } }).catch(err => console.error("[MistakeMap] Cache invalidation failed:", err));
+        // Fire roadmap regeneration in the background
+        generatePersonalizedRoadmap(req.user._id).catch(err => console.error("[Dashboard] Background roadmap regeneration failed:", err.message));
       } catch (saveErr) {
-        console.error("[AI Evaluator] Failed to persist attempt result:", saveErr.message);
+        if (saveErr.code === 11000) {
+          // Concurrent race condition: another request created the record first
+          try {
+            savedAttempt = await AttemptResult.findOne({ attemptId }).lean();
+          } catch (fetchErr) {
+            console.error("[AI Evaluator] Failed to retrieve existing attempt after race condition:", fetchErr);
+            return res.status(500).json({ success: false, message: "Failed to retrieve existing attempt result after race condition." });
+          }
+          if (!savedAttempt) {
+            return res.status(500).json({ success: false, message: "Attempt result could not be found after duplicate-key race." });
+          }
+        } else {
+          console.error("[AI Evaluator] Failed to persist attempt result:", saveErr.message);
+          return res.status(500).json({ success: false, message: "Failed to persist attempt result." });
+        }
       }
     }
 
-    return res.json({
-      success: true,
-      aiEvalApplied,
-      overallFeedback,
-      overallRating,
-      strengths,
-      areasToImprove,
-      scorePercent: percentage,
-      totalScore,
-      maxScore,
-      percentage,
-      correctCount,
-      incorrectCount,
-      unansweredCount,
-      attemptedCount,
-      answeredCount: attemptedCount,
-      gradableCount: totalQuestions,
-      attemptedGradableCount: attemptedCount,
-      unansweredTotalCount: unansweredCount,
-      totalQuestions,
-      questionResults,
-      elapsedSeconds,
-      violationsCount: violations.length,
-      violations,
-      autoSubmitted: violations.length >= 3,
-    });
+    const responsePayload = formatAiEvalResponse(savedAttempt, aiEvalApplied);
+
+    session.completed = true;
+    session.result = responsePayload;
+    setTimeout(() => {
+      activeAttemptSessions.delete(attemptId);
+    }, 30 * 60 * 1000);
+
+    return res.json(responsePayload);
   } catch (error) {
     console.error("[AI Evaluator] Unexpected error:", error);
     res.status(500).json({ success: false, message: error.message || "Failed to evaluate assessment with AI" });
   }
 }
 
+/**
+ * Retrieves the authenticated user's latest completed attempt result for an assessment.
+ * Scoped strictly to req.user._id to ensure result integrity.
+ */
 export async function getLatestAttemptResult(req, res) {
   try {
     const userId = req.user._id;
     const targetId = req.params.id;
+
     let assessment = null;
     if (mongoose.Types.ObjectId.isValid(targetId)) {
       assessment = await Assessment.findById(targetId);
+      if (!assessment) {
+        return res.status(404).json({ success: false, message: "Assessment not found." });
+      }
     } else {
       assessment = await Assessment.findOne({
         $or: [
@@ -1766,17 +1649,32 @@ export async function getLatestAttemptResult(req, res) {
           { title: new RegExp(`^${targetId}$`, "i") },
         ],
       });
+      if (!assessment) {
+        return res.status(404).json({ success: false, message: "Assessment not found." });
+      }
     }
-    if (!assessment) {
-      return res.status(404).json({ success: false, message: "Assessment not found." });
+
+    // Ownership check for private AI assessments
+    if (assessment.isAiGenerated && String(assessment.userId) !== String(userId)) {
+      return res.status(403).json({ success: false, message: "You do not have permission to view results for this assessment." });
     }
-    const latestAttempt = await AttemptResult.findOne({ userId, assessmentId: assessment._id }).sort({ completedAt: -1 }).lean();
+
+    // Query strictly by assessmentId to avoid ambiguous matching by title across duplicate or unrelated assessments
+    const query = {
+      userId,
+      assessmentId: assessment._id,
+    };
+
+    const latestAttempt = await AttemptResult.findOne(query).sort({ completedAt: -1 }).lean();
     if (!latestAttempt) {
       return res.status(404).json({ success: false, message: "No completed result found for this assessment." });
     }
+
     return res.json({ success: true, result: latestAttempt });
   } catch (err) {
     console.error("Error fetching latest attempt result:", err);
     return res.status(500).json({ success: false, message: "Failed to fetch attempt result." });
   }
 }
+
+

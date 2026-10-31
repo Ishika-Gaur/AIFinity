@@ -17,20 +17,15 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
 
   const dynamicName = currentUser?.name?.trim() || (user?.name && user.name.trim() !== "Learner" ? user.name.trim() : "");
   const greeting = user?.greeting || "Good evening";
-  const subtitle = user?.subtitle || "Here's where your learning journey stands today.";
+  const subtitle = user?.subtitle || "Your learning journey, understood by AI. Track your progress, uncover learning gaps, and turn every assessment into a clearer path forward.";
   const streak = user?.streak ?? 0;
 
   const defaultQuotes = [
-    "Small progress is still progress.",
+    "Every attempt is evidence. Every mistake is a step forward.",
     "Consistency builds what motivation starts.",
-    "Every mistake is a clue.",
     "Understand the why, not just the answer.",
     "Your weak areas are your next opportunities.",
-    "Practice turns confusion into confidence.",
-    "Keep learning. Keep questioning. Keep improving.",
     "One concept understood deeply is worth ten memorized.",
-    "Your mistakes are showing you where to grow.",
-    "Progress is built one problem at a time.",
   ];
 
   const activeQuotes = quotes.length > 0 ? quotes : defaultQuotes;
@@ -68,7 +63,7 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
         <span>Logout</span>
       </button>
 
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between pt-6 sm:pt-0">
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between pt-10 sm:pt-4 xl:pt-0">
         {/* Left branding, heading & rotating quote */}
         <div className="flex flex-col gap-3 max-w-2xl">
           <DashboardLogo />
@@ -90,9 +85,9 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
           </div>
 
           {/* 13. ROTATING QUOTES WITH FADE & MONO COUNTER */}
-          <div className="mt-1 flex items-center gap-3 rounded-xl bg-[#EDE6D3]/60 px-4 py-2 border border-[#2E4F42]/10 w-fit min-h-[40px]">
+          <div className="mt-1 flex items-center gap-3 rounded-xl bg-[#EDE6D3]/60 px-4 py-2 border border-[#2E4F42]/10 w-fit max-w-full min-h-[40px]">
             <span className="text-[#C4952A] text-sm shrink-0">✦</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <span
                 className={`font-sans text-xs sm:text-sm text-[#1B332C] font-medium italic transition-opacity duration-300 ${
                   fadeState ? "opacity-100" : "opacity-0"
@@ -108,24 +103,30 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
         </div>
 
         {/* Right Actions & Streak Badge */}
-        <div className="flex shrink-0 flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+          <Link to="/revision" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#EDE6D3] px-4 py-2.5 sm:px-5 sm:py-3 text-xs font-bold text-[#1B332C] border border-[#2E4F42]/15 shadow-sm hover:bg-[#E8C547] hover:-translate-y-0.5 transition-all duration-300 group flex-1 sm:flex-initial text-center">
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <span className="whitespace-nowrap">Revision Center</span>
+          </Link>
           <Link
             to="/assessment"
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#1B332C] px-5 py-3 text-xs font-bold text-[#E8C547] border border-[#C4952A]/40 shadow-md hover:bg-[#2E4F42] hover:text-white hover:-translate-y-0.5 transition-all duration-300 group"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1B332C] px-4 py-2.5 sm:px-5 sm:py-3 text-xs font-bold text-[#E8C547] border border-[#C4952A]/40 shadow-md hover:bg-[#2E4F42] hover:text-white hover:-translate-y-0.5 transition-all duration-300 group flex-1 sm:flex-initial text-center"
           >
             <span className="text-base group-hover:scale-110 transition-transform">⚡</span>
-            <span>Take Assessment</span>
+            <span className="whitespace-nowrap">Take Assessment</span>
             <span>→</span>
           </Link>
 
-          <div className="flex items-center gap-3 rounded-2xl bg-[#EDE6D3] px-4 py-3 text-[#1B332C] border border-[#2E4F42]/15 shadow-2xs hover:-translate-y-0.5 transition-all duration-300 group cursor-default">
-            <span className="text-xl group-hover:scale-110 transition-transform duration-200">🔥</span>
+          <div className="flex items-center gap-3 rounded-2xl bg-[#EDE6D3] px-4 py-2.5 sm:py-3 text-[#1B332C] border border-[#2E4F42]/15 shadow-2xs hover:-translate-y-0.5 transition-all duration-300 group cursor-default w-full sm:w-auto justify-center sm:justify-start">
+            <span className="text-xl group-hover:scale-110 transition-transform duration-200 shrink-0">🔥</span>
             <div className="flex flex-col">
               <span className="font-mono text-xs uppercase tracking-wider text-[#1B332C] font-bold">
                 {streak} DAY STREAK
               </span>
               <span className="font-mono text-[10px] text-[#5B6B5F]">
-                {streak > 0 ? `Consistency Multiplier ${(1 + Math.min(streak, 10) * 0.1).toFixed(1)}x` : "Start your streak!"}
+                {streak > 0 ? `Consistency Multiplier ${(1 + Math.min(streak, 10) * 0.1).toFixed(1)}x` : "Make today your first consistent step."}
               </span>
             </div>
           </div>
@@ -134,3 +135,6 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
     </div>
   );
 }
+
+
+

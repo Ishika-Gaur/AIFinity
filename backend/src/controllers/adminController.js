@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import Assessment from "../models/Assessment.js";
 import AdminSettings from "../models/AdminSettings.js";
 import LearningContent from "../models/LearningContent.js";
+import CourseRequest from "../models/CourseRequest.js";
 
 const presentUser = (user) => ({
   id: user._id,
@@ -298,3 +299,71 @@ export async function updateSettings(req, res) {
     res.status(500).json({ success: false, error: err.message });
   }
 }
+
+// ---------------- PLATFORM NOTIFICATIONS ----------------
+export async function getNotifications(req, res) {
+  try {
+    const pendingCourseRequests = await CourseRequest.find({ status: "pending" })
+      .populate("userId", "name email")
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    const pendingCount = await CourseRequest.countDocuments({ status: "pending" });
+
+    const suspendedUsers = await User.find({ status: "suspended" })
+      .select("name email updatedAt createdAt")
+      .sort({ updatedAt: -1 })
+      .limit(3)
+      .lean();
+
+    const notifications = [];
+
+    // Course requests
+    pendingCourseRequests.forEach((cr) => {
+      const requesterName = cr.userId?.name || "A learner";
+      notifications.push({
+        id: `cr_${cr._id}`,
+        type: "course_request",
+        title: "New Course Request",
+        message: `${requesterName} requested "${cr.courseName}"`,
+        link: "/admin/course-requests",
+        createdAt: cr.createdAt,
+        isPending: true,
+        data: {
+          requestId: cr._id,
+          courseName: cr.courseName,
+          provider: cr.provider,
+          requesterName,
+          requesterEmail: cr.userId?.email || "",
+        },
+      });
+    });
+
+    // Suspended users
+    suspendedUsers.forEach((su) => {
+      notifications.push({
+        id: `sus_${su._id}`,
+        type: "user_warning",
+        title: "Suspended Account",
+        message: `User ${su.name || su.email} is currently suspended`,
+        link: "/admin/users",
+        createdAt: su.updatedAt || su.createdAt,
+        isPending: false,
+      });
+    });
+
+    notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json({
+      success: true,
+      unreadCount: pendingCount,
+      pendingCount,
+      notifications,
+    });
+  } catch (err) {
+    console.error("[Admin] Error fetching notifications:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+

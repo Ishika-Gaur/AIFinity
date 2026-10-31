@@ -184,7 +184,7 @@ export default function Contact() {
     setErrors((prev) => ({ ...prev, subject: "" }));
   };
 
- const handleSubmit = (e) => {
+ const handleSubmit = async (e) => {
   e.preventDefault();
   const newErrors = {
     name: validateField("name", formData.name),
@@ -193,40 +193,46 @@ export default function Contact() {
     message: validateField("message", formData.message),
   };
 
+  if (formData.subject === "Other" && !formData.customSubject.trim()) {
+    newErrors.customSubject = "Please specify a subject";
+  }
+
   setTouched({ name: true, email: true, subject: true, message: true });
   setErrors(newErrors);
 
   if (Object.values(newErrors).some(Boolean)) return;
 
+  const { VITE_EMAILJS_SERVICE_ID, VITE_EMAILJS_TEMPLATE_ID, VITE_EMAILJS_PUBLIC_KEY } = import.meta.env;
+  if (!VITE_EMAILJS_SERVICE_ID || !VITE_EMAILJS_TEMPLATE_ID || !VITE_EMAILJS_PUBLIC_KEY) {
+    setSendError("The contact form is not configured yet. Please contact us by direct email.");
+    return;
+  }
+
   setIsSubmitting(true);
   setSendError("");
 
- const templateParams = {
-  name: formData.name,
-  email: formData.email,
-  title: formData.subject === "Other" ? formData.customSubject : formData.subject,
-  message: formData.message,
-};
-
-  emailjs
-    .send(
-      import.meta.env.VITE_EMAILJS_SERVICE_ID,
-      import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-      templateParams,
-      import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-    )
-    .then(() => {
-      setIsSubmitting(false);
-      setSubmitted(true);
-      setFormData({ name: "", email: "", subject: "", message: "", customSubject: "" });
-      setTouched({});
-      setErrors({});
-    })
-    .catch((err) => {
-      console.error("EmailJS error:", err);
-      setIsSubmitting(false);
-      setSendError("Message not send. Please try again or contact by the direct mail.");
-    });
+  try {
+    await emailjs.send(
+      VITE_EMAILJS_SERVICE_ID,
+      VITE_EMAILJS_TEMPLATE_ID,
+      {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        title: formData.subject === "Other" ? formData.customSubject.trim() : formData.subject,
+        message: formData.message.trim(),
+      },
+      { publicKey: VITE_EMAILJS_PUBLIC_KEY }
+    );
+    setSubmitted(true);
+    setFormData({ name: "", email: "", subject: "", message: "", customSubject: "" });
+    setTouched({});
+    setErrors({});
+  } catch (err) {
+    console.error("EmailJS error:", err?.status, err?.text || err?.message || err);
+    setSendError("We couldn't send your message. Please try again or contact us by direct email.");
+  } finally {
+    setIsSubmitting(false);
+  }
 };
 
   return (
@@ -445,9 +451,18 @@ export default function Contact() {
       placeholder="Please specify your subject"
       value={formData.customSubject || ""}
       onChange={handleChange}
+      onBlur={handleBlur}
+      aria-invalid={Boolean(errors.customSubject)}
       className="mt-2 w-full rounded-xl border px-4 py-3 text-sm outline-none transition-all duration-200 focus:ring-4"
-      style={{ borderColor: "var(--color-border)", background: "var(--color-surface-secondary)", color: "var(--color-text-h)" }}
+      style={errors.customSubject
+        ? { borderColor: "var(--color-error)", background: "var(--color-surface)" }
+        : { borderColor: "var(--color-border)", background: "var(--color-surface-secondary)", color: "var(--color-text-h)" }}
     />
+  )}
+  {errors.customSubject && (
+    <p className="mt-1.5 text-xs font-medium" style={{ color: "var(--color-error)" }}>
+      {errors.customSubject}
+    </p>
   )}
 </div>
 

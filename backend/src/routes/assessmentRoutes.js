@@ -14,6 +14,7 @@ import {
   generateDailyAIAssessment,
   getDailyAssessmentStatus,
   evaluateAttemptWithAI,
+  getLatestAttemptResult,
 } from "../controllers/assessmentController.js";
 import { authenticate, isAdmin, optionalAuthenticate } from "../middleware/authMiddleware.js";
 
@@ -31,6 +32,8 @@ router.delete("/admin/:id", authenticate, isAdmin, removeAssessment);
 // authenticate on start/submit/sync so req.user is available for attempt persistence
 router.post("/sync-attempt", authenticate, syncAttemptResult);
 router.get("/:id/start", authenticate, startAttempt);
+router.get("/:id/result/latest", authenticate, getLatestAttemptResult);
+router.get("/:id/result", authenticate, getLatestAttemptResult);
 router.post("/:id/submit", authenticate, submitAttempt);
 router.post("/:id/evaluate-ai", authenticate, evaluateAttemptWithAI);
 router.get("/:id", optionalAuthenticate, getPublished);

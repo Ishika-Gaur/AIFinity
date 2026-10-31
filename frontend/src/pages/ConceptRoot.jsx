@@ -130,7 +130,7 @@ export default function ConceptRoot() {
               {/* Root Cause */}
               <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6 shadow-sm border-t-4 border-t-[var(--color-primary-600)]">
                 <span className="text-xs font-bold text-[var(--color-primary-700)] uppercase tracking-wider mb-3 block">Root Cause</span>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">{data.rootCause.rootConceptName}</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">{data.rootCause?.rootConceptName || data.canonicalConcept}</h3>
                 <p className="text-gray-600 font-medium mb-1">
                   Detected Pattern: <span className="capitalize text-gray-900">{data.rootCause.type.replace(/_/g, ' ').toLowerCase()}</span>
                 </p>
@@ -195,16 +195,26 @@ export default function ConceptRoot() {
                 {/* Evidence Logs */}
                 {data.evidence && data.evidence.filter(e => !e.isCorrect).length > 0 && (
                   <div className="space-y-3 mt-4 pt-4 border-t border-gray-100">
-                    <p className="text-xs font-semibold text-gray-500 uppercase">Recent Mistakes:</p>
-                    {data.evidence.filter(e => !e.isCorrect).slice(0, 3).map((sq, idx) => (
-                      <div key={idx} className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-sm flex flex-col md:flex-row md:items-center gap-4">
-                        <div className="flex-1">
-                          <span className="text-xs text-gray-400 uppercase block mb-1">Your Answer</span>
-                          <span className="font-mono text-red-600">{sq.studentAnswer}</span>
-                        </div>
-                        <div className="flex-1">
-                          <span className="text-xs text-gray-400 uppercase block mb-1">Correct Answer</span>
-                          <span className="font-mono text-green-600">{sq.correctAnswer}</span>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-gray-500 uppercase">Recent Mistakes:</p>
+                      <span className="text-xs font-semibold text-red-600 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-100">
+                        {data.evidence.filter(e => !e.isCorrect).length} Recorded
+                      </span>
+                    </div>
+                    {data.evidence.filter(e => !e.isCorrect).map((sq, idx) => (
+                      <div key={idx} className="p-3.5 bg-gray-50 rounded-xl border border-gray-100 text-sm flex flex-col gap-2.5">
+                        {sq.question && (
+                          <p className="text-xs font-semibold text-gray-800 leading-snug">{sq.question}</p>
+                        )}
+                        <div className="flex flex-col md:flex-row md:items-center gap-4">
+                          <div className="flex-1">
+                            <span className="text-xs text-gray-400 uppercase block mb-1">Your Answer</span>
+                            <span className="font-mono text-red-600">{sq.studentAnswer}</span>
+                          </div>
+                          <div className="flex-1">
+                            <span className="text-xs text-gray-400 uppercase block mb-1">Correct Answer</span>
+                            <span className="font-mono text-green-600">{sq.correctAnswer}</span>
+                          </div>
                         </div>
                       </div>
                     ))}

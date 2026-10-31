@@ -7,68 +7,97 @@
 
 export function getPrimaryDocUrl(topic = "", field = "") {
   if (!topic && !field) return "https://www.youtube.com";
-  const lower = `${topic} ${field}`.toLowerCase();
+  const safeTopic = (topic || "").trim();
+  const safeField = (field || "").trim();
+  const lower = `${safeTopic} ${safeField}`.toLowerCase();
 
   // 1. School / CBSE / NCERT / Board Exam topics
-  if (/class \d+|10th|12th|ncert|cbse|icse|sst|social science|board pyq|sample paper/i.test(lower)) {
-    return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${topic} class 10 CBSE explanation`)}`;
+  if (/class\s*\d+|10th|12th|ncert|cbse|icse|sst|social\s*science|board\s*pyq|sample\s*paper/i.test(lower)) {
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${safeTopic} ${safeField ? safeField + " " : ""}CBSE explanation`)}`;
   }
 
   // 2. Medicine & Healthcare
   if (/medicine|doctor|physician|surgeon|nurse|health|anatomy|physiology|pathology|pharmacology|clinical|cardio|neet|medical/i.test(lower)) {
-    return `https://medlineplus.gov/search?query=${encodeURIComponent(topic)}`;
+    return `https://medlineplus.gov/search?query=${encodeURIComponent(safeTopic)}`;
   }
 
   // 3. Law & Legal Studies
   if (/law|legal|judiciary|constitution|ipc|advocate|court|bar council|justice|civil rights/i.test(lower)) {
-    return `https://indiankanoon.org/search/?formInput=${encodeURIComponent(topic)}`;
+    return `https://indiankanoon.org/search/?formInput=${encodeURIComponent(safeTopic)}`;
   }
 
   // 4. Commerce, Finance & Economics
   if (/finance|accounting|chartered accountant|ca|invest|banking|tax|economics|commerce|market|equity|stock|rbi/i.test(lower)) {
-    return `https://www.investopedia.com/search?q=${encodeURIComponent(topic)}`;
+    return `https://www.investopedia.com/search?q=${encodeURIComponent(safeTopic)}`;
   }
 
   // 5. Engineering & Physical Sciences
   if (/mechanical|civil engineering|electrical|robotics|aerospace|thermodynamics|circuits|structural/i.test(lower)) {
-    return `https://www.engineeringtoolbox.com/search.htm?q=${encodeURIComponent(topic)}`;
+    return `https://www.engineeringtoolbox.com/search.htm?q=${encodeURIComponent(safeTopic)}`;
   }
 
   // 6. Psychology & Counseling
   if (/psychology|counseling|cognitive|behavioral|mental health|therapy|psychiatry/i.test(lower)) {
-    return `https://www.simplypsychology.org/?s=${encodeURIComponent(topic)}`;
+    return `https://www.simplypsychology.org/?s=${encodeURIComponent(safeTopic)}`;
   }
 
   // 7. Design & UI/UX
   if (/design|ui\/ux|graphic design|figma|typography|product design|user experience/i.test(lower)) {
-    return `https://www.nngroup.com/search/?q=${encodeURIComponent(topic)}`;
+    return `https://www.nngroup.com/search/?q=${encodeURIComponent(safeTopic)}`;
   }
 
-  // 8. Python & Backend
+  // 8. Java & JVM Technologies (Explicit Java search so Core Logic searches "Java Core Logic"!)
+  if (/java|jvm|spring|springboot|hibernate|maven|gradle/i.test(lower)) {
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(`Java ${safeTopic} tutorial explanation`)}`;
+  }
+
+  // 9. Python & Backend
   if (/python|django|flask|fastapi|pandas|numpy/i.test(lower)) {
-    return `https://docs.python.org/3/search.html?q=${encodeURIComponent(topic)}`;
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(`Python ${safeTopic} tutorial explanation`)}`;
   }
 
-  // 9. React & Web Development
+  // 10. React & Web Development
   if (/react|jsx|hooks|next\.js/i.test(lower)) {
     return `https://react.dev/reference/react`;
   }
   if (/javascript|js|frontend|html|css|dom|typescript|node|web/i.test(lower)) {
-    return `https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(topic)}`;
+    return `https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(safeTopic)}`;
   }
 
-  // 10. DSA & Computer Science
+  // 11. DSA & Computer Science
   if (/dsa|data structure|algorithm|tree|graph|binary search|sorting|dp/i.test(lower)) {
-    return `https://www.geeksforgeeks.org/search/?q=${encodeURIComponent(topic)}`;
+    const lang = /java/i.test(lower) ? "Java " : /python/i.test(lower) ? "Python " : /c\+\+/i.test(lower) ? "C++ " : "";
+    return `https://www.geeksforgeeks.org/search/?q=${encodeURIComponent(lang + safeTopic)}`;
   }
 
-  // 11. Mathematics
+  // 12. Mathematics
   if (/math|algebra|calculus|geometry|trigonometry|statistics|probability/i.test(lower)) {
-    return `https://mathworld.wolfram.com/search/?query=${encodeURIComponent(topic)}`;
+    return `https://mathworld.wolfram.com/search/?query=${encodeURIComponent(safeTopic)}`;
   }
 
-  // 12. Universal Fallback: High quality YouTube explanation
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(topic + " full explanation")}`;
+  // 13. Universal Context-Aware Fallback
+  // Always include field context so generic terms like "Core Logic" search in the proper domain.
+  // If the field is a programming/tech career (e.g. "Java Full Stack Developer", "Software Development"),
+  // re-route through the specific language handler instead of a bare YouTube search.
+  const techCareerLower = safeField.toLowerCase();
+  if (/java|jvm|spring/i.test(techCareerLower)) {
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(`Java ${safeTopic} tutorial explanation`)}`;
+  }
+  if (/python|django|flask/i.test(techCareerLower)) {
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(`Python ${safeTopic} tutorial explanation`)}`;
+  }
+  if (/react|next\.js|vue|angular|frontend/i.test(techCareerLower)) {
+    return `https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(safeTopic)}`;
+  }
+  if (/javascript|js|node|typescript|mern|mean|full.?stack.*web/i.test(techCareerLower)) {
+    return `https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(safeTopic)}`;
+  }
+  if (/software|development|programmer|coding|engineer/i.test(techCareerLower)) {
+    return `https://www.geeksforgeeks.org/search/?q=${encodeURIComponent(safeTopic)}`;
+  }
+
+  const contextPrefix = safeField && !safeTopic.toLowerCase().includes(safeField.toLowerCase()) ? `${safeField} ` : "";
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${contextPrefix}${safeTopic} tutorial full explanation`)}`;
 }
 
 export function getCuratedResources(topic = "", field = "") {
@@ -399,7 +428,53 @@ export function getCuratedResources(topic = "", field = "") {
     ];
   }
 
-  // 8. Python & Backend
+  // 8. Java & JVM Ecosystem
+  if (/java|jvm|spring|springboot|hibernate|maven|gradle/i.test(combined)) {
+    return [
+      {
+        id: "oracle-java",
+        name: `${safeTopic} — Oracle Java Official Documentation`,
+        provider: "Oracle Java SE",
+        badge: "Official Language Spec",
+        badgeColor: "bg-red-100 text-red-800 border-red-300",
+        description: "Official Oracle Java API specifications, JVM language guides, and standard library references.",
+        url: `https://docs.oracle.com/en/java/javase/17/docs/api/search.html?q=${encodeURIComponent(safeTopic)}`,
+        icon: "☕"
+      },
+      {
+        id: "baeldung-java",
+        name: `${safeTopic} — Baeldung In-Depth Guides`,
+        provider: "Baeldung Java",
+        badge: "Industry Best Practices",
+        badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        description: "In-depth tutorials, clean code examples, Spring Boot guides, and core Java architecture.",
+        url: `https://www.baeldung.com/?s=${encodeURIComponent("java " + safeTopic)}`,
+        icon: "📘"
+      },
+      {
+        id: "gfg-java",
+        name: `${safeTopic} — GeeksforGeeks Java Tutorials`,
+        provider: "GeeksforGeeks Java",
+        badge: "Interactive Examples",
+        badgeColor: "bg-amber-100 text-amber-800 border-amber-300",
+        description: "Core logic, OOPs concepts, syntax guides, and interview problem breakdowns in Java.",
+        url: `https://www.geeksforgeeks.org/search/?q=${encodeURIComponent("java " + safeTopic)}`,
+        icon: "📗"
+      },
+      {
+        id: "yt-java",
+        name: `${safeTopic} — Java Video Lectures`,
+        provider: "YouTube Java Hub",
+        badge: "Video Class",
+        badgeColor: "bg-rose-100 text-rose-800 border-rose-300",
+        description: "Visual concept walkthroughs, Java problem solving, and hands-on coding demos.",
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent("Java " + safeTopic + " tutorial full explanation")}`,
+        icon: "📺"
+      }
+    ];
+  }
+
+  // 9. Python & Backend
   if (isPython) {
     return [
       {

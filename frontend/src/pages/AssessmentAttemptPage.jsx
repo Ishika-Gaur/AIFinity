@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams, useNavigate } from "react-router-dom";
 import Section from "../components/Section";
 import Container from "../components/Container";
 import Button from "../components/Button";
 import { formatType } from "../utils/constants";
-import { createAttemptSession, submitAttemptSession } from "../services/assessmentService";
+import { createAttemptSession, submitAttemptSession, getLatestAttemptResult } from "../services/assessmentService";
 
 const CONFIDENCE_OPTIONS = ["Low Confidence", "Medium Confidence", "High Confidence"];
 const MAX_VIOLATIONS = 3;
@@ -191,6 +191,8 @@ function QuestionBody({ question, response, onAnswer }) {
 
 export default function AssessmentAttemptPage() {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [assessment, setAssessment] = useState(null);
   const [attemptId, setAttemptId] = useState(null);
   const [loadingAssessment, setLoadingAssessment] = useState(true);
@@ -210,35 +212,117 @@ export default function AssessmentAttemptPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [resultData, setResultData] = useState(null);
+  const [accessError, setAccessError] = useState(null);
 
   const attemptContainerRef = useRef(null);
 
-  // Initialize fresh, randomized attempt session
-  const initAttempt = useCallback(async () => {
-    setLoadingAssessment(true);
-    setCompleted(false);
-    setResultData(null);
-    setResponses({});
-    setConfidence({});
-    setElapsedSeconds(0);
-    setViolations([]);
-    setCurrent(0);
+  // Initialize fresh, randomized attempt session or restore completed result
+  const initAttempt = useCallback(
+    async (forceFresh = false) => {
+      setLoadingAssessment(true);
+      setAccessError(null);
+      setCompleted(false);
+      setResultData(null);
+      setResponses({});
+      setConfidence({});
+      setElapsedSeconds(0);
+      setViolations([]);
+      setCurrent(0);
 
-    const res = await createAttemptSession(id);
-    if (res.success) {
-      setAssessment(res.assessment);
-      setAttemptId(res.attemptId);
-      if (typeof window !== "undefined" && window.sessionStorage) {
-        window.sessionStorage.setItem(`aifinity_active_attempt_${id}`, "true");
+      // On refresh (or normal load), restore completed result if one exists and user is not actively in an attempt
+      const hasActiveAttempt =
+        typeof window !== "undefined" &&
+        window.sessionStorage?.getItem(`aifinity_active_attempt_${id}`);
+
+      if (!forceFresh && !hasActiveAttempt) {
+        try {
+          const latestRes = await getLatestAttemptResult(id);
+          if (latestRes.success && latestRes.result) {
+            setResultData(latestRes.result);
+            setAssessment({
+              _id: latestRes.result.assessmentId,
+              title: latestRes.result.assessmentTitle,
+              category: latestRes.result.assessmentCategory,
+              field: latestRes.result.assessmentField,
+              questions: latestRes.result.questionResults || [],
+            });
+            setCompleted(true);
+            setLoadingAssessment(false);
+            return;
+          }
+        } catch (err) {
+          console.warn("Could not retrieve latest completed result:", err);
+        }
       }
-    } else {
-      setAssessment(null);
-    }
-    setLoadingAssessment(false);
-  }, [id]);
 
+      try {
+        const res = await createAttemptSession(id);
+        if (res.success) {
+          setAssessment(res.assessment);
+          setAttemptId(res.attemptId);
+          if (typeof window !== "undefined" && window.sessionStorage) {
+            window.sessionStorage.setItem(`aifinity_active_attempt_${id}`, "true");
+          }
+        } else {
+          setAssessment(null);
+          if (res.status === 403) {
+            setAccessError({
+              status: 403,
+              title: "Access Forbidden",
+              message: res.error || "This assessment is private and belongs to another user.",
+            });
+          } else if (res.status === 401) {
+            setAccessError({
+              status: 401,
+              title: "Authentication Required",
+              message: "Please log in to access this assessment.",
+            });
+          } else if (res.status === 404) {
+            setAccessError({
+              status: 404,
+              title: "Assessment Not Found",
+              message: "This assessment could not be found or does not exist.",
+            });
+          } else {
+            setAccessError({
+              status: res.status || 500,
+              title: "Error Loading Assessment",
+              message: res.error || "Failed to load assessment.",
+            });
+          }
+        }
+      } catch (err) {
+        setAssessment(null);
+        setAccessError({
+          status: 500,
+          title: "Unexpected Error",
+          message: err.message || "Failed to start assessment.",
+        });
+      }
+      setLoadingAssessment(false);
+    },
+    [id]
+  );
+
+  // If ?fresh=1 is in the URL (set by AssessmentPage when retaking or starting),
+  // force a new attempt and immediately strip the param so a page-refresh
+  // does NOT re-trigger a forced fresh start on an in-progress attempt.
   useEffect(() => {
-    initAttempt();
+    const isFresh = searchParams.get('fresh') === '1';
+    if (isFresh) {
+      // Strip the ?fresh param from the URL without adding a history entry
+      const cleaned = new URLSearchParams(searchParams);
+      cleaned.delete('fresh');
+      const newSearch = cleaned.toString();
+      navigate(
+        { pathname: window.location.pathname, search: newSearch ? ('?' + newSearch) : '' },
+        { replace: true }
+      );
+      initAttempt(true);
+    } else {
+      initAttempt(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initAttempt]);
 
   // Elapsed time timer
@@ -258,14 +342,9 @@ export default function AssessmentAttemptPage() {
 
       try {
         const activeViolations = overrideViolations || violations;
-<<<<<<< Updated upstream
-        const result = await submitAttemptSession(
-          id,
-=======
         const targetAssessmentId = assessment?._id || assessment?.id || id;
         const result = await submitAttemptSession(
           targetAssessmentId,
->>>>>>> Stashed changes
           attemptId,
           responses,
           elapsedSeconds,
@@ -273,33 +352,21 @@ export default function AssessmentAttemptPage() {
         );
 
         if (document.fullscreenElement) {
-<<<<<<< Updated upstream
-          document.exitFullscreen().catch(() => {});
-=======
           document.exitFullscreen().catch(() => { });
->>>>>>> Stashed changes
         }
 
         if (typeof window !== "undefined" && window.sessionStorage) {
           window.sessionStorage.removeItem(`aifinity_active_attempt_${id}`);
-<<<<<<< Updated upstream
-=======
           if (targetAssessmentId !== id) {
             window.sessionStorage.removeItem(`aifinity_active_attempt_${targetAssessmentId}`);
           }
->>>>>>> Stashed changes
         }
 
         setResultData(result);
         setCompleted(true);
       } catch (err) {
         console.error("[Submit] Assessment submission failed:", err);
-<<<<<<< Updated upstream
-        // Always reset submitting state so user can retry
-        setIsSubmitting(false);
-=======
         alert(err.message || "Assessment submission failed. Please try again.");
->>>>>>> Stashed changes
       } finally {
         setIsSubmitting(false);
       }
@@ -448,6 +515,29 @@ export default function AssessmentAttemptPage() {
             <p className="font-medium text-[var(--color-text-muted)]">
               Generating fresh randomized assessment attempt...
             </p>
+          </div>
+        </Container>
+      </Section>
+    );
+  }
+
+  if (accessError) {
+    return (
+      <Section className="py-24">
+        <Container>
+          <div className="mx-auto max-w-md text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+              <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-[var(--color-text-h)]">{accessError.title}</h1>
+            <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+              {accessError.message}
+            </p>
+            <Button as={Link} to={accessError.status === 401 ? "/login" : "/assessment"} className="mt-6">
+              {accessError.status === 401 ? "Log In" : "Back to Assessments"}
+            </Button>
           </div>
         </Container>
       </Section>
@@ -694,7 +784,7 @@ export default function AssessmentAttemptPage() {
 
             {/* Secondary Actions */}
             <div className="flex flex-wrap items-center justify-center gap-3 w-full pt-2">
-              <Button onClick={initAttempt} variant="outline" size="sm">
+              <Button onClick={() => initAttempt(true)} variant="outline" size="sm">
                 🔄 Start Fresh Attempt
               </Button>
               <Button as={Link} to="/dashboard" variant="subtle" size="sm">

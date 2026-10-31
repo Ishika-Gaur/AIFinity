@@ -14,9 +14,18 @@ import personalIntelligenceRoutes from "./routes/personalIntelligenceRoutes.js";
 import conceptRootRoutes from "./routes/conceptRootRoutes.js";
 import mistakeMapRoutes from "./routes/mistakeMapRoutes.js";
 import skillGapRoutes from "./routes/skillGapRoutes.js";
+import revisionRoutes from "./routes/revisionRoutes.js";
+import courseRequestRoutes from "./routes/courseRequestRoutes.js";
+import roadmapRoutes from "./routes/roadmapRoutes.js";
+import CourseRequest from "./models/CourseRequest.js";
 import { authenticate, isAdmin } from "./middleware/authMiddleware.js";
 
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __serverDir = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config();
+dotenv.config({ path: path.resolve(__serverDir, "../.env") });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,24 +40,46 @@ if (!allowedOrigins.includes("https://aifinity-frontend.onrender.com")) {
   allowedOrigins.push("https://aifinity-frontend.onrender.com");
 }
 
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    // In development, allow only local development origins (localhost, 127.0.0.1, [::1]) on any port
+    if (process.env.NODE_ENV !== "production") {
+      const isLocalOrigin =
+        /^http:\/\/localhost(:\d+)?$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
+        /^http:\/\/\[::1\](:\d+)?$/.test(origin);
+
+      if (isLocalOrigin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
+
+// Explicitly configure Helmet with crossOriginResourcePolicy: cross-origin so browsers do not block cross-origin API responses
 app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      // Allow any localhost port in development
-      if (process.env.NODE_ENV !== "production" && origin.match(/^http:\/\/localhost:\d+$/)) {
-        return callback(null, true);
-      }
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        return callback(null, true);
-      }
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
 
-app.use(helmet());
+app.use((req, res, next) => {
+  console.log(`[HTTP ${req.method}] ${req.url} | Origin: ${req.headers.origin || "none"}`);
+  next();
+});
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -71,6 +102,9 @@ app.use("/api/personal-intelligence", personalIntelligenceRoutes);
 app.use("/api/concept-root", conceptRootRoutes);
 app.use("/api/mistake-map", mistakeMapRoutes);
 app.use("/api/skill-gap", skillGapRoutes);
+app.use("/api/revision", revisionRoutes);
+app.use("/api/course-requests", courseRequestRoutes);
+app.use("/api/roadmap", roadmapRoutes);
 
 // Protected Admin Test Route
 app.get("/api/admin/test", authenticate, isAdmin, (req, res) => {
@@ -110,7 +144,41 @@ export async function startServer() {
 
     // Ensure Mongoose models sync indexes (e.g. partial unique index on role: "admin")
     await mongoose.model("User").syncIndexes();
-    console.log("MongoDB User indexes synchronized successfully.");
+    await CourseRequest.syncIndexes();
+
+    // Ensure UserRoadmap multi-course composite index is synced and drop legacy single-field index
+    try {
+      const userRoadmapColl = mongoose.model("UserRoadmap").collection;
+      const urIndexes = await userRoadmapColl.indexes();
+      const legacyIdx = urIndexes.find((idx) => idx.name === "userId_1" && idx.unique);
+      if (legacyIdx) {
+        console.log("[UserRoadmap] Dropping legacy single-field unique index userId_1...");
+        await userRoadmapColl.dropIndex("userId_1");
+        console.log("[UserRoadmap] Successfully dropped legacy userId_1 index.");
+      }
+      await mongoose.model("UserRoadmap").syncIndexes();
+      console.log("[UserRoadmap] Multi-course composite index { userId: 1, courseId: 1 } synchronized.");
+    } catch (urErr) {
+      console.warn("[UserRoadmap] Index synchronization notice:", urErr.message);
+    }
+
+    // Ensure AttemptResult index synchronization
+    try {
+      const attemptResultColl = mongoose.model("AttemptResult").collection;
+      const arIndexes = await attemptResultColl.indexes();
+      const conflictedIdx = arIndexes.find((idx) => idx.name === "userId_1_attemptId_1");
+      if (conflictedIdx && !conflictedIdx.partialFilterExpression) {
+        console.log("[AttemptResult] Dropping old userId_1_attemptId_1 index without partialFilterExpression...");
+        await attemptResultColl.dropIndex("userId_1_attemptId_1");
+        console.log("[AttemptResult] Successfully dropped old userId_1_attemptId_1 index.");
+      }
+      await mongoose.model("AttemptResult").syncIndexes();
+      console.log("[AttemptResult] Indexes synchronized successfully.");
+    } catch (arErr) {
+      console.warn("[AttemptResult] Index synchronization notice:", arErr.message);
+    }
+
+    console.log("MongoDB User, CourseRequest, UserRoadmap, and AttemptResult indexes synchronized successfully.");
 
     const server = app.listen(PORT, () => {
       console.log(`AIFinity Express server running on port ${PORT}`);

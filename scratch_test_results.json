@@ -1,0 +1,2647 @@
+{
+  "strongStudent": {
+    "scorePercent": 100,
+    "correctCount": 5,
+    "incorrectCount": 0,
+    "mistakeMap": {
+      "user": {
+        "id": "6ad4bdfad4313209261222f7",
+        "name": "Test strong",
+        "email": "strong_1792327162125_qzx1@test.com",
+        "careerGoal": "Software Developer",
+        "selectedField": "Computer Science",
+        "level": "Advanced"
+      },
+      "hasData": true,
+      "totalAttempts": 1,
+      "summary": {
+        "totalAttempts": 1,
+        "totalQuestions": 5,
+        "totalCorrect": 5,
+        "totalMistakes": 0,
+        "overallAccuracy": 100,
+        "mistakeRate": 0,
+        "highPriorityCount": 0,
+        "needsPracticeCount": 0,
+        "strongCount": 3,
+        "mostCommonWeakness": "No recurring weakness detected",
+        "strongestConcept": "Boundary Conditions"
+      },
+      "topics": [
+        {
+          "topic": "Binary Search",
+          "totalQuestions": 5,
+          "correctCount": 5,
+          "mistakeCount": 0,
+          "accuracy": 100,
+          "status": "strong",
+          "conceptCount": 3,
+          "concepts": [
+            "Boundary Conditions",
+            "Search-Space Invariants",
+            "Termination Conditions"
+          ]
+        }
+      ],
+      "concepts": [
+        {
+          "concept": "Boundary Conditions",
+          "topic": "Binary Search",
+          "totalAttempts": 3,
+          "correctCount": 3,
+          "mistakeCount": 0,
+          "accuracy": 100,
+          "avgDifficultyScore": 1.67,
+          "isRecurringWeakness": false,
+          "primaryMistakeType": "NONE",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 0,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "LOWER PRIORITY / STRONG",
+          "priorityScore": 0,
+          "evidence": "Accuracy is 100% across 3 questions. Concept demonstrates solid proficiency.",
+          "before": 0,
+          "after": 0,
+          "beforeAccuracy": 100,
+          "nowAccuracy": 100,
+          "trend": "mastered",
+          "needsAttention": false,
+          "mistakePattern": "High consistency and low error rate",
+          "whyItHappened": "Strong foundation demonstrated",
+          "whatChanged": "Concept well mastered"
+        },
+        {
+          "concept": "Search-Space Invariants",
+          "topic": "Binary Search",
+          "totalAttempts": 1,
+          "correctCount": 1,
+          "mistakeCount": 0,
+          "accuracy": 100,
+          "avgDifficultyScore": 2,
+          "isRecurringWeakness": false,
+          "primaryMistakeType": "NONE",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 0,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "LOWER PRIORITY / STRONG",
+          "priorityScore": 0,
+          "evidence": "Accuracy is 100% across 1 question. Concept demonstrates solid proficiency.",
+          "before": 0,
+          "after": 0,
+          "beforeAccuracy": 100,
+          "nowAccuracy": 100,
+          "trend": "mastered",
+          "needsAttention": false,
+          "mistakePattern": "High consistency and low error rate",
+          "whyItHappened": "Strong foundation demonstrated",
+          "whatChanged": "Concept well mastered"
+        },
+        {
+          "concept": "Termination Conditions",
+          "topic": "Binary Search",
+          "totalAttempts": 1,
+          "correctCount": 1,
+          "mistakeCount": 0,
+          "accuracy": 100,
+          "avgDifficultyScore": 2,
+          "isRecurringWeakness": false,
+          "primaryMistakeType": "NONE",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 0,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "LOWER PRIORITY / STRONG",
+          "priorityScore": 0,
+          "evidence": "Accuracy is 100% across 1 question. Concept demonstrates solid proficiency.",
+          "before": 0,
+          "after": 0,
+          "beforeAccuracy": 100,
+          "nowAccuracy": 100,
+          "trend": "mastered",
+          "needsAttention": false,
+          "mistakePattern": "High consistency and low error rate",
+          "whyItHappened": "Strong foundation demonstrated",
+          "whatChanged": "Concept well mastered"
+        }
+      ],
+      "highPriorityConcepts": [],
+      "needsPracticeConcepts": [],
+      "strongConcepts": [
+        {
+          "concept": "Boundary Conditions",
+          "topic": "Binary Search",
+          "totalAttempts": 3,
+          "correctCount": 3,
+          "mistakeCount": 0,
+          "accuracy": 100,
+          "avgDifficultyScore": 1.67,
+          "isRecurringWeakness": false,
+          "primaryMistakeType": "NONE",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 0,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "LOWER PRIORITY / STRONG",
+          "priorityScore": 0,
+          "evidence": "Accuracy is 100% across 3 questions. Concept demonstrates solid proficiency.",
+          "before": 0,
+          "after": 0,
+          "beforeAccuracy": 100,
+          "nowAccuracy": 100,
+          "trend": "mastered",
+          "needsAttention": false,
+          "mistakePattern": "High consistency and low error rate",
+          "whyItHappened": "Strong foundation demonstrated",
+          "whatChanged": "Concept well mastered"
+        },
+        {
+          "concept": "Search-Space Invariants",
+          "topic": "Binary Search",
+          "totalAttempts": 1,
+          "correctCount": 1,
+          "mistakeCount": 0,
+          "accuracy": 100,
+          "avgDifficultyScore": 2,
+          "isRecurringWeakness": false,
+          "primaryMistakeType": "NONE",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 0,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "LOWER PRIORITY / STRONG",
+          "priorityScore": 0,
+          "evidence": "Accuracy is 100% across 1 question. Concept demonstrates solid proficiency.",
+          "before": 0,
+          "after": 0,
+          "beforeAccuracy": 100,
+          "nowAccuracy": 100,
+          "trend": "mastered",
+          "needsAttention": false,
+          "mistakePattern": "High consistency and low error rate",
+          "whyItHappened": "Strong foundation demonstrated",
+          "whatChanged": "Concept well mastered"
+        },
+        {
+          "concept": "Termination Conditions",
+          "topic": "Binary Search",
+          "totalAttempts": 1,
+          "correctCount": 1,
+          "mistakeCount": 0,
+          "accuracy": 100,
+          "avgDifficultyScore": 2,
+          "isRecurringWeakness": false,
+          "primaryMistakeType": "NONE",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 0,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "LOWER PRIORITY / STRONG",
+          "priorityScore": 0,
+          "evidence": "Accuracy is 100% across 1 question. Concept demonstrates solid proficiency.",
+          "before": 0,
+          "after": 0,
+          "beforeAccuracy": 100,
+          "nowAccuracy": 100,
+          "trend": "mastered",
+          "needsAttention": false,
+          "mistakePattern": "High consistency and low error rate",
+          "whyItHappened": "Strong foundation demonstrated",
+          "whatChanged": "Concept well mastered"
+        }
+      ],
+      "mistakeDistribution": {
+        "breakdown": [
+          {
+            "type": "CONCEPTUAL",
+            "label": "Conceptual Gap",
+            "count": 0,
+            "percentage": 0
+          },
+          {
+            "type": "LOGICAL",
+            "label": "Logical Reasoning",
+            "count": 0,
+            "percentage": 0
+          },
+          {
+            "type": "IMPLEMENTATION",
+            "label": "Implementation / Syntax",
+            "count": 0,
+            "percentage": 0
+          },
+          {
+            "type": "CARELESS",
+            "label": "Careless / Precision",
+            "count": 0,
+            "percentage": 0
+          },
+          {
+            "type": "MISINTERPRETATION",
+            "label": "Misinterpretation",
+            "count": 0,
+            "percentage": 0
+          },
+          {
+            "type": "TIME_MANAGEMENT",
+            "label": "Time Management",
+            "count": 0,
+            "percentage": 0
+          },
+          {
+            "type": "UNKNOWN",
+            "label": "General Error",
+            "count": 0,
+            "percentage": 0
+          }
+        ],
+        "totalMistakes": 0,
+        "dominantType": "NONE"
+      },
+      "trends": {
+        "topicProgress": [
+          {
+            "concept": "Boundary Conditions",
+            "topic": "Binary Search",
+            "before": 0,
+            "after": 0,
+            "needsAttention": false,
+            "trend": "mastered",
+            "mistakePattern": "High consistency and low error rate",
+            "whyItHappened": "Strong foundation demonstrated",
+            "whatChanged": "Concept well mastered"
+          },
+          {
+            "concept": "Search-Space Invariants",
+            "topic": "Binary Search",
+            "before": 0,
+            "after": 0,
+            "needsAttention": false,
+            "trend": "mastered",
+            "mistakePattern": "High consistency and low error rate",
+            "whyItHappened": "Strong foundation demonstrated",
+            "whatChanged": "Concept well mastered"
+          },
+          {
+            "concept": "Termination Conditions",
+            "topic": "Binary Search",
+            "before": 0,
+            "after": 0,
+            "needsAttention": false,
+            "trend": "mastered",
+            "mistakePattern": "High consistency and low error rate",
+            "whyItHappened": "Strong foundation demonstrated",
+            "whatChanged": "Concept well mastered"
+          }
+        ],
+        "improvedCount": 0,
+        "regressedCount": 0,
+        "persistentCount": 0
+      },
+      "aiInsights": {
+        "focusMore": [],
+        "lowerPriority": [
+          "Boundary Conditions (Binary Search)",
+          "Search-Space Invariants (Binary Search)",
+          "Termination Conditions (Binary Search)"
+        ],
+        "why": "The telemetry shows a perfect score across all five questions with zero mistakes, and every assessed concept was answered correctly (100% accuracy). Because no error patterns or weak concepts were detected, there are no high‑priority areas requiring remediation; instead, the data highlights strong mastery of the listed binary‑search concepts.",
+        "recommendedPractice": "Maintain current proficiency by solving varied binary‑search problems, including large input sizes and edge‑case scenarios. Extend practice to related topics such as ternary search, recursive vs iterative implementations, and applying binary‑search patterns to different data structures (e.g., rotated arrays, search in matrices).",
+        "isInsufficientData": false
+      }
+    },
+    "conceptRoot": {
+      "hasData": true,
+      "user": {
+        "id": "6ad4bdfad4313209261222f7",
+        "name": "Test strong"
+      },
+      "conceptId": "Boundary Conditions",
+      "canonicalConcept": "Boundary Conditions",
+      "skillId": "Binary Search",
+      "mastery": {
+        "attempts": 3,
+        "correct": 3,
+        "accuracy": 1,
+        "recentAccuracy": 1,
+        "edgeCaseAccuracy": null,
+        "trend": "STABLE"
+      },
+      "rootCause": {
+        "type": "UNKNOWN",
+        "confidence": 0,
+        "evidenceCount": 0
+      },
+      "evidence": [],
+      "dependencies": [],
+      "diagnosis": {
+        "status": "INSUFFICIENT_EVIDENCE"
+      },
+      "explanation": {
+        "reasoning": "The available evidence shows perfect performance on three attempts related to the Boundary Conditions concept, with no incorrect answers and a stable trend. However, the diagnostic system reports insufficient evidence to identify a root concept or error type, and confidence is zero. Because there are no mistakes or patterns of error, we cannot infer a specific misconception or reason for struggle. The lack of data (no incorrect attempts, no additional questions) prevents a reliable diagnosis.",
+        "likelyMisconception": null,
+        "recommendation": "Collect more diagnostic data by presenting a broader set of Boundary Conditions problems, including edge‑case scenarios and varied difficulty levels. Monitor performance for any emerging error patterns. If inaccuracies appear, revisit the specific sub‑concepts (e.g., handling of equality vs. inequality, domain limits, endpoint inclusion). Until additional evidence is gathered, focus on reinforcing the concept through spaced repetition and mixed‑practice sets to ensure mastery across contexts."
+      },
+      "sourceAttemptCount": 1,
+      "aiStatus": "completed"
+    },
+    "skillGap": {
+      "hasData": true,
+      "targetCareer": "Software Developer",
+      "overallProficiency": 100,
+      "averageGap": 78,
+      "skills": [
+        {
+          "skillId": "cs.programming",
+          "skillName": "Programming Fundamentals",
+          "currentProficiency": 0,
+          "requiredProficiency": 95,
+          "gap": 95,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "Programming Fundamentals is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in Programming Fundamentals to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "tools.git",
+          "skillName": "Version Control (Git)",
+          "currentProficiency": 0,
+          "requiredProficiency": 95,
+          "gap": 95,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "Version Control (Git) is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in Version Control (Git) to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "dsa.arrays",
+          "skillName": "Arrays",
+          "currentProficiency": 0,
+          "requiredProficiency": 90,
+          "gap": 90,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "Arrays is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in Arrays to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "web.javascript",
+          "skillName": "JavaScript",
+          "currentProficiency": 0,
+          "requiredProficiency": 90,
+          "gap": 90,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "JavaScript is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in JavaScript to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "backend.apis",
+          "skillName": "REST APIs",
+          "currentProficiency": 0,
+          "requiredProficiency": 90,
+          "gap": 90,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "REST APIs is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in REST APIs to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "dsa.searching",
+          "skillName": "Searching Algorithms",
+          "currentProficiency": 0,
+          "requiredProficiency": 85,
+          "gap": 85,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "Searching Algorithms is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in Searching Algorithms to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "db.sql",
+          "skillName": "SQL Databases",
+          "currentProficiency": 0,
+          "requiredProficiency": 85,
+          "gap": 85,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "SQL Databases is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in SQL Databases to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "dsa.sorting",
+          "skillName": "Sorting Algorithms",
+          "currentProficiency": 0,
+          "requiredProficiency": 80,
+          "gap": 80,
+          "priority": "medium",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "Sorting Algorithms is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in Sorting Algorithms to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "web.html_css",
+          "skillName": "HTML & CSS",
+          "currentProficiency": 0,
+          "requiredProficiency": 70,
+          "gap": 70,
+          "priority": "medium",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "HTML & CSS is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in HTML & CSS to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "binary-search",
+          "skillName": "Binary Search",
+          "currentProficiency": 100,
+          "requiredProficiency": 85,
+          "gap": 0,
+          "priority": "low",
+          "confidence": 0.86,
+          "evidenceCount": 5,
+          "correctCount": 5,
+          "incorrectCount": 0,
+          "concepts": [
+            {
+              "conceptId": "boundary-conditions",
+              "conceptName": "Boundary Conditions",
+              "accuracy": 100,
+              "evidenceCount": 3
+            },
+            {
+              "conceptId": "search-space-invariants",
+              "conceptName": "Search-Space Invariants",
+              "accuracy": 100,
+              "evidenceCount": 1
+            },
+            {
+              "conceptId": "termination-conditions",
+              "conceptName": "Termination Conditions",
+              "accuracy": 100,
+              "evidenceCount": 1
+            }
+          ],
+          "evidence": [
+            {
+              "questionId": "6a89e08dea4da156503b6364",
+              "question": "Q1: In binary search, how should `low` be updated when target > arr[mid]?",
+              "concept": "Boundary Conditions",
+              "studentAnswer": "low = mid + 1",
+              "correctAnswer": "low = mid + 1",
+              "isCorrect": true,
+              "difficulty": "Medium",
+              "attemptId": "6ad4bdfbd43132092612230d",
+              "timestamp": "2026-10-18T12:39:23.944Z"
+            },
+            {
+              "questionId": "6a89e08dea4da156503b6365",
+              "question": "Q2: In binary search, how should `high` be updated when target < arr[mid]?",
+              "concept": "Search-Space Invariants",
+              "studentAnswer": "high = mid - 1",
+              "correctAnswer": "high = mid - 1",
+              "isCorrect": true,
+              "difficulty": "Medium",
+              "attemptId": "6ad4bdfbd43132092612230d",
+              "timestamp": "2026-10-18T12:39:23.944Z"
+            },
+            {
+              "questionId": "6a89e08dea4da156503b6366",
+              "question": "Q3: How to calculate middle index safely?",
+              "concept": "Boundary Conditions",
+              "studentAnswer": "mid = low + Math.floor((high - low) / 2)",
+              "correctAnswer": "mid = low + Math.floor((high - low) / 2)",
+              "isCorrect": true,
+              "difficulty": "Easy",
+              "attemptId": "6ad4bdfbd43132092612230d",
+              "timestamp": "2026-10-18T12:39:23.944Z"
+            },
+            {
+              "questionId": "6a89e08dea4da156503b6367",
+              "question": "Q4: What is the correct loop condition for inclusive binary search?",
+              "concept": "Termination Conditions",
+              "studentAnswer": "while (low <= high)",
+              "correctAnswer": "while (low <= high)",
+              "isCorrect": true,
+              "difficulty": "Medium",
+              "attemptId": "6ad4bdfbd43132092612230d",
+              "timestamp": "2026-10-18T12:39:23.944Z"
+            },
+            {
+              "questionId": "6a89e08dea4da156503b6368",
+              "question": "Q5: When target is smaller than mid element, high becomes?",
+              "concept": "Boundary Conditions",
+              "studentAnswer": "mid - 1",
+              "correctAnswer": "mid - 1",
+              "isCorrect": true,
+              "difficulty": "Medium",
+              "attemptId": "6ad4bdfbd43132092612230d",
+              "timestamp": "2026-10-18T12:39:23.944Z"
+            }
+          ],
+          "aiExplanation": "This skill is based on 5 real answers. 5 were correct and 0 were incorrect across recent attempts.",
+          "recommendations": [
+            "Maintain current performance and challenge the student with higher-difficulty Binary Search tasks."
+          ]
+        }
+      ],
+      "strongAreas": [
+        {
+          "skillId": "binary-search",
+          "skillName": "Binary Search",
+          "currentProficiency": 100,
+          "gap": 0
+        }
+      ],
+      "weakAreas": [
+        {
+          "skillId": "cs.programming",
+          "skillName": "Programming Fundamentals",
+          "currentProficiency": 0,
+          "gap": 95
+        },
+        {
+          "skillId": "tools.git",
+          "skillName": "Version Control (Git)",
+          "currentProficiency": 0,
+          "gap": 95
+        },
+        {
+          "skillId": "dsa.arrays",
+          "skillName": "Arrays",
+          "currentProficiency": 0,
+          "gap": 90
+        },
+        {
+          "skillId": "web.javascript",
+          "skillName": "JavaScript",
+          "currentProficiency": 0,
+          "gap": 90
+        },
+        {
+          "skillId": "backend.apis",
+          "skillName": "REST APIs",
+          "currentProficiency": 0,
+          "gap": 90
+        },
+        {
+          "skillId": "dsa.searching",
+          "skillName": "Searching Algorithms",
+          "currentProficiency": 0,
+          "gap": 85
+        },
+        {
+          "skillId": "db.sql",
+          "skillName": "SQL Databases",
+          "currentProficiency": 0,
+          "gap": 85
+        },
+        {
+          "skillId": "dsa.sorting",
+          "skillName": "Sorting Algorithms",
+          "currentProficiency": 0,
+          "gap": 80
+        },
+        {
+          "skillId": "web.html_css",
+          "skillName": "HTML & CSS",
+          "currentProficiency": 0,
+          "gap": 70
+        }
+      ],
+      "recommendations": [
+        "Focus on Programming Fundamentals to close a 95-point gap.",
+        "Focus on Version Control (Git) to close a 95-point gap.",
+        "Focus on Arrays to close a 90-point gap.",
+        "Keep reinforcing Binary Search to maintain steady strength."
+      ],
+      "summary": {
+        "totalEvidence": 5,
+        "correctCount": 5,
+        "incorrectCount": 0,
+        "skillCount": 10
+      },
+      "user": {
+        "id": "6ad4bdfad4313209261222f7",
+        "name": "Test strong",
+        "careerGoal": "Software Developer"
+      }
+    },
+    "revision": {
+      "items": [],
+      "summary": {
+        "dueToday": 0,
+        "highPriority": 0,
+        "completed": 0,
+        "total": 0
+      }
+    },
+    "roadmap": {
+      "userId": "6ad4bdfad4313209261222f7",
+      "targetCareer": "Software Developer",
+      "selectedField": "Computer Science",
+      "readinessScore": 100,
+      "hasHistory": true,
+      "completedStageIds": [],
+      "stages": [
+        {
+          "id": 1,
+          "title": "Phase 1: Core Foundations",
+          "phase": "Foundations (0-25% Readiness)",
+          "status": "completed",
+          "duration": "4 Weeks",
+          "priority": "Standard",
+          "why": "Demonstrated strong baseline score of 100%. Foundational prerequisites are fully mastered.",
+          "progress": 100,
+          "concepts": [
+            "Programming Fundamentals",
+            "Data Structures Basics",
+            "Core Theory & Best Practices"
+          ],
+          "description": "Master baseline concepts, terminology, and core prerequisites for Software Developer.",
+          "learningTasks": [
+            "Review core concepts and official documentation for Programming Fundamentals",
+            "Create revision cheat sheets and summarize key definitions",
+            "Solve 20+ foundation practice questions"
+          ],
+          "practiceTasks": [
+            "Complete foundational exercises",
+            "Review missed baseline concepts"
+          ],
+          "questions": 20,
+          "isWeakConcept": false
+        },
+        {
+          "id": 2,
+          "title": "Phase 2: Core Competencies & Skill Gap Alignment",
+          "phase": "Core Competency (25-50% Readiness)",
+          "status": "current",
+          "duration": "6 Weeks",
+          "priority": "Medium",
+          "why": "SkillGap analysis indicates a 0-point opportunity gap for Software Developer. Focus on building core professional competencies in these areas.",
+          "progress": 45,
+          "concepts": [
+            "Problem Solving",
+            "Programming",
+            "Data Structures",
+            "System Design",
+            "Web APIs"
+          ],
+          "description": "Build hands-on competencies in essential Software Developer topics aligned with your SkillGap evaluation.",
+          "learningTasks": [
+            "Build practical implementations for Problem Solving",
+            "Learn industry standard patterns and architecture",
+            "Practice 25+ intermediate domain questions"
+          ],
+          "practiceTasks": [
+            "Implement practical features",
+            "Solve intermediate questions"
+          ],
+          "questions": 25,
+          "isWeakConcept": false
+        },
+        {
+          "id": 3,
+          "title": "Phase 3: Applied Execution & Mistake Pattern Resolution",
+          "phase": "Advanced Specialization (50-75% Readiness)",
+          "status": "upcoming",
+          "duration": "6 Weeks",
+          "priority": "Standard",
+          "why": "Your completed questions show no recurring mistakes. Use applied practice in your strongest concepts to maintain and extend performance.",
+          "progress": 0,
+          "concepts": [
+            "Boundary Conditions Applied Practice",
+            "Search-Space Invariants Applied Practice",
+            "Termination Conditions Applied Practice"
+          ],
+          "description": "Practice the concepts flagged by your MistakeMap and ConceptRoot analysis until their error patterns stop recurring.",
+          "learningTasks": [
+            "Analyze root causes of missed questions from recent assessments",
+            "Practice targeted problem-solving in weak topic areas",
+            "Re-attempt tricky questions until 100% mastery"
+          ],
+          "practiceTasks": [
+            "Targeted question sets",
+            "Mistake pattern drills"
+          ],
+          "questions": 30,
+          "isWeakConcept": false
+        },
+        {
+          "id": 4,
+          "title": "Phase 4: Advanced Skills & Readiness Portfolio",
+          "phase": "Career Readiness (75-100% Ready)",
+          "status": "upcoming",
+          "duration": "8 Weeks",
+          "priority": "High",
+          "why": "Your 100% assessment average supports advanced work in your strongest concepts and the remaining Software Developer skill gap.",
+          "progress": 0,
+          "concepts": [
+            "Boundary Conditions Advanced Applications",
+            "Search-Space Invariants Advanced Applications",
+            "Termination Conditions Advanced Applications",
+            "Problem Solving",
+            "Programming"
+          ],
+          "description": "Advance through the remaining Software Developer skills selected from your measured strengths and skill gaps.",
+          "learningTasks": [
+            "Complete end-to-end advanced case studies or projects",
+            "Simulate real-world domain challenges under timed constraints",
+            "Review performance against industry benchmarks"
+          ],
+          "practiceTasks": [
+            "Complete capstone evaluation",
+            "Comprehensive final assessment"
+          ],
+          "questions": 25,
+          "isWeakConcept": false
+        }
+      ],
+      "lastEvaluatedAt": "2026-10-18T12:39:29.664Z"
+    }
+  },
+  "weakStudent": {
+    "scorePercent": 20,
+    "correctCount": 1,
+    "incorrectCount": 4,
+    "mistakeMap": {
+      "user": {
+        "id": "6ad4be01d43132092612233f",
+        "name": "Test weak",
+        "email": "weak_1792327169728_9eg2@test.com",
+        "careerGoal": "Software Developer",
+        "selectedField": "Computer Science",
+        "level": "Beginner"
+      },
+      "hasData": true,
+      "totalAttempts": 1,
+      "summary": {
+        "totalAttempts": 1,
+        "totalQuestions": 5,
+        "totalCorrect": 1,
+        "totalMistakes": 4,
+        "overallAccuracy": 20,
+        "mistakeRate": 80,
+        "highPriorityCount": 2,
+        "needsPracticeCount": 0,
+        "strongCount": 1,
+        "mostCommonWeakness": "Boundary Conditions",
+        "strongestConcept": "Termination Conditions"
+      },
+      "topics": [
+        {
+          "topic": "Binary Search",
+          "totalQuestions": 5,
+          "correctCount": 1,
+          "mistakeCount": 4,
+          "accuracy": 20,
+          "status": "needs_attention",
+          "conceptCount": 3,
+          "concepts": [
+            "Boundary Conditions",
+            "Search-Space Invariants",
+            "Termination Conditions"
+          ]
+        }
+      ],
+      "concepts": [
+        {
+          "concept": "Boundary Conditions",
+          "topic": "Binary Search",
+          "totalAttempts": 3,
+          "correctCount": 0,
+          "mistakeCount": 3,
+          "accuracy": 0,
+          "avgDifficultyScore": 1.67,
+          "isRecurringWeakness": true,
+          "primaryMistakeType": "CONCEPTUAL",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 3,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "HIGH PRIORITY",
+          "priorityScore": 106,
+          "evidence": "Accuracy is 0% across 3 attempts with 3 mistakes (3 Conceptual). Recurring weakness detected with 3 errors across attempts.",
+          "before": 0,
+          "after": 3,
+          "beforeAccuracy": 0,
+          "nowAccuracy": 0,
+          "trend": "emerging_gap",
+          "needsAttention": true,
+          "mistakePattern": "Persistent errors (conceptual)",
+          "whyItHappened": "Repeatedly struggling with conceptual steps in Boundary Conditions",
+          "whatChanged": "Needs targeted deliberate practice rather than passive revision"
+        },
+        {
+          "concept": "Search-Space Invariants",
+          "topic": "Binary Search",
+          "totalAttempts": 1,
+          "correctCount": 0,
+          "mistakeCount": 1,
+          "accuracy": 0,
+          "avgDifficultyScore": 2,
+          "isRecurringWeakness": false,
+          "primaryMistakeType": "CONCEPTUAL",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 1,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "HIGH PRIORITY",
+          "priorityScore": 67,
+          "evidence": "Accuracy is 0% across 1 attempt with 1 mistake (1 Conceptual).",
+          "before": 0,
+          "after": 1,
+          "beforeAccuracy": 0,
+          "nowAccuracy": 0,
+          "trend": "emerging_gap",
+          "needsAttention": true,
+          "mistakePattern": "Emerging error pattern",
+          "whyItHappened": "Initial assessment attempts show partial accuracy",
+          "whatChanged": "Practice additional questions to stabilize concept"
+        },
+        {
+          "concept": "Termination Conditions",
+          "topic": "Binary Search",
+          "totalAttempts": 1,
+          "correctCount": 1,
+          "mistakeCount": 0,
+          "accuracy": 100,
+          "avgDifficultyScore": 2,
+          "isRecurringWeakness": false,
+          "primaryMistakeType": "NONE",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 0,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "LOWER PRIORITY / STRONG",
+          "priorityScore": 0,
+          "evidence": "Accuracy is 100% across 1 question. Concept demonstrates solid proficiency.",
+          "before": 0,
+          "after": 0,
+          "beforeAccuracy": 100,
+          "nowAccuracy": 100,
+          "trend": "mastered",
+          "needsAttention": false,
+          "mistakePattern": "High consistency and low error rate",
+          "whyItHappened": "Strong foundation demonstrated",
+          "whatChanged": "Concept well mastered"
+        }
+      ],
+      "highPriorityConcepts": [
+        {
+          "concept": "Boundary Conditions",
+          "topic": "Binary Search",
+          "totalAttempts": 3,
+          "correctCount": 0,
+          "mistakeCount": 3,
+          "accuracy": 0,
+          "avgDifficultyScore": 1.67,
+          "isRecurringWeakness": true,
+          "primaryMistakeType": "CONCEPTUAL",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 3,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "HIGH PRIORITY",
+          "priorityScore": 106,
+          "evidence": "Accuracy is 0% across 3 attempts with 3 mistakes (3 Conceptual). Recurring weakness detected with 3 errors across attempts.",
+          "before": 0,
+          "after": 3,
+          "beforeAccuracy": 0,
+          "nowAccuracy": 0,
+          "trend": "emerging_gap",
+          "needsAttention": true,
+          "mistakePattern": "Persistent errors (conceptual)",
+          "whyItHappened": "Repeatedly struggling with conceptual steps in Boundary Conditions",
+          "whatChanged": "Needs targeted deliberate practice rather than passive revision"
+        },
+        {
+          "concept": "Search-Space Invariants",
+          "topic": "Binary Search",
+          "totalAttempts": 1,
+          "correctCount": 0,
+          "mistakeCount": 1,
+          "accuracy": 0,
+          "avgDifficultyScore": 2,
+          "isRecurringWeakness": false,
+          "primaryMistakeType": "CONCEPTUAL",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 1,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "HIGH PRIORITY",
+          "priorityScore": 67,
+          "evidence": "Accuracy is 0% across 1 attempt with 1 mistake (1 Conceptual).",
+          "before": 0,
+          "after": 1,
+          "beforeAccuracy": 0,
+          "nowAccuracy": 0,
+          "trend": "emerging_gap",
+          "needsAttention": true,
+          "mistakePattern": "Emerging error pattern",
+          "whyItHappened": "Initial assessment attempts show partial accuracy",
+          "whatChanged": "Practice additional questions to stabilize concept"
+        }
+      ],
+      "needsPracticeConcepts": [],
+      "strongConcepts": [
+        {
+          "concept": "Termination Conditions",
+          "topic": "Binary Search",
+          "totalAttempts": 1,
+          "correctCount": 1,
+          "mistakeCount": 0,
+          "accuracy": 100,
+          "avgDifficultyScore": 2,
+          "isRecurringWeakness": false,
+          "primaryMistakeType": "NONE",
+          "mistakeTypeCounts": {
+            "CONCEPTUAL": 0,
+            "LOGICAL": 0,
+            "IMPLEMENTATION": 0,
+            "CARELESS": 0,
+            "MISINTERPRETATION": 0,
+            "TIME_MANAGEMENT": 0,
+            "UNKNOWN": 0
+          },
+          "learningPriority": "LOWER PRIORITY / STRONG",
+          "priorityScore": 0,
+          "evidence": "Accuracy is 100% across 1 question. Concept demonstrates solid proficiency.",
+          "before": 0,
+          "after": 0,
+          "beforeAccuracy": 100,
+          "nowAccuracy": 100,
+          "trend": "mastered",
+          "needsAttention": false,
+          "mistakePattern": "High consistency and low error rate",
+          "whyItHappened": "Strong foundation demonstrated",
+          "whatChanged": "Concept well mastered"
+        }
+      ],
+      "mistakeDistribution": {
+        "breakdown": [
+          {
+            "type": "CONCEPTUAL",
+            "label": "Conceptual Gap",
+            "count": 4,
+            "percentage": 100
+          },
+          {
+            "type": "LOGICAL",
+            "label": "Logical Reasoning",
+            "count": 0,
+            "percentage": 0
+          },
+          {
+            "type": "IMPLEMENTATION",
+            "label": "Implementation / Syntax",
+            "count": 0,
+            "percentage": 0
+          },
+          {
+            "type": "CARELESS",
+            "label": "Careless / Precision",
+            "count": 0,
+            "percentage": 0
+          },
+          {
+            "type": "MISINTERPRETATION",
+            "label": "Misinterpretation",
+            "count": 0,
+            "percentage": 0
+          },
+          {
+            "type": "TIME_MANAGEMENT",
+            "label": "Time Management",
+            "count": 0,
+            "percentage": 0
+          },
+          {
+            "type": "UNKNOWN",
+            "label": "General Error",
+            "count": 0,
+            "percentage": 0
+          }
+        ],
+        "totalMistakes": 4,
+        "dominantType": "CONCEPTUAL"
+      },
+      "trends": {
+        "topicProgress": [
+          {
+            "concept": "Boundary Conditions",
+            "topic": "Binary Search",
+            "before": 0,
+            "after": 3,
+            "needsAttention": true,
+            "trend": "emerging_gap",
+            "mistakePattern": "Persistent errors (conceptual)",
+            "whyItHappened": "Repeatedly struggling with conceptual steps in Boundary Conditions",
+            "whatChanged": "Needs targeted deliberate practice rather than passive revision"
+          },
+          {
+            "concept": "Search-Space Invariants",
+            "topic": "Binary Search",
+            "before": 0,
+            "after": 1,
+            "needsAttention": true,
+            "trend": "emerging_gap",
+            "mistakePattern": "Emerging error pattern",
+            "whyItHappened": "Initial assessment attempts show partial accuracy",
+            "whatChanged": "Practice additional questions to stabilize concept"
+          },
+          {
+            "concept": "Termination Conditions",
+            "topic": "Binary Search",
+            "before": 0,
+            "after": 0,
+            "needsAttention": false,
+            "trend": "mastered",
+            "mistakePattern": "High consistency and low error rate",
+            "whyItHappened": "Strong foundation demonstrated",
+            "whatChanged": "Concept well mastered"
+          }
+        ],
+        "improvedCount": 0,
+        "regressedCount": 0,
+        "persistentCount": 1
+      },
+      "aiInsights": {
+        "focusMore": [
+          "Boundary Conditions (Binary Search)",
+          "Search-Space Invariants (Binary Search)"
+        ],
+        "lowerPriority": [
+          "Termination Conditions (Binary Search)"
+        ],
+        "why": "The student answered 0% of questions on Boundary Conditions (3/3 incorrect) and 0% on Search-Space Invariants (1/1 incorrect). All errors were classified as conceptual, indicating a gap in understanding how to define and maintain the search interval and its invariants during binary search. The recurring nature of the Boundary Conditions errors (three attempts) confirms a persistent misunderstanding, while the single error on Search-Space Invariants also points to a missing grasp of the invariant property that must hold true throughout the algorithm. In contrast, the student achieved 100% accuracy on Termination Conditions, showing a solid grasp of when the loop should stop.",
+        "recommendedPractice": [
+          "Solve binary search problems that explicitly ask for handling edge cases such as target values at the array boundaries and off‑by‑one errors.",
+          "Practice tracing binary search on paper with varied array sizes (including empty and single‑element arrays) to reinforce the invariant that low ≤ high throughout execution.",
+          "Implement binary search from scratch in at least two languages, focusing on correctly updating low and high pointers after each comparison.",
+          "Use debugging exercises that require you to identify and fix incorrect boundary updates in provided buggy binary search code.",
+          "Complete timed quizzes that mix correct and incorrect termination scenarios to strengthen discrimination between proper and improper loop exit conditions."
+        ],
+        "isInsufficientData": false
+      }
+    },
+    "conceptRoot": {
+      "hasData": true,
+      "user": {
+        "id": "6ad4be01d43132092612233f",
+        "name": "Test weak"
+      },
+      "conceptId": "Boundary Conditions",
+      "canonicalConcept": "Boundary Conditions",
+      "skillId": "Binary Search",
+      "mastery": {
+        "attempts": 3,
+        "correct": 0,
+        "accuracy": 0,
+        "recentAccuracy": 0,
+        "edgeCaseAccuracy": null,
+        "trend": "STABLE"
+      },
+      "rootCause": {
+        "type": "CONCEPTUAL",
+        "confidence": 0.6,
+        "evidenceCount": 3,
+        "rootConceptId": "Boundary Conditions",
+        "rootConceptName": "Boundary Conditions"
+      },
+      "evidence": [
+        {
+          "questionId": "6a89e08dea4da156503b6364",
+          "attemptId": "6ad4be02d431320926122355",
+          "canonicalConcept": "Boundary Conditions",
+          "skillId": "Binary Search",
+          "isCorrect": false,
+          "studentAnswer": "completely_wrong_answer",
+          "correctAnswer": "low = mid + 1",
+          "errorType": "CONCEPTUAL",
+          "timestamp": "2026-10-18T12:39:30.896Z",
+          "isEdgeCase": false,
+          "difficulty": "Medium"
+        },
+        {
+          "questionId": "6a89e08dea4da156503b6366",
+          "attemptId": "6ad4be02d431320926122355",
+          "canonicalConcept": "Boundary Conditions",
+          "skillId": "Binary Search",
+          "isCorrect": false,
+          "studentAnswer": "completely_wrong_answer",
+          "correctAnswer": "mid = low + Math.floor((high - low) / 2)",
+          "errorType": "CONCEPTUAL",
+          "timestamp": "2026-10-18T12:39:30.896Z",
+          "isEdgeCase": false,
+          "difficulty": "Easy"
+        },
+        {
+          "questionId": "6a89e08dea4da156503b6368",
+          "attemptId": "6ad4be02d431320926122355",
+          "canonicalConcept": "Boundary Conditions",
+          "skillId": "Binary Search",
+          "isCorrect": false,
+          "studentAnswer": "completely_wrong_answer",
+          "correctAnswer": "mid - 1",
+          "errorType": "CONCEPTUAL",
+          "timestamp": "2026-10-18T12:39:30.896Z",
+          "isEdgeCase": false,
+          "difficulty": "Medium"
+        }
+      ],
+      "dependencies": [
+        {
+          "id": "Boundary Conditions",
+          "name": "Boundary Conditions",
+          "type": "observed",
+          "level": 0
+        }
+      ],
+      "diagnosis": {
+        "status": "MODERATE_CONFIDENCE"
+      },
+      "explanation": {
+        "reasoning": "The student consistently answered questions about binary search boundary updates incorrectly, resulting in 0% accuracy across three attempts. All errors are flagged as conceptual, not edge‑case specific, indicating a fundamental misunderstanding of how low, high, and mid indices should be adjusted. The pattern shows the student does not grasp that the low bound moves to mid+1 after a successful comparison, that the mid calculation must use the current low and high (mid = low + Math.floor((high‑low)/2)), and that the high bound is reduced to mid‑1 when the target is smaller. This suggests they treat the bounds as static or confuse the direction of updates, a common misconception about boundary conditions in divide‑and‑conquer algorithms.",
+        "likelyMisconception": "Belief that the low, high, and mid pointers in binary search are independent or can be updated arbitrarily, leading to incorrect boundary adjustments (e.g., not moving low to mid+1 or high to mid‑1).",
+        "targetedPlan": {
+          "reviewTopics": [
+            "Binary search algorithm mechanics",
+            "Correct calculation of mid index",
+            "Updating low and high boundaries based on comparison results"
+          ],
+          "practiceActivities": [
+            "Step‑by‑step walkthroughs of binary search on paper with varied target positions",
+            "Interactive coding exercises that require writing the boundary update logic",
+            "Debugging tasks where students identify and fix incorrect boundary updates"
+          ],
+          "tips": [
+            "Always recompute mid after changing low or high",
+            "Remember: if target > array[mid], set low = mid + 1; if target < array[mid], set high = mid - 1",
+            "Visualize the search interval shrinking on a number line after each step"
+          ]
+        }
+      },
+      "sourceAttemptCount": 1,
+      "aiStatus": "completed"
+    },
+    "skillGap": {
+      "hasData": true,
+      "targetCareer": "Software Developer",
+      "overallProficiency": 20,
+      "averageGap": 84,
+      "skills": [
+        {
+          "skillId": "cs.programming",
+          "skillName": "Programming Fundamentals",
+          "currentProficiency": 0,
+          "requiredProficiency": 95,
+          "gap": 95,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "Programming Fundamentals is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in Programming Fundamentals to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "tools.git",
+          "skillName": "Version Control (Git)",
+          "currentProficiency": 0,
+          "requiredProficiency": 95,
+          "gap": 95,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "Version Control (Git) is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in Version Control (Git) to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "dsa.arrays",
+          "skillName": "Arrays",
+          "currentProficiency": 0,
+          "requiredProficiency": 90,
+          "gap": 90,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "Arrays is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in Arrays to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "web.javascript",
+          "skillName": "JavaScript",
+          "currentProficiency": 0,
+          "requiredProficiency": 90,
+          "gap": 90,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "JavaScript is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in JavaScript to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "backend.apis",
+          "skillName": "REST APIs",
+          "currentProficiency": 0,
+          "requiredProficiency": 90,
+          "gap": 90,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "REST APIs is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in REST APIs to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "dsa.searching",
+          "skillName": "Searching Algorithms",
+          "currentProficiency": 0,
+          "requiredProficiency": 85,
+          "gap": 85,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "Searching Algorithms is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in Searching Algorithms to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "db.sql",
+          "skillName": "SQL Databases",
+          "currentProficiency": 0,
+          "requiredProficiency": 85,
+          "gap": 85,
+          "priority": "high",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "SQL Databases is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in SQL Databases to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "dsa.sorting",
+          "skillName": "Sorting Algorithms",
+          "currentProficiency": 0,
+          "requiredProficiency": 80,
+          "gap": 80,
+          "priority": "medium",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "Sorting Algorithms is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in Sorting Algorithms to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "web.html_css",
+          "skillName": "HTML & CSS",
+          "currentProficiency": 0,
+          "requiredProficiency": 70,
+          "gap": 70,
+          "priority": "medium",
+          "status": "unassessed",
+          "confidence": 0.5,
+          "evidenceCount": 0,
+          "correctCount": 0,
+          "incorrectCount": 0,
+          "concepts": [],
+          "evidence": [],
+          "aiExplanation": "HTML & CSS is a core requirement for Software Engineer, but has not been assessed yet.",
+          "recommendations": [
+            "Take an assessment in HTML & CSS to establish your baseline proficiency."
+          ]
+        },
+        {
+          "skillId": "binary-search",
+          "skillName": "Binary Search",
+          "currentProficiency": 21,
+          "requiredProficiency": 85,
+          "gap": 64,
+          "priority": "high",
+          "confidence": 0.72,
+          "evidenceCount": 5,
+          "correctCount": 1,
+          "incorrectCount": 4,
+          "concepts": [
+            {
+              "conceptId": "boundary-conditions",
+              "conceptName": "Boundary Conditions",
+              "accuracy": 0,
+              "evidenceCount": 3
+            },
+            {
+              "conceptId": "search-space-invariants",
+              "conceptName": "Search-Space Invariants",
+              "accuracy": 0,
+              "evidenceCount": 1
+            },
+            {
+              "conceptId": "termination-conditions",
+              "conceptName": "Termination Conditions",
+              "accuracy": 100,
+              "evidenceCount": 1
+            }
+          ],
+          "evidence": [
+            {
+              "questionId": "6a89e08dea4da156503b6364",
+              "question": "Q1: In binary search, how should `low` be updated when target > arr[mid]?",
+              "concept": "Boundary Conditions",
+              "studentAnswer": "completely_wrong_answer",
+              "correctAnswer": "low = mid + 1",
+              "isCorrect": false,
+              "difficulty": "Medium",
+              "attemptId": "6ad4be02d431320926122355",
+              "timestamp": "2026-10-18T12:39:30.896Z"
+            },
+            {
+              "questionId": "6a89e08dea4da156503b6365",
+              "question": "Q2: In binary search, how should `high` be updated when target < arr[mid]?",
+              "concept": "Search-Space Invariants",
+              "studentAnswer": "completely_wrong_answer",
+              "correctAnswer": "high = mid - 1",
+              "isCorrect": false,
+              "difficulty": "Medium",
+              "attemptId": "6ad4be02d431320926122355",
+              "timestamp": "2026-10-18T12:39:30.896Z"
+            },
+            {
+              "questionId": "6a89e08dea4da156503b6366",
+              "question": "Q3: How to calculate middle index safely?",
+              "concept": "Boundary Conditions",
+              "studentAnswer": "completely_wrong_answer",
+              "correctAnswer": "mid = low + Math.floor((high - low) / 2)",
+              "isCorrect": false,
+              "difficulty": "Easy",
+              "attemptId": "6ad4be02d431320926122355",
+              "timestamp": "2026-10-18T12:39:30.896Z"
+            },
+            {
+              "questionId": "6a89e08dea4da156503b6367",
+              "question": "Q4: What is the correct loop condition for inclusive binary search?",
+              "concept": "Termination Conditions",
+              "studentAnswer": "while (low <= high)",
+              "correctAnswer": "while (low <= high)",
+              "isCorrect": true,
+              "difficulty": "Medium",
+              "attemptId": "6ad4be02d431320926122355",
+              "timestamp": "2026-10-18T12:39:30.896Z"
+            },
+            {
+              "questionId": "6a89e08dea4da156503b6368",
+              "question": "Q5: When target is smaller than mid element, high becomes?",
+              "concept": "Boundary Conditions",
+              "studentAnswer": "completely_wrong_answer",
+              "correctAnswer": "mid - 1",
+              "isCorrect": false,
+              "difficulty": "Medium",
+              "attemptId": "6ad4be02d431320926122355",
+              "timestamp": "2026-10-18T12:39:30.896Z"
+            }
+          ],
+          "aiExplanation": "This skill is based on 5 real answers. 1 were correct and 4 were incorrect across recent attempts.",
+          "recommendations": [
+            "Target 85% proficiency by practicing the weakest concepts under Binary Search."
+          ]
+        }
+      ],
+      "strongAreas": [],
+      "weakAreas": [
+        {
+          "skillId": "cs.programming",
+          "skillName": "Programming Fundamentals",
+          "currentProficiency": 0,
+          "gap": 95
+        },
+        {
+          "skillId": "tools.git",
+          "skillName": "Version Control (Git)",
+          "currentProficiency": 0,
+          "gap": 95
+        },
+        {
+          "skillId": "dsa.arrays",
+          "skillName": "Arrays",
+          "currentProficiency": 0,
+          "gap": 90
+        },
+        {
+          "skillId": "web.javascript",
+          "skillName": "JavaScript",
+          "currentProficiency": 0,
+          "gap": 90
+        },
+        {
+          "skillId": "backend.apis",
+          "skillName": "REST APIs",
+          "currentProficiency": 0,
+          "gap": 90
+        },
+        {
+          "skillId": "dsa.searching",
+          "skillName": "Searching Algorithms",
+          "currentProficiency": 0,
+          "gap": 85
+        },
+        {
+          "skillId": "db.sql",
+          "skillName": "SQL Databases",
+          "currentProficiency": 0,
+          "gap": 85
+        },
+        {
+          "skillId": "dsa.sorting",
+          "skillName": "Sorting Algorithms",
+          "currentProficiency": 0,
+          "gap": 80
+        },
+        {
+          "skillId": "web.html_css",
+          "skillName": "HTML & CSS",
+          "currentProficiency": 0,
+          "gap": 70
+        },
+        {
+          "skillId": "binary-search",
+          "skillName": "Binary Search",
+          "currentProficiency": 21,
+          "gap": 64
+        }
+      ],
+      "recommendations": [
+        "Focus on Programming Fundamentals to close a 95-point gap.",
+        "Focus on Version Control (Git) to close a 95-point gap.",
+        "Focus on Arrays to close a 90-point gap."
+      ],
+      "summary": {
+        "totalEvidence": 5,
+        "correctCount": 1,
+        "incorrectCount": 4,
+        "skillCount": 10
+      },
+      "user": {
+        "id": "6ad4be01d43132092612233f",
+        "name": "Test weak",
+        "careerGoal": "Software Developer"
+      }
+    },
+    "revision": {
+      "items": [
+        {
+          "conceptId": "boundary-conditions",
+          "conceptName": "Boundary Conditions",
+          "priority": "HIGH",
+          "priorityScore": 130,
+          "status": "DUE",
+          "weaknessScore": 100,
+          "masteryScore": 0,
+          "masteryLevel": "Needs Attention",
+          "revisionCount": 0,
+          "lastAttemptedAt": "2026-10-18T12:39:30.896Z",
+          "lastReviewedAt": null,
+          "nextReviewAt": null,
+          "incorrectAttempts": 3
+        },
+        {
+          "conceptId": "search-space-invariants",
+          "conceptName": "Search-Space Invariants",
+          "priority": "HIGH",
+          "priorityScore": 130,
+          "status": "DUE",
+          "weaknessScore": 100,
+          "masteryScore": 0,
+          "masteryLevel": "Needs Attention",
+          "revisionCount": 0,
+          "lastAttemptedAt": "2026-10-18T12:39:30.896Z",
+          "lastReviewedAt": null,
+          "nextReviewAt": null,
+          "incorrectAttempts": 1
+        }
+      ],
+      "summary": {
+        "dueToday": 2,
+        "highPriority": 2,
+        "completed": 0,
+        "total": 2
+      }
+    },
+    "roadmap": {
+      "userId": "6ad4be01d43132092612233f",
+      "targetCareer": "Software Developer",
+      "selectedField": "Computer Science",
+      "readinessScore": 20,
+      "hasHistory": true,
+      "completedStageIds": [],
+      "stages": [
+        {
+          "id": 1,
+          "title": "Phase 1: Foundations & Weak Concept Remediation",
+          "phase": "Foundations (0-25% Readiness)",
+          "status": "current",
+          "duration": "4 Weeks",
+          "priority": "High",
+          "why": "Your assessment history contains 1 correct and 4 incorrect answers. Accuracy in Boundary Conditions is 0% with 3 missed question(s), so this is your highest-priority learning need.",
+          "progress": 20,
+          "concepts": [
+            "Boundary Conditions",
+            "Search-Space Invariants"
+          ],
+          "description": "Remediate identified weak concepts (Boundary Conditions, Search-Space Invariants) and rebuild solid prerequisite knowledge.",
+          "learningTasks": [
+            "Review core concepts and official documentation for Boundary Conditions",
+            "Create revision cheat sheets and summarize key definitions",
+            "Solve 20+ foundation practice questions"
+          ],
+          "practiceTasks": [
+            "Complete foundational exercises",
+            "Review missed baseline concepts"
+          ],
+          "questions": 20,
+          "isWeakConcept": true
+        },
+        {
+          "id": 2,
+          "title": "Phase 2: Core Competencies & Skill Gap Alignment",
+          "phase": "Core Competency (25-50% Readiness)",
+          "status": "upcoming",
+          "duration": "6 Weeks",
+          "priority": "High",
+          "why": "SkillGap analysis indicates a 80-point opportunity gap for Software Developer. Focus on building core professional competencies in these areas.",
+          "progress": 0,
+          "concepts": [
+            "Problem Solving",
+            "Programming",
+            "Data Structures",
+            "System Design",
+            "Web APIs"
+          ],
+          "description": "Build hands-on competencies in essential Software Developer topics aligned with your SkillGap evaluation.",
+          "learningTasks": [
+            "Build practical implementations for Problem Solving",
+            "Learn industry standard patterns and architecture",
+            "Practice 25+ intermediate domain questions"
+          ],
+          "practiceTasks": [
+            "Implement practical features",
+            "Solve intermediate questions"
+          ],
+          "questions": 25,
+          "isWeakConcept": false
+        },
+        {
+          "id": 3,
+          "title": "Phase 3: Applied Execution & Mistake Pattern Resolution",
+          "phase": "Advanced Specialization (50-75% Readiness)",
+          "status": "upcoming",
+          "duration": "6 Weeks",
+          "priority": "Standard",
+          "why": "MistakeMap found 4 missed question(s), concentrated in Boundary Conditions, Search-Space Invariants. Practice is ordered by those recurring error patterns.",
+          "progress": 0,
+          "concepts": [
+            "Boundary Conditions Targeted Practice",
+            "Search-Space Invariants Targeted Practice"
+          ],
+          "description": "Practice the concepts flagged by your MistakeMap and ConceptRoot analysis until their error patterns stop recurring.",
+          "learningTasks": [
+            "Analyze root causes of missed questions from recent assessments",
+            "Practice targeted problem-solving in weak topic areas",
+            "Re-attempt tricky questions until 100% mastery"
+          ],
+          "practiceTasks": [
+            "Targeted question sets",
+            "Mistake pattern drills"
+          ],
+          "questions": 30,
+          "isWeakConcept": false
+        },
+        {
+          "id": 4,
+          "title": "Phase 4: Advanced Skills & Readiness Portfolio",
+          "phase": "Career Readiness (75-100% Ready)",
+          "status": "locked",
+          "duration": "8 Weeks",
+          "priority": "Standard",
+          "why": "Advanced work unlocks after the foundation and practice phases address the concepts missed in your assessments.",
+          "progress": 0,
+          "concepts": [
+            "Termination Conditions Advanced Applications",
+            "Problem Solving",
+            "Programming",
+            "Data Structures",
+            "System Design"
+          ],
+          "description": "Advance through the remaining Software Developer skills selected from your measured strengths and skill gaps.",
+          "learningTasks": [
+            "Complete end-to-end advanced case studies or projects",
+            "Simulate real-world domain challenges under timed constraints",
+            "Review performance against industry benchmarks"
+          ],
+          "practiceTasks": [
+            "Complete capstone evaluation",
+            "Comprehensive final assessment"
+          ],
+          "questions": 25,
+          "isWeakConcept": false
+        }
+      ],
+      "lastEvaluatedAt": "2026-10-18T12:39:37.126Z"
+    }
+  },
+  "repeatingMistake": {
+    "attempt1": {
+      "score": 40,
+      "conceptRoot": {
+        "hasData": true,
+        "user": {
+          "id": "6ad4be09d43132092612238b",
+          "name": "Test repeater"
+        },
+        "conceptId": "Boundary Conditions",
+        "canonicalConcept": "Boundary Conditions",
+        "skillId": "Binary Search",
+        "mastery": {
+          "attempts": 3,
+          "correct": 0,
+          "accuracy": 0,
+          "recentAccuracy": 0,
+          "edgeCaseAccuracy": null,
+          "trend": "STABLE"
+        },
+        "rootCause": {
+          "type": "CONCEPTUAL",
+          "confidence": 0.6,
+          "evidenceCount": 3,
+          "rootConceptId": "Boundary Conditions",
+          "rootConceptName": "Boundary Conditions"
+        },
+        "evidence": [
+          {
+            "questionId": "6a89e08dea4da156503b6364",
+            "attemptId": "6ad4be0ad4313209261223a1",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_boundary_choice",
+            "correctAnswer": "low = mid + 1",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:38.317Z",
+            "isEdgeCase": false,
+            "difficulty": "Medium"
+          },
+          {
+            "questionId": "6a89e08dea4da156503b6366",
+            "attemptId": "6ad4be0ad4313209261223a1",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_boundary_choice",
+            "correctAnswer": "mid = low + Math.floor((high - low) / 2)",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:38.317Z",
+            "isEdgeCase": false,
+            "difficulty": "Easy"
+          },
+          {
+            "questionId": "6a89e08dea4da156503b6368",
+            "attemptId": "6ad4be0ad4313209261223a1",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_boundary_choice",
+            "correctAnswer": "mid - 1",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:38.317Z",
+            "isEdgeCase": false,
+            "difficulty": "Medium"
+          }
+        ],
+        "dependencies": [
+          {
+            "id": "Boundary Conditions",
+            "name": "Boundary Conditions",
+            "type": "observed",
+            "level": 0
+          }
+        ],
+        "diagnosis": {
+          "status": "MODERATE_CONFIDENCE"
+        },
+        "explanation": {
+          "observedConcept": "Boundary Conditions",
+          "totalRelevantAttempts": 3,
+          "incorrectAttempts": 3,
+          "accuracy": 0,
+          "trend": "STABLE",
+          "diagnosedErrorType": "CONCEPTUAL",
+          "confidence": 0.6,
+          "diagnosisStatus": "MODERATE_CONFIDENCE",
+          "misconception": "Student consistently updates binary‑search boundaries incorrectly, treating low/high adjustments as simple assignments without respecting exclusive/inclusive rules. They set low = mid + 1, compute mid using an already‑updated low, and use mid‑1 without understanding when each update is appropriate.",
+          "explanation": "All three flagged attempts involve wrong choices for updating the search interval. The pattern shows the student does not grasp that after comparing the target with the middle element, the low bound should move to mid+1 only when the target is greater, and the high bound should move to mid‑1 when the target is smaller. They also misuse the formula for computing mid, treating low as already updated. This indicates a conceptual gap in handling boundary conditions of binary search.",
+          "revisionPlan": {
+            "focusAreas": [
+              "Binary search interval update rules (when to adjust low vs high)",
+              "Correct calculation of mid index using low and high",
+              "Edge‑case handling when low exceeds high"
+            ],
+            "activities": [
+              {
+                "type": "interactive tutorial",
+                "topic": "Binary search boundary updates",
+                "durationMinutes": 15
+              },
+              {
+                "type": "guided practice",
+                "description": "Step‑by‑step walkthrough of binary search on paper with varied target positions",
+                "count": 5
+              },
+              {
+                "type": "coding exercise",
+                "description": "Implement binary search and add console logs to show low, high, mid after each iteration",
+                "count": 3
+              },
+              {
+                "type": "quiz",
+                "description": "Multiple‑choice questions focusing on selecting the correct boundary update for given scenarios",
+                "count": 10
+              }
+            ],
+            "resources": [
+              {
+                "title": "Binary Search Explained – Visual Guide",
+                "url": "https://www.example.com/binary-search-visual"
+              },
+              {
+                "title": "Algorithmic Thinking: Boundary Conditions",
+                "url": "https://www.example.com/algorithm-boundaries"
+              }
+            ],
+            "assessment": "After completing the activities, retake a set of 5 binary‑search questions. Expect accuracy ≥80% before moving on."
+          }
+        },
+        "sourceAttemptCount": 1,
+        "aiStatus": "completed"
+      },
+      "revision": {
+        "items": [
+          {
+            "conceptId": "boundary-conditions",
+            "conceptName": "Boundary Conditions",
+            "priority": "HIGH",
+            "priorityScore": 130,
+            "status": "DUE",
+            "weaknessScore": 100,
+            "masteryScore": 0,
+            "masteryLevel": "Needs Attention",
+            "revisionCount": 0,
+            "lastAttemptedAt": "2026-10-18T12:39:38.317Z",
+            "lastReviewedAt": null,
+            "nextReviewAt": null,
+            "incorrectAttempts": 3
+          }
+        ],
+        "summary": {
+          "dueToday": 1,
+          "highPriority": 1,
+          "completed": 0,
+          "total": 1
+        }
+      }
+    },
+    "attempt2": {
+      "score": 40,
+      "conceptRoot": {
+        "hasData": true,
+        "user": {
+          "id": "6ad4be09d43132092612238b",
+          "name": "Test repeater"
+        },
+        "conceptId": "Boundary Conditions",
+        "canonicalConcept": "Boundary Conditions",
+        "skillId": "Binary Search",
+        "mastery": {
+          "attempts": 6,
+          "correct": 0,
+          "accuracy": 0,
+          "recentAccuracy": 0,
+          "edgeCaseAccuracy": null,
+          "trend": "STABLE"
+        },
+        "rootCause": {
+          "type": "CONCEPTUAL",
+          "confidence": 1,
+          "evidenceCount": 6,
+          "rootConceptId": "Boundary Conditions",
+          "rootConceptName": "Boundary Conditions"
+        },
+        "evidence": [
+          {
+            "questionId": "6a89e08dea4da156503b6364",
+            "attemptId": "6ad4be0ad4313209261223a1",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_boundary_choice",
+            "correctAnswer": "low = mid + 1",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:38.317Z",
+            "isEdgeCase": false,
+            "difficulty": "Medium"
+          },
+          {
+            "questionId": "6a89e08dea4da156503b6366",
+            "attemptId": "6ad4be0ad4313209261223a1",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_boundary_choice",
+            "correctAnswer": "mid = low + Math.floor((high - low) / 2)",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:38.317Z",
+            "isEdgeCase": false,
+            "difficulty": "Easy"
+          },
+          {
+            "questionId": "6a89e08dea4da156503b6368",
+            "attemptId": "6ad4be0ad4313209261223a1",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_boundary_choice",
+            "correctAnswer": "mid - 1",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:38.317Z",
+            "isEdgeCase": false,
+            "difficulty": "Medium"
+          },
+          {
+            "questionId": "6a89e08dea4da156503b6364",
+            "attemptId": "6ad4be0ed4313209261223d1",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_boundary_choice_again",
+            "correctAnswer": "low = mid + 1",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:42.833Z",
+            "isEdgeCase": false,
+            "difficulty": "Medium"
+          },
+          {
+            "questionId": "6a89e08dea4da156503b6366",
+            "attemptId": "6ad4be0ed4313209261223d1",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_boundary_choice_again",
+            "correctAnswer": "mid = low + Math.floor((high - low) / 2)",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:42.833Z",
+            "isEdgeCase": false,
+            "difficulty": "Easy"
+          },
+          {
+            "questionId": "6a89e08dea4da156503b6368",
+            "attemptId": "6ad4be0ed4313209261223d1",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_boundary_choice_again",
+            "correctAnswer": "mid - 1",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:42.833Z",
+            "isEdgeCase": false,
+            "difficulty": "Medium"
+          }
+        ],
+        "dependencies": [
+          {
+            "id": "Boundary Conditions",
+            "name": "Boundary Conditions",
+            "type": "observed",
+            "level": 0
+          }
+        ],
+        "diagnosis": {
+          "status": "HIGH_CONFIDENCE"
+        },
+        "explanation": {
+          "reasoning": "The student consistently chose incorrect boundary updates in binary‑search style questions (6/6 attempts). All errors are flagged as CONCEPTUAL, not random slips, indicating a systematic misunderstanding of how the low, high, and mid indices should be adjusted. The pattern shows they misapply the update rules (e.g., they do not set low = mid + 1 when the target is greater, they misuse the mid‑calculation formula, and they incorrectly decrement mid). This points to a core misconception about the invariant that the search interval shrinks correctly and about off‑by‑one handling in boundary conditions.",
+          "misconception": "Confuses the direction and magnitude of boundary updates in binary search, leading to off‑by‑one errors and incorrect mid‑point calculation. The student does not internalize the invariant that after each comparison the target remains within the updated [low, high] range.",
+          "revision_plan": "1. Review the binary‑search invariant and the purpose of each boundary update. 2. Watch a short tutorial that visualizes low, high, and mid movement on a number line. 3. Complete guided practice: given a sorted array and a target, manually write the next low/high/mid values for several steps, focusing on cases where target is less than, greater than, or equal to mid. 4. Implement binary search in code with console logs after each iteration to see the actual values change. 5. Solve targeted off‑by‑one exercises that ask for the correct update when low = mid, high = mid, or when low and high are adjacent. 6. Take a short quiz that only tests boundary updates without full algorithmic context to reinforce the specific rule."
+        },
+        "sourceAttemptCount": 2,
+        "aiStatus": "completed"
+      },
+      "revision": {
+        "items": [
+          {
+            "conceptId": "boundary-conditions",
+            "conceptName": "Boundary Conditions",
+            "priority": "HIGH",
+            "priorityScore": 130,
+            "status": "DUE",
+            "weaknessScore": 100,
+            "masteryScore": 0,
+            "masteryLevel": "Needs Attention",
+            "revisionCount": 0,
+            "lastAttemptedAt": "2026-10-18T12:39:42.833Z",
+            "lastReviewedAt": null,
+            "nextReviewAt": null,
+            "incorrectAttempts": 6
+          }
+        ],
+        "summary": {
+          "dueToday": 1,
+          "highPriority": 1,
+          "completed": 0,
+          "total": 1
+        }
+      }
+    },
+    "comparison": {
+      "confidenceIncreased": true,
+      "evidenceCountIncreased": true,
+      "revisionPriorityHigher": true
+    }
+  },
+  "improvementStudent": {
+    "attempt1": {
+      "score": 0,
+      "cr": {
+        "hasData": true,
+        "user": {
+          "id": "6ad4be12d4313209261223f6",
+          "name": "Test improver"
+        },
+        "conceptId": "Boundary Conditions",
+        "canonicalConcept": "Boundary Conditions",
+        "skillId": "Binary Search",
+        "mastery": {
+          "attempts": 3,
+          "correct": 0,
+          "accuracy": 0,
+          "recentAccuracy": 0,
+          "edgeCaseAccuracy": null,
+          "trend": "STABLE"
+        },
+        "rootCause": {
+          "type": "CONCEPTUAL",
+          "confidence": 0.6,
+          "evidenceCount": 3,
+          "rootConceptId": "Boundary Conditions",
+          "rootConceptName": "Boundary Conditions"
+        },
+        "evidence": [
+          {
+            "questionId": "6a89e08dea4da156503b6364",
+            "attemptId": "6ad4be13d43132092612240c",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_answer",
+            "correctAnswer": "low = mid + 1",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:47.418Z",
+            "isEdgeCase": false,
+            "difficulty": "Medium"
+          },
+          {
+            "questionId": "6a89e08dea4da156503b6366",
+            "attemptId": "6ad4be13d43132092612240c",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_answer",
+            "correctAnswer": "mid = low + Math.floor((high - low) / 2)",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:47.418Z",
+            "isEdgeCase": false,
+            "difficulty": "Easy"
+          },
+          {
+            "questionId": "6a89e08dea4da156503b6368",
+            "attemptId": "6ad4be13d43132092612240c",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_answer",
+            "correctAnswer": "mid - 1",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:47.418Z",
+            "isEdgeCase": false,
+            "difficulty": "Medium"
+          }
+        ],
+        "dependencies": [
+          {
+            "id": "Boundary Conditions",
+            "name": "Boundary Conditions",
+            "type": "observed",
+            "level": 0
+          }
+        ],
+        "diagnosis": {
+          "status": "MODERATE_CONFIDENCE"
+        },
+        "explanation": {
+          "observedConcept": "Boundary Conditions",
+          "errorType": "CONCEPTUAL",
+          "misconception": "The student consistently updates the search bounds incorrectly, treating the low/high pointers as if they should be set to the opposite side of the midpoint (e.g., low = mid + 1, mid = low + floor((high‑low)/2), mid‑1) rather than moving the low pointer up only when the target is greater than mid and moving the high pointer down only when the target is less than mid. This indicates a misunderstanding of how boundary conditions are adjusted in binary‑search style algorithms.",
+          "evidenceSummary": [
+            {
+              "questionId": "6a89e08dea4da156503b6364",
+              "userAnswer": "wrong_answer",
+              "correctLogic": "low = mid + 1",
+              "errorType": "CONCEPTUAL"
+            },
+            {
+              "questionId": "6a89e08dea4da156503b6366",
+              "userAnswer": "wrong_answer",
+              "correctLogic": "mid = low + Math.floor((high - low) / 2)",
+              "errorType": "CONCEPTUAL"
+            },
+            {
+              "questionId": "6a89e08dea4da156503b6368",
+              "userAnswer": "wrong_answer",
+              "correctLogic": "mid - 1",
+              "errorType": "CONCEPTUAL"
+            }
+          ],
+          "recommendation": "1. Review the binary‑search algorithm step‑by‑step, emphasizing when to increment low (low = mid + 1) and when to decrement high (high = mid - 1). 2. Use visual trace worksheets that show low, high, and mid values on each iteration. 3. Complete targeted practice problems that isolate each boundary update (e.g., only adjust low, only adjust high). 4. Implement a small coding exercise where the student prints low, high, and mid at each loop iteration to observe correct boundary movement. 5. After practice, retake a short quiz on boundary updates to confirm mastery."
+        },
+        "sourceAttemptCount": 1,
+        "aiStatus": "completed"
+      },
+      "rev": {
+        "items": [
+          {
+            "conceptId": "boundary-conditions",
+            "conceptName": "Boundary Conditions",
+            "priority": "HIGH",
+            "priorityScore": 130,
+            "status": "DUE",
+            "weaknessScore": 100,
+            "masteryScore": 0,
+            "masteryLevel": "Needs Attention",
+            "revisionCount": 0,
+            "lastAttemptedAt": "2026-10-18T12:39:47.418Z",
+            "lastReviewedAt": null,
+            "nextReviewAt": null,
+            "incorrectAttempts": 3
+          },
+          {
+            "conceptId": "search-space-invariants",
+            "conceptName": "Search-Space Invariants",
+            "priority": "HIGH",
+            "priorityScore": 130,
+            "status": "DUE",
+            "weaknessScore": 100,
+            "masteryScore": 0,
+            "masteryLevel": "Needs Attention",
+            "revisionCount": 0,
+            "lastAttemptedAt": "2026-10-18T12:39:47.418Z",
+            "lastReviewedAt": null,
+            "nextReviewAt": null,
+            "incorrectAttempts": 1
+          },
+          {
+            "conceptId": "termination-conditions",
+            "conceptName": "Termination Conditions",
+            "priority": "HIGH",
+            "priorityScore": 130,
+            "status": "DUE",
+            "weaknessScore": 100,
+            "masteryScore": 0,
+            "masteryLevel": "Needs Attention",
+            "revisionCount": 0,
+            "lastAttemptedAt": "2026-10-18T12:39:47.418Z",
+            "lastReviewedAt": null,
+            "nextReviewAt": null,
+            "incorrectAttempts": 1
+          }
+        ],
+        "summary": {
+          "dueToday": 3,
+          "highPriority": 3,
+          "completed": 0,
+          "total": 3
+        }
+      }
+    },
+    "attempt2": {
+      "score": 100,
+      "cr": {
+        "hasData": true,
+        "user": {
+          "id": "6ad4be12d4313209261223f6",
+          "name": "Test improver"
+        },
+        "conceptId": "Boundary Conditions",
+        "canonicalConcept": "Boundary Conditions",
+        "skillId": "Binary Search",
+        "mastery": {
+          "attempts": 6,
+          "correct": 3,
+          "accuracy": 0.5,
+          "recentAccuracy": 0.5,
+          "edgeCaseAccuracy": null,
+          "trend": "INCONSISTENT"
+        },
+        "rootCause": {
+          "type": "CONCEPTUAL",
+          "confidence": 0.25,
+          "evidenceCount": 3,
+          "rootConceptId": "Boundary Conditions",
+          "rootConceptName": "Boundary Conditions"
+        },
+        "evidence": [
+          {
+            "questionId": "6a89e08dea4da156503b6364",
+            "attemptId": "6ad4be13d43132092612240c",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_answer",
+            "correctAnswer": "low = mid + 1",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:47.418Z",
+            "isEdgeCase": false,
+            "difficulty": "Medium"
+          },
+          {
+            "questionId": "6a89e08dea4da156503b6366",
+            "attemptId": "6ad4be13d43132092612240c",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_answer",
+            "correctAnswer": "mid = low + Math.floor((high - low) / 2)",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:47.418Z",
+            "isEdgeCase": false,
+            "difficulty": "Easy"
+          },
+          {
+            "questionId": "6a89e08dea4da156503b6368",
+            "attemptId": "6ad4be13d43132092612240c",
+            "canonicalConcept": "Boundary Conditions",
+            "skillId": "Binary Search",
+            "isCorrect": false,
+            "studentAnswer": "wrong_answer",
+            "correctAnswer": "mid - 1",
+            "errorType": "CONCEPTUAL",
+            "timestamp": "2026-10-18T12:39:47.418Z",
+            "isEdgeCase": false,
+            "difficulty": "Medium"
+          }
+        ],
+        "dependencies": [
+          {
+            "id": "Boundary Conditions",
+            "name": "Boundary Conditions",
+            "type": "observed",
+            "level": 0
+          }
+        ],
+        "diagnosis": {
+          "status": "INSUFFICIENT_EVIDENCE"
+        },
+        "explanation": {
+          "student_struggle_reason": "The three recorded mistakes are all conceptual errors in updating the low, high, and mid indices of a binary‑search loop. The student consistently applies the wrong boundary adjustment (e.g., using low = mid + 1 when the correct update is low = mid + 1 only after confirming the target is greater, or mis‑computing mid as low + floor((high‑low)/2) and then decrementing it incorrectly). This pattern shows they do not have a stable mental model of the inclusive/exclusive range and the off‑by‑one logic that governs binary search.",
+          "likely_misconception": "The student believes that the boundary variables can be updated arbitrarily without considering whether the current mid value has been examined or the direction of the comparison. In other words, they treat low, high, and mid as independent values rather than as linked parts of a shrinking search interval, leading to systematic off‑by‑one errors.",
+          "targeted_revision_plan": "1. Review the binary‑search algorithm step‑by‑step, emphasizing the invariant that the target, if present, always lies within [low, high] (or [low, high) depending on implementation). 2. Watch a short video or read a concise explanation that highlights the correct formulas: mid = low + Math.floor((high‑low)/2), low = mid + 1 when target > arr[mid], high = mid – 1 when target < arr[mid]. 3. Perform hand‑tracing exercises on small sorted arrays, writing down low, high, mid at each iteration and noting why each update is chosen. 4. Complete coding drills that focus exclusively on boundary updates (e.g., fill‑in‑the‑blank code snippets, “fix the bug” tasks). 5. After each practice set, use a checklist to verify that the invariant holds after every update. 6. Once comfortable, attempt full binary‑search implementation problems with varied edge cases (single‑element array, target at extremes, duplicate values)."
+        },
+        "sourceAttemptCount": 2,
+        "aiStatus": "completed"
+      },
+      "rev": {
+        "items": [
+          {
+            "conceptId": "boundary-conditions",
+            "conceptName": "Boundary Conditions",
+            "priority": "HIGH",
+            "priorityScore": 80,
+            "status": "DUE",
+            "weaknessScore": 50,
+            "masteryScore": 50,
+            "masteryLevel": "Developing",
+            "revisionCount": 0,
+            "lastAttemptedAt": "2026-10-18T12:39:50.847Z",
+            "lastReviewedAt": null,
+            "nextReviewAt": null,
+            "incorrectAttempts": 3
+          },
+          {
+            "conceptId": "search-space-invariants",
+            "conceptName": "Search-Space Invariants",
+            "priority": "HIGH",
+            "priorityScore": 80,
+            "status": "DUE",
+            "weaknessScore": 50,
+            "masteryScore": 50,
+            "masteryLevel": "Developing",
+            "revisionCount": 0,
+            "lastAttemptedAt": "2026-10-18T12:39:50.847Z",
+            "lastReviewedAt": null,
+            "nextReviewAt": null,
+            "incorrectAttempts": 1
+          },
+          {
+            "conceptId": "termination-conditions",
+            "conceptName": "Termination Conditions",
+            "priority": "HIGH",
+            "priorityScore": 80,
+            "status": "DUE",
+            "weaknessScore": 50,
+            "masteryScore": 50,
+            "masteryLevel": "Developing",
+            "revisionCount": 0,
+            "lastAttemptedAt": "2026-10-18T12:39:50.847Z",
+            "lastReviewedAt": null,
+            "nextReviewAt": null,
+            "incorrectAttempts": 1
+          }
+        ],
+        "summary": {
+          "dueToday": 3,
+          "highPriority": 3,
+          "completed": 0,
+          "total": 3
+        }
+      }
+    }
+  },
+  "careerImpact": {
+    "fullstack": {
+      "career": "Full-Stack Software Engineer",
+      "skills": [
+        "Programming Fundamentals",
+        "Version Control (Git)",
+        "Arrays",
+        "JavaScript",
+        "REST APIs",
+        "Searching Algorithms",
+        "SQL Databases",
+        "Sorting Algorithms",
+        "HTML & CSS",
+        "Binary Search"
+      ],
+      "phase2": [
+        "Frontend Architecture",
+        "State Management & Hooks",
+        "Node.js & Express APIs",
+        "Databases & Security",
+        "CI/CD & Cloud Deployment"
+      ]
+    },
+    "dataScientist": {
+      "career": "Data Scientist",
+      "skills": [
+        "Python Programming",
+        "Statistics & Probability",
+        "Machine Learning Fundamentals",
+        "Data Manipulation (Pandas)",
+        "SQL",
+        "Scikit-Learn",
+        "Data Visualization",
+        "Binary Search"
+      ],
+      "phase2": [
+        "Python for Data Science",
+        "Pandas & Dataframes",
+        "Linear Algebra & Statistics",
+        "Scikit-Learn Modeling",
+        "Deep Learning & MLOps"
+      ]
+    },
+    "cybersecurity": {
+      "career": "Cybersecurity",
+      "phase2": [
+        "Network Security",
+        "Cryptography",
+        "Ethical Hacking",
+        "Risk Assessment",
+        "Incident Response"
+      ]
+    }
+  },
+  "e2eFlow": {
+    "logs": [
+      {
+        "step": 1,
+        "method": "POST",
+        "endpoint": "/auth/register",
+        "status": 201,
+        "summary": "User registered: e2e_student_1792327197178@test.com"
+      },
+      {
+        "step": 2,
+        "method": "POST",
+        "endpoint": "/auth/login",
+        "status": 200,
+        "summary": "Login successful, token/cookie verified"
+      },
+      {
+        "step": 3,
+        "method": "PUT",
+        "endpoint": "/auth/onboarding",
+        "status": 200,
+        "summary": "Onboarding profile saved"
+      },
+      {
+        "step": 4,
+        "method": "GET",
+        "endpoint": "/dashboard",
+        "status": 200,
+        "summary": "Initial Dashboard loaded. Total attempts: 0"
+      },
+      {
+        "step": 5,
+        "method": "GET",
+        "endpoint": "/assessments/6a89e08dea4da156503b6363/start",
+        "status": 200,
+        "summary": "Assessment started. AttemptId: att_1792327198425_96ajr63"
+      },
+      {
+        "step": 6,
+        "method": "POST",
+        "endpoint": "/assessments/6a89e08dea4da156503b6363/submit",
+        "status": 200,
+        "summary": "Attempt submitted. Score: 80%"
+      },
+      {
+        "step": 7,
+        "method": "GET",
+        "endpoint": "/mistake-map",
+        "status": 200,
+        "summary": "MistakeMap retrieved. Mistakes: undefined"
+      },
+      {
+        "step": 8,
+        "method": "GET",
+        "endpoint": "/concept-root",
+        "status": 200,
+        "summary": "ConceptRoot loaded. Concept: Boundary Conditions"
+      },
+      {
+        "step": 9,
+        "method": "GET",
+        "endpoint": "/skill-gap",
+        "status": 200,
+        "summary": "SkillGap loaded. Skills count: 10"
+      },
+      {
+        "step": 10,
+        "method": "GET",
+        "endpoint": "/revision",
+        "status": 200,
+        "summary": "Revision dashboard loaded. Items count: 1"
+      },
+      {
+        "step": 10.1,
+        "method": "GET",
+        "endpoint": "/revision/boundary-conditions",
+        "status": 200,
+        "summary": "Revision session loaded for boundary-conditions"
+      },
+      {
+        "step": 10.2,
+        "method": "POST",
+        "endpoint": "/revision/boundary-conditions/complete",
+        "status": 200,
+        "summary": "Revision marked complete. Next review: 2026-10-21T12:40:05.627Z"
+      },
+      {
+        "step": 11,
+        "method": "POST",
+        "endpoint": "/course-requests",
+        "status": 201,
+        "summary": "Course request submitted. ID: 6ad4be25d431320926122504"
+      },
+      {
+        "step": 12,
+        "method": "GET",
+        "endpoint": "/analytics/roadmap",
+        "status": 200,
+        "summary": "Roadmap retrieved. Stages: 4"
+      },
+      {
+        "step": 13,
+        "method": "PUT",
+        "endpoint": "/analytics/roadmap",
+        "status": 200,
+        "summary": "Stage 1 toggled. CompletedStageIds: [1]"
+      },
+      {
+        "step": 14,
+        "method": "GET",
+        "endpoint": "/analytics/roadmap (refresh)",
+        "status": 200,
+        "summary": "Progress persisted on refresh: true"
+      },
+      {
+        "step": 15,
+        "method": "POST",
+        "endpoint": "/auth/logout",
+        "status": 200,
+        "summary": "Logged out successfully"
+      },
+      {
+        "step": 16,
+        "method": "POST",
+        "endpoint": "/auth/login (re-login)",
+        "status": 200,
+        "summary": "Re-logged in with fresh session"
+      },
+      {
+        "step": 17,
+        "method": "GET",
+        "endpoint": "Post-Login Verification",
+        "status": 200,
+        "summary": "Stage 1 still completed: true, Mistakes persisted: undefined, CourseRequests: 1"
+      }
+    ],
+    "stage1PersistsAcrossSessions": true,
+    "mistakesPersisted": false,
+    "courseRequestPersisted": true
+  },
+  "bugs": []
+}

@@ -1,6 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
-async function request(endpoint, options = {}) {
+export async function request(endpoint, options = {}) {
   const defaultHeaders = {
     "Content-Type": "application/json",
   };
@@ -14,15 +14,44 @@ async function request(endpoint, options = {}) {
     credentials: "include", // CRITICAL: Ensures HTTP-only cookies are sent/received
   };
 
+  const url = `${API_BASE_URL}${endpoint}`;
+
   try {
-    const res = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    const res = await fetch(url, config);
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
+      let message = data.message;
+      if (!message) {
+        switch (res.status) {
+          case 400:
+            message = "Bad request (400): Invalid input or status value.";
+            break;
+          case 401:
+            message = "Unauthorized (401): Session expired or authentication required. Please log in.";
+            break;
+          case 403:
+            message = "Forbidden (403): Administrator privileges required.";
+            break;
+          case 404:
+            message = "Not found (404): The requested resource could not be found.";
+            break;
+          case 500:
+            message = "Server error (500): The server encountered an unexpected error.";
+            break;
+          default:
+            message = `Request failed with status ${res.status}`;
+        }
+      }
+
+      console.error(`[API Error] ${options.method || "GET"} ${url} responded with status ${res.status}:`, message, data);
+
       return {
         success: false,
         status: res.status,
-        error: data.message || `Request failed with status ${res.status}`,
+        error: message,
+        message,
+        data,
       };
     }
 
@@ -32,9 +61,18 @@ async function request(endpoint, options = {}) {
       ...data,
     };
   } catch (err) {
+    let errorMsg = err.message || "Network error. Failed to reach server.";
+    if (err.message === "Failed to fetch" || err.name === "TypeError") {
+      errorMsg = "Network error: Failed to fetch (Server might be unreachable or request blocked by CORS).";
+    }
+
+    console.error(`[API Network Error] ${options.method || "GET"} ${url}:`, err);
+
     return {
       success: false,
-      error: err.message || "Network error. Failed to reach server.",
+      status: 0,
+      error: errorMsg,
+      message: errorMsg,
     };
   }
 }
@@ -108,12 +146,24 @@ export const adminApi = {
       method: "PUT",
       body: JSON.stringify(settings),
     }),
+  getCourseRequests: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/admin/course-requests${query ? `?${query}` : ""}`);
+  },
+  getCourseRequestById: (id) => request(`/admin/course-requests/${id}`),
+  updateCourseRequestStatus: (id, status) =>
+    request(`/admin/course-requests/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+  getNotifications: () => request("/admin/notifications"),
 };
 
 export const assessmentApi = {
   getPublished: () => request("/assessments"),
   getById: (id) => request(`/assessments/${id}`),
   startAttempt: (id) => request(`/assessments/${id}/start`),
+  getLatestResult: (id) => request(`/assessments/${id}/result/latest`),
   submitAttempt: (id, payload) =>
     request(`/assessments/${id}/submit`, {
       method: "POST",
@@ -140,7 +190,8 @@ export const assessmentApi = {
 };
 
 export const analyticsApi = {
-  getRoadmap: () => request("/analytics/roadmap"),
+  getRoadmap: (courseId) => request(`/analytics/roadmap${courseId ? `?courseId=${encodeURIComponent(courseId)}` : ""}`),
+  getAllRoadmaps: () => request("/analytics/roadmaps"),
   updateRoadmap: (payload) =>
     request("/analytics/roadmap", {
       method: "PUT",
@@ -281,5 +332,14 @@ export const personalIntelligenceApi = {
   clearAllSessions: () =>
     request("/personal-intelligence/sessions", {
       method: "DELETE",
+    }),
+};
+
+export const courseRequestApi = {
+  getMyRequests: () => request("/course-requests/my-requests"),
+  create: (data) =>
+    request("/course-requests", {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 };

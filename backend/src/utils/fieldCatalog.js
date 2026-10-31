@@ -419,80 +419,92 @@ export function getRecommendedTopicsForField(field, careerGoal) {
 
 export function isValidField(field) {
   if (!field || typeof field !== "string") return false;
-  const trimmed = field.trim();
-  if (trimmed.length < 2) return false;
 
-  const spam = ["hi", "hii", "hello", "test", "testing", "asdf", "qwerty", "1234", "none", "null", "undefined", "n/a", "na", "xyz"];
-  if (spam.includes(trimmed.toLowerCase())) return false;
+  // Clean URL-encoding, internal prefixes like ai_rec_, and formatting
+  let clean = field.replace(/^ai_rec_/i, "").replace(/_/g, " ").trim();
+  try {
+    clean = decodeURIComponent(clean).replace(/^ai_rec_/i, "").replace(/_/g, " ").trim();
+  } catch (_) {}
 
+  if (!clean) return false;
+
+  const lower = clean.toLowerCase();
+
+  // Spam detection
+  const spam = ["hi", "hii", "hello", "test", "testing", "asdf", "qwerty", "1234", "none", "null", "undefined"];
+  if (spam.includes(lower)) return false;
+
+  // Single or double character valid programming / tech acronyms
+  const SHORT_VALID_DOMAINS = {
+    c: "C Programming",
+    r: "R Programming",
+    go: "Go Programming",
+    ai: "AI & Machine Learning",
+    ml: "AI & Machine Learning",
+    ui: "Graphic Design & UI/UX",
+    ux: "Graphic Design & UI/UX",
+    qa: "Software Development",
+    it: "Information Technology",
+    js: "Web Development",
+    "c++": "C++ Programming",
+    "c#": "C# Programming",
+    os: "Computer Science",
+    db: "Database Systems",
+  };
+  if (SHORT_VALID_DOMAINS[lower]) {
+    return SHORT_VALID_DOMAINS[lower];
+  }
+
+  if (clean.length < 2) return false;
+
+  // Recognized fields in CAREER_GOALS_BY_FIELD
   const validFields = Object.keys(CAREER_GOALS_BY_FIELD);
-  const matched = validFields.find((f) => f.toLowerCase() === trimmed.toLowerCase());
+  const matched = validFields.find((f) => f.toLowerCase() === lower);
   if (matched) return matched;
 
-  // Academic boards / classes / schools
-  if (/class\s*(10|12|9|11|\d+)/i.test(trimmed) || /board|cbse|icse|ncert|school|college|degree|b\.?tech/i.test(trimmed)) {
-    return trimmed;
-  }
-
-  // Check if field matches any known career goal or role inside CAREER_GOALS_BY_FIELD
-  for (const [parentField, goals] of Object.entries(CAREER_GOALS_BY_FIELD)) {
-    const goalMatch = goals.find(
-      (g) => g.toLowerCase() === trimmed.toLowerCase() ||
-        g.toLowerCase().includes(trimmed.toLowerCase()) ||
-        trimmed.toLowerCase().includes(g.toLowerCase())
+  // Check if it matches a career track / goal inside any field
+  // (e.g., "Frontend Development" or "Frontend Developer" -> "Software Development")
+  for (const [fName, goals] of Object.entries(CAREER_GOALS_BY_FIELD)) {
+    const matchedGoal = goals.find(
+      (g) =>
+        g.toLowerCase() === lower ||
+        g.toLowerCase().replace(/er$/, "ment").includes(lower) ||
+        lower.includes(g.toLowerCase()) ||
+        lower.includes(g.toLowerCase().replace(/er$/, ""))
     );
-    if (goalMatch) return parentField;
+    if (matchedGoal) return fName;
   }
 
-  // Common aliases and synonyms
-  const aliases = {
-    "backend development": "Software Development",
-    "backend": "Software Development",
-    "frontend development": "Web Development",
-    "frontend": "Web Development",
-    "full stack": "Software Development",
-    "full stack development": "Software Development",
-    "computer science": "Software Development",
-    "cs": "Software Development",
-    "it": "Software Development",
-    "information technology": "Software Development",
-    "programming": "Software Development",
-    "coding": "Software Development",
-    "software engineering": "Software Development",
-    "data analysis": "Data Science & Analytics",
-    "data analytics": "Data Science & Analytics",
-    "machine learning": "AI & Machine Learning",
-    "ai": "AI & Machine Learning",
-    "artificial intelligence": "AI & Machine Learning",
-    "cloud": "Cloud Computing & DevOps",
-    "devops": "Cloud Computing & DevOps",
-    "design": "Graphic Design & UI/UX",
-    "ui/ux": "Graphic Design & UI/UX",
-    "ui ux": "Graphic Design & UI/UX",
-    "marketing": "Digital Marketing",
-    "business": "Business & Management",
-    "management": "Business & Management",
-    "finance": "Finance & Accounting",
-    "math": "Physics & Mathematics",
-    "maths": "Physics & Mathematics",
-    "mathematics": "Physics & Mathematics",
-    "physics": "Physics & Mathematics",
-    "general": "General Knowledge",
-    "general knowledge": "General Knowledge",
-    "social work": "Political Science & Public Policy",
-    "social worker": "Political Science & Public Policy",
-    "social welfare": "Political Science & Public Policy",
-    "political science": "Political Science & Public Policy",
-    "public policy": "Political Science & Public Policy",
-    "politics": "Political Science & Public Policy",
-    "all": "Political Science & Public Policy",
-  };
+  // Academic boards / classes
+  if (/class\s*(10|12|9|11)/i.test(clean) || /board/i.test(clean) || /cbse/i.test(clean) || /icse/i.test(clean)) {
+    if (/social|sst|history|civics|geography/i.test(clean)) return "Class 10 Social Science (SST)";
+    if (/science|physics|chemistry|biology/i.test(clean)) return "Class 10 Science";
+    if (/math/i.test(clean)) return "Class 10 Mathematics";
+    return clean;
+  }
 
-  const lower = trimmed.toLowerCase();
-  if (aliases[lower]) return aliases[lower];
+  // Common academic and science subjects
+  if (/social\s*science|history|geography|civics|economics|political\s*science/i.test(clean)) {
+    return "Class 10 Social Science (SST)";
+  }
+  if (/physics|chemistry|biology|natural\s*science/i.test(clean)) {
+    return "Class 10 Science";
+  }
+  if (/mathematics|calculus|algebra|geometry|statistics|arithmetic/i.test(clean)) {
+    return "Class 10 Mathematics";
+  }
 
-  for (const [alias, target] of Object.entries(aliases)) {
-    if (lower.includes(alias) || alias.includes(lower)) return target;
+  // Keys in FIELD_CORE_TOPICS
+  const coreTopicKeys = Object.keys(FIELD_CORE_TOPICS);
+  const matchedCore = coreTopicKeys.find((k) => k.toLowerCase() === lower);
+  if (matchedCore) return matchedCore;
+
+  // Programming and tech keywords
+  if (/software|programming|coding|web\s*dev|app\s*dev|algorithms|data\s*structures/i.test(clean)) {
+    return "Software Development";
+  }
+  if (/data\s*science|analytics|machine\s*learning|artificial\s*intelligence/i.test(clean)) {
+    return "Data Science & Analytics";
   }
 
   // Partial match against recognized fields
@@ -501,9 +513,14 @@ export function isValidField(field) {
   );
   if (partial) return partial;
 
-  // Accept any genuine academic, technical or professional topic string
-  if (/^[a-zA-Z0-9\s&+\-/#,.()]{2,}$/.test(trimmed)) {
-    return trimmed;
+  // General or general knowledge
+  if (lower === "general" || lower === "general knowledge" || lower === "all") {
+    return "General Knowledge";
+  }
+
+  // For any other legitimate academic, technical, or custom topic of reasonable length (>= 3 chars)
+  if (clean.length >= 3) {
+    return clean;
   }
 
   return false;

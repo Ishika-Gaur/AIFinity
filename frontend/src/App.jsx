@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import ScrollToTop from './components/ScrollToTop';
 
 import Home from './pages/Home';
 import About from './pages/About';
@@ -25,6 +26,8 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Faq from './pages/Faq';
 import PersonalIntelligence from './pages/PersonalIntelligence';
+import Revision from './pages/Revision';
+import CourseSelection from './pages/CourseSelection';
 
 // Student Auth Guard
 import StudentAuthGuard from './components/StudentAuthGuard';
@@ -46,12 +49,13 @@ import ContentManagement from './pages/admin/ContentManagement';
 import ReportsPage from './pages/admin/ReportsPage';
 import AdminSettings from './pages/admin/AdminSettings';
 import AssessmentManagement from './pages/admin/AssessmentManagement';
+import CourseRequests from './pages/admin/CourseRequests';
 
 function PublicLayout() {
   return (
-    <div className="flex flex-col min-h-screen bg-grid">
+    <div className="flex flex-col min-h-screen min-h-[100dvh] w-full max-w-full bg-grid">
       <Navbar />
-      <main className="flex-1">
+      <main className="flex-1 w-full min-w-0">
         <Outlet />
       </main>
       <Footer />
@@ -63,9 +67,9 @@ function PublicLayout() {
 // Sidebar uses sticky (not fixed) so it never covers the footer.
 function AppLayout() {
   return (
-    <div className="flex flex-col min-h-screen bg-grid">
+    <div className="flex flex-col min-h-screen min-h-[100dvh] w-full max-w-full bg-grid">
       <Navbar />
-      <main className="flex-1">
+      <main className="flex-1 w-full min-w-0">
         <Outlet />
       </main>
       <Footer />
@@ -91,6 +95,7 @@ function App() {
     <AdminAuthProvider>
       <StudentAuthProvider>
       <Router>
+        <ScrollToTop />
         <Routes>
 
           {/* =====================================================
@@ -109,6 +114,7 @@ function App() {
               <Route path="assessments" element={<AssessmentManagement />} />
               <Route path="analytics" element={<AiAnalytics />} />
               <Route path="content" element={<ContentManagement />} />
+              <Route path="course-requests" element={<CourseRequests />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>
@@ -117,6 +123,8 @@ function App() {
           {/* ── PUBLIC pages: Navbar + Footer ── */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<Home />} />
+            <Route path="/courses" element={<CourseSelection />} />
+            <Route path="/course-selection" element={<CourseSelection />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/login" element={<Login />} />
@@ -221,6 +229,15 @@ function App() {
                 </StudentAuthGuard>
               }
             />
+            <Route
+              path="/revision"
+              element={
+                <StudentAuthGuard requireOnboardingCompleted>
+                  <Revision />
+                </StudentAuthGuard>
+              }
+            />
+
             <Route
               path="/resources/handbook"
               element={

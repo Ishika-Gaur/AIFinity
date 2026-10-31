@@ -110,7 +110,14 @@ export function getConceptPath(observedConceptId, rootConceptId) {
  * Gets human readable name
  */
 export function getConceptName(conceptId) {
-  return CONCEPT_NAMES[conceptId] || conceptId;
+  if (!conceptId) return "General";
+  if (CONCEPT_NAMES[conceptId]) return CONCEPT_NAMES[conceptId];
+  return String(conceptId)
+    .replace(/^ai_rec_/i, "")
+    .replace(/[-_]/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, c => c.toUpperCase());
 }
 
 /**
@@ -123,8 +130,8 @@ export function getAllPrerequisites(conceptId) {
   while(queue.length > 0) {
     const current = queue.shift();
     const prereqs = getPrerequisites(current);
-    for(const p of prereqs) {
-      if(!all.has(p)) {
+    for (const p of prereqs) {
+      if (!all.has(p)) {
         all.add(p);
         queue.push(p);
       }

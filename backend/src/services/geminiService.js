@@ -1,4 +1,6 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { callGroq } from "./groqService.js";
+import { filterUniqueQuestions, isQuestionDuplicate } from "./uniquenessService.js";
 
 let genAI = null;
 
@@ -47,7 +49,7 @@ const safeParseJSON = (text) => {
 };
 
 /**
- * Centralized AI Service function with multi-model fallback
+ * Centralized AI Service function with multi-provider and multi-model fallback (Gemini -> Groq)
  */
 const callAI = async (prompt, schema, isChat = false, history = []) => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -66,7 +68,8 @@ const callAI = async (prompt, schema, isChat = false, history = []) => {
   }
 
   let lastError = null;
-  for (const modelName of candidateModels) {
+
+  if (geminiApiKey) {
     try {
       const model = ai.getGenerativeModel({ model: modelName, generationConfig });
 
@@ -75,18 +78,49 @@ const callAI = async (prompt, schema, isChat = false, history = []) => {
         const result = await chat.sendMessage(prompt);
         return result.response.text();
       } else {
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
-        return schema ? safeParseJSON(text) : text;
+        generationConfig = {}; 
+      }
+
+      for (const modelName of candidateModels) {
+        try {
+          const model = ai.getGenerativeModel({ model: modelName, generationConfig });
+          
+          if (isChat) {
+            const chat = model.startChat({ history });
+            const result = await chat.sendMessage(prompt);
+            return result.response.text();
+          } else {
+            const result = await model.generateContent(prompt);
+            const text = result.response.text();
+            return schema ? safeParseJSON(text) : text;
+          }
+        } catch (err) {
+          console.warn(`[callAI] Error with Gemini model ${modelName}:`, err.message);
+          lastError = err;
+          // Continue to next candidate model
+        }
       }
     } catch (err) {
-      console.warn(`[callAI] Error with model ${modelName}:`, err.message);
+      console.warn("[callAI] Gemini initialization failed:", err.message);
       lastError = err;
-      // Continue to next candidate model
+    }
+  } else {
+    lastError = new Error("GEMINI_API_KEY is missing or unconfigured");
+  }
+
+  // Multi-provider fallback: Groq API
+  if (process.env.GROQ_API_KEY) {
+    try {
+      console.info("[callAI] Primary Gemini provider failed. Initiating multi-provider fallback to Groq...");
+      const groqResult = await callGroq(prompt, schema, isChat, history);
+      return groqResult;
+    } catch (groqErr) {
+      console.error("[callAI] Groq fallback also failed:", groqErr.message);
+      lastError = groqErr;
     }
   }
 
-  console.error(`[callAI] All AI candidate models failed. Last error:`, lastError?.message);
+  console.error(`[callAI] All AI providers (Gemini & Groq) failed. Last error:`, lastError?.message);
   throw new Error("AI_SERVICE_UNAVAILABLE");
 };
 
@@ -344,7 +378,7 @@ const DASHBOARD_CONCEPT_ROOT_SCHEMA = {
  * Dynamic curriculum fallback questions tailored to field & topic.
  * Ensures students (school, college, competitive exam) are NEVER blocked.
  */
-export const generateCurriculumQuestions = (field = "General Knowledge", topic = "Fundamentals", difficulty = "Medium", count = 5) => {
+export const generateCurriculumQuestions = (field = "General Knowledge", topic = "Fundamentals", difficulty = "Medium", count = 5, excludedQuestions = []) => {
   const isSchool = /class\s*\d+|10th|12th|school|cbse|icse/i.test(field + " " + topic);
   const isSocialWorkOrPolitical = /social\s*work|social\s*worker|social\s*welfare|political|civics|public\s*policy|governance|community\s*advocacy|case\s*management/i.test(field + " " + topic);
   const isSocialScience = !isSocialWorkOrPolitical && /social\s*science|history|geography|economics|polity/i.test(field + " " + topic);
@@ -647,8 +681,34 @@ export const generateCurriculumQuestions = (field = "General Knowledge", topic =
     ];
   }
 
+  const uniqueTemplates = filterUniqueQuestions(templateBank, excludedQuestions);
+  let finalQuestions = uniqueTemplates.slice(0, Math.min(count, uniqueTemplates.length));
+
+  if (finalQuestions.length < count) {
+    const needed = count - finalQuestions.length;
+    for (let i = 1; i <= needed; i++) {
+      const syntheticQ = {
+        question: `In a practical scenario regarding ${topic} within ${field}, how should a practitioner handle case ${i}?`,
+        options: [
+          `Apply standard ${topic} principles with systematic verification (Approach ${i})`,
+          `Bypass validation and assume default state`,
+          `Ignore constraints and proceed without logging`,
+          `Terminate the workflow immediately without error handling`
+        ],
+        correctAnswer: `Apply standard ${topic} principles with systematic verification (Approach ${i})`,
+        explanation: `Systematic verification and application of established principles guarantees correctness and reliability.`,
+        difficulty,
+        topic,
+        concept: topic
+      };
+      if (!isQuestionDuplicate(syntheticQ.question, excludedQuestions)) {
+        finalQuestions.push(syntheticQ);
+      }
+    }
+  }
+
   return {
-    questions: templateBank.slice(0, Math.min(count, templateBank.length)).map((q) => ({
+    questions: finalQuestions.map((q) => ({
       ...q,
       topic: q.topic || topic,
       concept: q.concept || topic,
@@ -656,7 +716,13 @@ export const generateCurriculumQuestions = (field = "General Knowledge", topic =
   };
 };
 
-export const generateQuestions = async (field, topic, difficulty, count, audienceContext = "") => {
+export const generateQuestions = async (field, topic, difficulty, count, audienceContext = "", excludedQuestions = []) => {
+  let exclusionInstruction = "";
+  if (Array.isArray(excludedQuestions) && excludedQuestions.length > 0) {
+    const sample = excludedQuestions.slice(0, 15);
+    exclusionInstruction = `\n7. STRICT CROSS-COURSE UNIQUENESS: The student has already completed assessments with the following questions in previous courses. You MUST NOT repeat or closely rephrase any of these questions:\n${sample.map((q, i) => `   - "${q}"`).join("\n")}`;
+  }
+
   const prompt = `You are an expert examiner and professional assessor specializing in ${field || "General Knowledge"}.
 Generate exactly ${count} realistic, high-quality multiple-choice questions testing knowledge of the topic "${topic}".
 Difficulty level: ${difficulty}.
@@ -674,12 +740,22 @@ Guidelines:
   try {
     const res = await callAI(prompt, QUESTIONS_SCHEMA);
     if (res && Array.isArray(res.questions) && res.questions.length > 0) {
-      return res;
+      const uniqueAIQuestions = filterUniqueQuestions(res.questions, excludedQuestions);
+      if (uniqueAIQuestions.length >= count) {
+        return { questions: uniqueAIQuestions.slice(0, count) };
+      }
+
+      const needed = count - uniqueAIQuestions.length;
+      const combinedExcluded = [...excludedQuestions, ...uniqueAIQuestions.map(q => q.question)];
+      const fallbackData = generateCurriculumQuestions(field, topic, difficulty, needed, combinedExcluded);
+      return {
+        questions: [...uniqueAIQuestions, ...(fallbackData.questions || [])]
+      };
     }
     throw new Error("Empty AI response");
   } catch (err) {
     console.warn(`[geminiService] AI generation failed (${err.message}), using rich curriculum questions for ${field} - ${topic}`);
-    return generateCurriculumQuestions(field, topic, difficulty, count);
+    return generateCurriculumQuestions(field, topic, difficulty, count, excludedQuestions);
   }
 };
 
@@ -695,6 +771,10 @@ export const evaluateAssessmentWithAI = async ({ assessmentTitle, assessmentCate
 export const chatCompletion = async (systemPrompt, messages) => {
   const lastMessage = messages[messages.length - 1].content;
   const history = messages.slice(0, -1).map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
+  if (systemPrompt) {
+    history.unshift({ role: "user", parts: [{ text: `System Instruction: ${systemPrompt}` }] });
+    history.splice(1, 0, { role: "model", parts: [{ text: "Understood. I will strictly act according to these system instructions." }] });
+  }
   try {
     return await callAI(lastMessage, null, true, history);
   } catch (err) {
@@ -720,9 +800,130 @@ Code: ${submission.code || 'N/A'}`;
   }
 };
 
+
+export const generateDeterministicConceptExplanation = (deterministicData) => {
+  const conceptName = deterministicData.canonicalConcept || deterministicData.rootCause?.rootConceptName || "this concept";
+  const rootConcept = deterministicData.rootCause?.rootConceptName || conceptName;
+  const errorType = (deterministicData.rootCause?.type || "CONCEPTUAL").toUpperCase();
+  const skill = deterministicData.skillId || "Core Subject Knowledge";
+
+  if (deterministicData.diagnosis?.status === "MASTERED" || deterministicData.isMastered || errorType === "MASTERED") {
+    return {
+      explanation: `Outstanding performance on ${conceptName}. You demonstrated accurate understanding across all assessed questions with zero detected errors.`,
+      whyMistakeHappens: "No conceptual or procedural errors were detected in your assessment.",
+      misconception: "No misconceptions found. Core foundational concepts are well understood.",
+      conceptRelationship: `${conceptName} is solidly mastered. You are ready to tackle more advanced topics.`,
+      whatToUnderstand: [
+        `You have demonstrated firm command of ${conceptName} principles.`,
+        `Your responses accurately reflected domain conventions and logic.`,
+        `Continue applying these principles as you progress to higher-level challenges.`
+      ],
+      mentalModel: `Maintain your structured approach: verify requirements and build upon your solid foundation.`,
+      howToAvoid: [
+        `Continue practicing regularly to maintain fluency and speed.`,
+        `Challenge yourself with advanced edge cases and real-world projects.`,
+        `Help peers or write summary notes to further solidify your expertise.`
+      ],
+      recommendedRevision: [
+        `Review the next milestone or module in your Roadmap.`,
+        `Explore advanced real-world applications of ${conceptName}.`
+      ],
+      recommendedPractice: [
+        `Attempt advanced-level assessments on your Roadmap.`,
+        `Apply ${conceptName} in an end-to-end practical project.`
+      ],
+      confidenceNote: "Mastery confirmed based on 100% accuracy in your recent assessment."
+    };
+  }
+
+  const errorTypeDescriptions = {
+    CONCEPTUAL: {
+      why: `You encountered difficulty with the foundational principles of ${conceptName}. The mistakes suggest an incomplete mental model of how ${rootConcept} operates.`,
+      misconception: `Assuming surface familiarity with ${conceptName} without mastering the foundational rules of ${rootConcept}.`,
+      model: `Think of ${rootConcept} as the prerequisite anchor. Before applying advanced techniques, verify that the base definitions and invariants hold true.`,
+      avoid: [
+        `Review the core definition and rules of ${rootConcept} before attempting practice questions.`,
+        `When reading a problem, identify the underlying principle being tested before jumping to options.`,
+        `Double-check whether your chosen answer satisfies all theoretical constraints.`
+      ]
+    },
+    LOGICAL: {
+      why: `The approach used broke down during step-by-step reasoning or boundary condition analysis in ${conceptName}.`,
+      misconception: `Overlooking boundary conditions, edge cases, or condition sequencing required by ${rootConcept}.`,
+      model: `Trace problems like a state machine: verify the base case, transition logic, and termination conditions systematically.`,
+      avoid: [
+        `Explicitly test boundary values (e.g. minimum, maximum, empty, or zero states).`,
+        `Walk through each step logically rather than estimating the outcome.`,
+        `Verify that each logical deduction directly follows from given premises.`
+      ]
+    },
+    IMPLEMENTATION: {
+      why: `The conceptual idea was right, but syntax, specific conventions, or structural implementation details in ${conceptName} caused the mistake.`,
+      misconception: `Conflating similar syntax patterns or omitting required language/framework constructs.`,
+      model: `Separate syntax rules from conceptual logic: verify grammatical and structural correctness line by line.`,
+      avoid: [
+        `Practice writing exact syntax for ${conceptName} without reliance on auto-complete.`,
+        `Pay close attention to keywords, parameter orders, and return type signatures.`,
+        `Validate each structural component independently.`
+      ]
+    },
+    CARELESS: {
+      why: `A minor calculation, sign error, or oversight occurred despite having the conceptual knowledge to solve ${conceptName}.`,
+      misconception: `Rushing through intermediate calculations or reading questions too quickly.`,
+      model: `Slow is smooth, smooth is fast: verify calculations and re-read the final question prompt before submitting.`,
+      avoid: [
+        `Underline or highlight the exact quantity or condition the question asks for.`,
+        `Perform a 5-second sanity check on numerical results or option wording.`,
+        `Eliminate obviously incorrect distractors before finalizing your pick.`
+      ]
+    },
+    TIME_MANAGEMENT: {
+      why: `Time constraints led to hurried answers or skipped validation in ${conceptName}.`,
+      misconception: `Spending disproportionate time on difficult questions at the expense of accessible ones.`,
+      model: `Pace yourself: allocate fixed time limits per question and flag unsure items for a second pass.`,
+      avoid: [
+        `Practice with a visible timer to calibrate answering speed.`,
+        `Skip and mark difficult questions immediately rather than getting stalled.`,
+        `Leave 2 minutes at the end of every section for quick review.`
+      ]
+    }
+  };
+
+  const defaultType = errorTypeDescriptions[errorType] || errorTypeDescriptions.CONCEPTUAL;
+
+  return {
+    explanation: `Targeted analysis for ${conceptName} within ${skill}. Focusing on ${rootConcept} will address the root source of recent errors.`,
+    whyMistakeHappens: defaultType.why,
+    misconception: defaultType.misconception,
+    conceptRelationship: `Proficiency in ${conceptName} depends directly on a solid grasp of ${rootConcept}. Strengthening ${rootConcept} resolves recurrent errors in ${conceptName}.`,
+    whatToUnderstand: [
+      `Master the core rules and definitions of ${rootConcept}.`,
+      `Learn how ${rootConcept} connects directly to practical scenarios in ${conceptName}.`,
+      `Recognize typical distractor patterns associated with ${errorType.toLowerCase()} mistakes.`
+    ],
+    mentalModel: defaultType.model,
+    howToAvoid: defaultType.avoid,
+    recommendedRevision: [
+      `Review key notes and reference documentation for ${rootConcept}.`,
+      `Examine solved examples showing step-by-step application of ${conceptName}.`,
+      `Conduct a quick self-quiz on the fundamental principles before practicing.`
+    ],
+    recommendedPractice: [
+      `Solve 3-5 targeted practice exercises focused specifically on ${rootConcept}.`,
+      `Attempt mixed-difficulty questions on ${conceptName} to reinforce the mental model.`,
+      `Review incorrect attempts immediately and write down why the correct choice works.`
+    ],
+    confidenceNote: `Diagnosis generated using evidence from your latest assessment attempts.`
+  };
+};
+
 export const explainConceptRootWithAI = async (deterministicData) => {
   if (!deterministicData || !deterministicData.hasData || !deterministicData.conceptId) {
     throw new Error("No data provided to explain.");
+  }
+
+  if (deterministicData.diagnosis?.status === "MASTERED" || deterministicData.isMastered) {
+    return generateDeterministicConceptExplanation(deterministicData);
   }
 
   const prompt = `You are the ConceptRoot reasoning component of an educational platform.
@@ -751,8 +952,8 @@ Based on this evidence, explain WHY the student is struggling, what misconceptio
   try {
     return await callAI(prompt, EXPLAIN_CONCEPT_ROOT_SCHEMA);
   } catch (err) {
-    console.error("[Gemini] explainConceptRootWithAI Error:", err.message);
-    throw new Error("AI_SERVICE_UNAVAILABLE");
+    console.warn("[Gemini] explainConceptRootWithAI callAI failed, using pedagogical fallback:", err.message);
+    return generateDeterministicConceptExplanation(deterministicData);
   }
 };
 
@@ -1130,6 +1331,92 @@ Return the response strictly matching the requested JSON schema.`;
       })),
       isInsufficientData: false,
       isFallback: true,
+    };
+  }
+};
+
+
+export const generateRevisionSession = async (context) => {
+  try {
+    const genAI = getGenAI();
+    const modelsToTry = getCandidateModels();
+    
+    const prompt = `You are an expert AI tutor. A student is struggling with the concept: "${context.concept}".
+Based on their learning evidence, they have made ${context.incorrectAttempts} recent incorrect attempts.
+Here is the context of their mistakes:
+${JSON.stringify(context.evidenceDetails, null, 2)}
+
+Your task is to generate a personalized revision session.
+You must return the result as a valid JSON object matching the following structure exactly, with NO markdown formatting outside the JSON, and NO backticks wrapped around the JSON:
+{
+  "explanation": "A concise (2-3 sentences) explanation of the concept, specifically targeting the identified weakness.",
+  "keyTakeaways": ["Point 1", "Point 2", "Point 3"],
+  "workedExample": {
+    "problem": "A simple example problem",
+    "solution": "Step by step solution",
+    "commonMistake": "The specific mistake the student keeps making and how to avoid it"
+  },
+  "practiceQuestions": [
+    {
+      "question": "A multiple choice question to test their weakness",
+      "options": ["A", "B", "C", "D"],
+      "correctAnswer": "A",
+      "explanation": "Why A is correct"
+    }
+  ]
+}
+Ensure exactly 3 practice questions are generated.`;
+
+    let lastError = null;
+    for (const modelName of modelsToTry) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            temperature: 0.3,
+            responseMimeType: "application/json",
+          },
+        });
+        
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        return safeParseJSON(responseText);
+      } catch (err) {
+        console.warn(`[geminiService] Error with model ${modelName} for generateRevisionSession:`, err.message);
+        lastError = err;
+      }
+    }
+    throw lastError;
+  } catch (error) {
+    console.error("[geminiService] Final failure in generateRevisionSession:", error);
+    return {
+      explanation: `We're currently experiencing high demand. This is a quick fallback explanation for ${context.concept}.`,
+      keyTakeaways: ["Review the basic definitions.", "Practice similar problems.", "Check back later for personalized insights."],
+      workedExample: {
+        problem: "Sample problem generated due to AI unavailability.",
+        solution: "Sample step-by-step solution.",
+        commonMistake: "A typical error is applying the wrong formula."
+      },
+      practiceQuestions: [
+        {
+          question: "Sample fallback question: What is the main idea here?",
+          options: ["Option A", "Option B", "Option C", "Option D"],
+          correctAnswer: "Option A",
+          explanation: "Option A is correct based on the fallback context."
+        },
+        {
+          question: "Another fallback question?",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "Fallback."
+        },
+        {
+          question: "Third fallback question?",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "Fallback."
+        }
+      ]
     };
   }
 };

@@ -13,10 +13,42 @@ export async function createAttemptSession(assessmentId) {
         isRemote: true,
       };
     }
-    throw new Error(apiRes?.error || "Failed to start attempt");
+    return {
+      success: false,
+      status: apiRes?.status || 400,
+      error: apiRes?.message || apiRes?.error || "Failed to start attempt",
+    };
   } catch (err) {
     console.error("Backend startAttempt error:", err);
-    throw err;
+    return {
+      success: false,
+      status: err.status || 500,
+      error: err.message || "Failed to start attempt",
+    };
+  }
+}
+
+export async function getLatestAttemptResult(assessmentId) {
+  try {
+    const apiRes = await assessmentApi.getLatestResult(assessmentId);
+    if (apiRes && apiRes.success && apiRes.result) {
+      return {
+        success: true,
+        result: apiRes.result,
+      };
+    }
+    return {
+      success: false,
+      status: apiRes?.status || 404,
+      error: apiRes?.message || apiRes?.error || "No completed result found",
+    };
+  } catch (err) {
+    console.error("Backend getLatestResult error:", err);
+    return {
+      success: false,
+      status: err.status || 500,
+      error: err.message || "Failed to fetch completed result",
+    };
   }
 }
 

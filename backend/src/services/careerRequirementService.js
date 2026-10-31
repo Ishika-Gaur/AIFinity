@@ -1,10 +1,10 @@
 /**
  * careerRequirementService.js
- * V1 Static knowledge base for career requirements.
+ * Static knowledge base for career requirements and alias mappings.
  * Maps common career goals to a structured set of required skills, importances, and prerequisites.
  */
 
-const CAREER_KNOWLEDGE_BASE = {
+export const CAREER_KNOWLEDGE_BASE = {
   "software engineer": {
     role: "Software Engineer",
     skills: [
@@ -49,15 +49,49 @@ const CAREER_KNOWLEDGE_BASE = {
   }
 };
 
+export const CAREER_ALIASES = {
+  "software developer": "software engineer",
+  "software development": "software engineer",
+  "software dev": "software engineer",
+  "software engineering": "software engineer",
+  "developer": "software engineer",
+  "programmer": "software engineer",
+  "swe": "software engineer",
+  "sde": "software engineer",
+  "web developer": "full stack developer",
+  "frontend developer": "full stack developer",
+  "backend developer": "full stack developer",
+  "full stack": "full stack developer",
+  "fullstack developer": "full stack developer",
+  "data analyst": "data scientist",
+  "machine learning engineer": "data scientist",
+  "ai engineer": "data scientist",
+  "data science": "data scientist",
+};
+
 export const getCareerRequirements = async (careerGoal) => {
-  const goalKey = (careerGoal || "").toLowerCase().trim();
+  let goalKey = (careerGoal || "").toLowerCase().trim();
   
-  // Try to find a direct match
+  // Check direct alias mapping
+  if (CAREER_ALIASES[goalKey]) {
+    goalKey = CAREER_ALIASES[goalKey];
+  }
+
+  // Try to find a direct match in knowledge base
   if (CAREER_KNOWLEDGE_BASE[goalKey]) {
     return CAREER_KNOWLEDGE_BASE[goalKey];
   }
 
-  // Fallback to searching for keywords
+  // Fallback to substring matching on aliases
+  for (const [alias, canonical] of Object.entries(CAREER_ALIASES)) {
+    if (goalKey.includes(alias) || alias.includes(goalKey)) {
+      if (CAREER_KNOWLEDGE_BASE[canonical]) {
+        return CAREER_KNOWLEDGE_BASE[canonical];
+      }
+    }
+  }
+
+  // Fallback to searching for keywords in canonical keys
   for (const [key, data] of Object.entries(CAREER_KNOWLEDGE_BASE)) {
     if (goalKey.includes(key) || key.includes(goalKey)) {
       return data;
@@ -65,8 +99,6 @@ export const getCareerRequirements = async (careerGoal) => {
   }
 
   // Default fallback if no match is found
-  // Instead of forcing Software Engineering on everyone (like a 10th class student),
-  // return an empty/generic requirement set so the AI relies entirely on the user's goal and assessment history.
   return {
     role: careerGoal || "Custom Goal",
     skills: []

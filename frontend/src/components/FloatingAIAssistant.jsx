@@ -7,7 +7,7 @@ export default function FloatingAIAssistant() {
   return (
     <button
       onClick={() => navigate("/personal-intelligence")}
-      className="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 bg-[#1B332C] text-[#E8C547] rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 border border-[#C4952A]/40 group"
+      className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-[#1B332C] text-[#E8C547] rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 border border-[#C4952A]/40 group cursor-pointer"
       aria-label="Open Personal Intelligence"
     >
       <svg

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import Button from "./Button";
 
 function ChalkVisual({ variant }) {
@@ -450,27 +451,35 @@ export default function HeroSection({
 
           {(primaryCta || secondaryCta) && (
             <div className="hs-actions flex flex-wrap justify-center gap-3.5 pt-2">
-              {primaryCta && (
-                <Button
-                  as={primaryCta.onClick ? "button" : (primaryCta.as || (primaryCta.href ? "a" : "button"))}
-                  href={primaryCta.onClick ? undefined : primaryCta.href}
-                  onClick={primaryCta.onClick}
-                  size="lg"
-                >
-                  {primaryCta.label}
-                </Button>
-              )}
-              {secondaryCta && (
-                <Button
-                  as={secondaryCta.onClick ? "button" : (secondaryCta.as || (secondaryCta.href ? "a" : "button"))}
-                  href={secondaryCta.onClick ? undefined : secondaryCta.href}
-                  onClick={secondaryCta.onClick}
-                  variant="outline"
-                  size="lg"
-                >
-                  {secondaryCta.label}
-                </Button>
-              )}
+              {primaryCta && (() => {
+                const isInternal = primaryCta.href && primaryCta.href.startsWith("/") && !primaryCta.href.startsWith("//");
+                return (
+                  <Button
+                    as={primaryCta.onClick ? "button" : (primaryCta.as || (isInternal ? Link : (primaryCta.href ? "a" : "button")))}
+                    href={primaryCta.onClick || isInternal ? undefined : primaryCta.href}
+                    to={isInternal ? primaryCta.href : undefined}
+                    onClick={primaryCta.onClick}
+                    size="lg"
+                  >
+                    {primaryCta.label}
+                  </Button>
+                );
+              })()}
+              {secondaryCta && (() => {
+                const isInternal = secondaryCta.href && secondaryCta.href.startsWith("/") && !secondaryCta.href.startsWith("//");
+                return (
+                  <Button
+                    as={secondaryCta.onClick ? "button" : (secondaryCta.as || (isInternal ? Link : (secondaryCta.href ? "a" : "button")))}
+                    href={secondaryCta.onClick || isInternal ? undefined : secondaryCta.href}
+                    to={isInternal ? secondaryCta.href : undefined}
+                    onClick={secondaryCta.onClick}
+                    variant="outline"
+                    size="lg"
+                  >
+                    {secondaryCta.label}
+                  </Button>
+                );
+              })()}
             </div>
           )}
 

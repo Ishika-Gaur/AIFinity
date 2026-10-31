@@ -94,43 +94,43 @@ function DashboardSidebar({ active, onSelect, user }) {
   return (
     <>
       {/* Desktop sidebar — sticky, stays in document flow */}
-      <aside className="hidden lg:flex lg:flex-col shrink-0 w-72 bg-[#1B332C] border-r border-[#C4952A]/25 sticky top-[65px] self-start h-[calc(100vh-65px)] overflow-y-auto">
+      <aside className="hidden half:flex half:flex-col shrink-0 w-64 xl:w-72 bg-[#1B332C] border-r border-[#C4952A]/25 sticky top-[65px] self-start h-[calc(100vh-65px)] overflow-y-auto">
         {/* Brand */}
-        <div className="px-6 py-7 border-b border-[#FBF8F0]/10">
-          <h1 className="font-sans text-2xl font-bold text-[#E8C547] tracking-tight">
+        <div className="px-5 xl:px-6 py-6 xl:py-7 border-b border-[#FBF8F0]/10 shrink-0">
+          <h1 className="font-sans text-xl xl:text-2xl font-bold text-[#E8C547] tracking-tight">
             AIFinity
           </h1>
           <p className="mt-1 text-xs text-[#FBF8F0]/55">Learning Dashboard</p>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-4 py-6 flex flex-col gap-1.5">
+        <nav className="flex-1 overflow-y-auto px-3 xl:px-4 py-5 xl:py-6 flex flex-col gap-1.5">
           {NAV_ITEMS.map((item) => {
             const isActive = active === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => onSelect(item.id)}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-left transition-colors cursor-pointer ${
+                className={`flex items-center gap-3 rounded-xl px-3.5 xl:px-4 py-2.5 xl:py-3 text-sm font-semibold text-left transition-colors cursor-pointer ${
                   isActive
                     ? "bg-[#E8C547] text-[#1B332C]"
                     : "text-[#FBF8F0]/75 hover:bg-[#2E4F42] hover:text-[#FBF8F0]"
                 }`}
               >
                 {item.icon}
-                {item.label}
+                <span>{item.label}</span>
               </button>
             );
           })}
         </nav>
 
         {/* User card */}
-        <div className="px-4 py-5 border-t border-[#FBF8F0]/10">
+        <div className="px-3 xl:px-4 py-4 xl:py-5 border-t border-[#FBF8F0]/10 shrink-0">
           <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-[#2E4F42]/60">
             <div className="w-9 h-9 shrink-0 rounded-full bg-[#E8C547] text-[#1B332C] font-bold flex items-center justify-center text-sm">
               {(user?.name || "U").charAt(0).toUpperCase()}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-[#FBF8F0] truncate">
                 {user?.name || "Learner"}
               </p>
@@ -143,8 +143,8 @@ function DashboardSidebar({ active, onSelect, user }) {
       </aside>
 
       {/* Mobile nav */}
-      <div className="lg:hidden sticky top-[65px] z-30 bg-[#1B332C] border-b border-[#C4952A]/25">
-        <div className="flex gap-2 overflow-x-auto px-4 py-3">
+      <div className="half:hidden sticky top-[65px] z-30 bg-[#1B332C] border-b border-[#C4952A]/25 w-full max-w-full overflow-hidden">
+        <div className="flex gap-2 overflow-x-auto px-4 py-3 scrollbar-none w-full max-w-full">
           {NAV_ITEMS.map((item) => {
             const isActive = active === item.id;
             return (
@@ -154,11 +154,11 @@ function DashboardSidebar({ active, onSelect, user }) {
                 className={`flex items-center gap-2 shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
                   isActive
                     ? "bg-[#E8C547] text-[#1B332C]"
-                    : "bg-[#2E4F42] text-[#FBF8F0]/80"
+                    : "bg-[#2E4F42] text-[#FBF8F0]/80 hover:text-white"
                 }`}
               >
                 {item.icon}
-                {item.label}
+                <span>{item.label}</span>
               </button>
             );
           })}
@@ -211,8 +211,8 @@ function DashboardSkeleton() {
       </div>
 
       {/* Chart + AI insight card skeleton */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 rounded-2xl bg-[#FBF8F0] border border-[#2E4F42]/12 p-6 h-80 shadow-[var(--shadow-card)] flex flex-col justify-between">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="xl:col-span-2 rounded-2xl bg-[#FBF8F0] border border-[#2E4F42]/12 p-6 h-80 shadow-[var(--shadow-card)] flex flex-col justify-between">
           <div className="flex justify-between items-center">
             <div className="flex flex-col gap-2">
               <div className="h-5 w-44 rounded-md bg-[#2E4F42]/20" />
@@ -230,7 +230,7 @@ function DashboardSkeleton() {
             ))}
           </div>
         </div>
-        <div className="lg:col-span-1 rounded-2xl bg-[#1B332C] border border-[#C4952A]/30 p-6 sm:p-8 h-80 shadow-[var(--shadow-card)] flex flex-col justify-between text-[#FBF8F0]">
+        <div className="xl:col-span-1 rounded-2xl bg-[#1B332C] border border-[#C4952A]/30 p-6 sm:p-8 h-80 shadow-[var(--shadow-card)] flex flex-col justify-between text-[#FBF8F0]">
           <div className="flex flex-col gap-3">
             <div className="h-5 w-32 rounded-md bg-[#C4952A]/30" />
             <div className="h-6 w-full rounded-md bg-[#FBF8F0]/20" />
@@ -428,9 +428,9 @@ export default function Dashboard() {
   // ── Loading state
   if (loading) {
     return (
-      <div className="flex">
+      <div className="flex flex-col half:flex-row w-full min-h-[calc(100vh-65px)]">
         <DashboardSidebar active={activeSection} onSelect={setActiveSection} user={null} />
-        <div className="flex-1 py-6 sm:py-10">
+        <div id="main-dashboard-content" className="flex-1 min-w-0 w-full py-6 sm:py-10">
           <Container size="wide">
             <DashboardSkeleton />
           </Container>
@@ -442,9 +442,9 @@ export default function Dashboard() {
   // ── Error state
   if (error || !dashData) {
     return (
-      <div className="flex">
+      <div className="flex flex-col half:flex-row w-full min-h-[calc(100vh-65px)]">
         <DashboardSidebar active={activeSection} onSelect={setActiveSection} user={null} />
-        <div className="flex-1 py-6 sm:py-10">
+        <div id="main-dashboard-content" className="flex-1 min-w-0 w-full py-6 sm:py-10">
           <Container size="wide">
             <DashboardError onRetry={fetchDashboard} />
           </Container>
@@ -474,14 +474,14 @@ export default function Dashboard() {
       progressSeries["3M"]?.length > 0);
 
   return (
-    <div className="flex">
+    <div className="flex flex-col half:flex-row w-full min-h-[calc(100vh-65px)]">
       <DashboardSidebar
         active={activeSection}
         onSelect={setActiveSection}
         user={user}
       />
 
-      <div className="flex-1 min-w-0">
+      <div id="main-dashboard-content" className="flex-1 min-w-0 w-full">
         <div className="py-6 sm:py-10">
           <Container size="wide">
             {/* HEADER — always visible, regardless of active section */}
@@ -549,15 +549,15 @@ export default function Dashboard() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                    <div className="lg:col-span-2">
+                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
+                    <div className="xl:col-span-2">
                       {hasAssessmentHistory ? (
                         <LearningProgressChart seriesData={progressSeries} />
                       ) : (
                         <EmptyProgressChart />
                       )}
                     </div>
-                    <div className="lg:col-span-1 h-full">
+                    <div className="xl:col-span-1 h-full">
                       <AIInsightCard aiInsight={aiInsight} />
                     </div>
                   </div>
@@ -645,10 +645,10 @@ export default function Dashboard() {
 
               {/* ── NEXT STEPS: Personal Intelligence + recommendations + career goal */}
               {activeSection === "next-steps" && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-2 flex flex-col gap-8">
-                    <div className="rounded-md bg-[#1B332C] p-6 sm:p-8 shadow-[var(--shadow-card)] text-[#FBF8F0] relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 w-64 h-64 bg-[#C4952A] rounded-full mix-blend-multiply filter blur-3xl opacity-20 group-hover:opacity-30 transition-opacity" />
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                  <div className="xl:col-span-2 flex flex-col gap-8">
+                    <div className="rounded-2xl bg-[#1B332C] p-6 sm:p-8 shadow-[var(--shadow-card)] text-[#FBF8F0] relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-[#C4952A] rounded-full mix-blend-multiply filter blur-3xl opacity-20 group-hover:opacity-30 transition-opacity pointer-events-none" />
                       <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                         <div>
                           <h3 className="font-sans text-2xl font-bold text-[#E8C547] flex items-center gap-2">
@@ -665,7 +665,7 @@ export default function Dashboard() {
                         </div>
                         <Link
                           to="/personal-intelligence"
-                          className="shrink-0 inline-flex items-center gap-2 rounded-md bg-[#E8C547] px-6 py-3 text-sm font-bold text-[#1B332C] hover:bg-[#C4952A] hover:text-white transition-all shadow-md hover:shadow-lg"
+                          className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-[#E8C547] px-6 py-3 text-sm font-bold text-[#1B332C] hover:bg-[#C4952A] hover:text-white transition-all shadow-md hover:shadow-lg"
                         >
                           Talk to AI →
                         </Link>
@@ -674,7 +674,7 @@ export default function Dashboard() {
 
                     <NextStepsCard recommendations={recommendations} />
                   </div>
-                  <div className="lg:col-span-1">
+                  <div className="xl:col-span-1">
                     <ProfileSettingsCard
                       careerGoal={careerGoal}
                       onUpdateGoal={handleUpdateGoal}
