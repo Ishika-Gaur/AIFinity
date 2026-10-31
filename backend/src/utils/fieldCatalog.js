@@ -314,6 +314,22 @@ export const FIELD_CORE_TOPICS = {
     "Good Manufacturing Practices (GMP) & QA",
     "Drug Regulatory Affairs & Clinical Trials"
   ],
+  "Political Science & Public Policy": [
+    "Social Welfare Policy & Community Development",
+    "Social Work Ethics, Human Rights & Advocacy",
+    "Public Administration & Governance Systems",
+    "Constitutional Law & Civil Liberties",
+    "Public Policy Analysis & Program Evaluation",
+    "Crisis Intervention & Community Case Management"
+  ],
+  "Social Work": [
+    "Social Welfare Policy & Community Development",
+    "Social Work Ethics, Human Rights & Advocacy",
+    "Crisis Intervention & Case Management",
+    "Community Organizing & Social Advocacy",
+    "Family, Child & Healthcare Social Work",
+    "Public Policy & Social Legislation"
+  ],
   "Class 10 Social Science (SST)": [
     "Rise of Nationalism in Europe & India",
     "Resources, Agriculture & Mineral Wealth",
@@ -344,9 +360,17 @@ export const FIELD_CORE_TOPICS = {
  * Returns 4 to 6 top assessment topics for any user based on their field and career goal.
  */
 export function getRecommendedTopicsForField(field, careerGoal) {
-  const normField = field || "Software Development";
-  const lower = normField.toLowerCase();
-  
+  const normField = field || "Political Science & Public Policy";
+  const lower = (normField + " " + (careerGoal || "")).toLowerCase();
+
+  // Specific professional matching for Social Work & Political Science
+  if (/social\s*work|social\s*worker|social\s*welfare|case\s*management/i.test(lower)) {
+    return FIELD_CORE_TOPICS["Social Work"];
+  }
+  if (/political|public\s*policy|governance|civil\s*services|diplomat/i.test(lower)) {
+    return FIELD_CORE_TOPICS["Political Science & Public Policy"];
+  }
+
   // Specific academic / board syllabus matching
   if (/social science|sst|history|geography|civics/i.test(lower)) {
     return FIELD_CORE_TOPICS["Class 10 Social Science (SST)"];
@@ -391,4 +415,96 @@ export function getRecommendedTopicsForField(field, careerGoal) {
   }
 
   return topics.slice(0, 6);
+}
+
+export function isValidField(field) {
+  if (!field || typeof field !== "string") return false;
+  const trimmed = field.trim();
+  if (trimmed.length < 2) return false;
+
+  const spam = ["hi", "hii", "hello", "test", "testing", "asdf", "qwerty", "1234", "none", "null", "undefined", "n/a", "na", "xyz"];
+  if (spam.includes(trimmed.toLowerCase())) return false;
+
+  const validFields = Object.keys(CAREER_GOALS_BY_FIELD);
+  const matched = validFields.find((f) => f.toLowerCase() === trimmed.toLowerCase());
+  if (matched) return matched;
+
+  // Academic boards / classes / schools
+  if (/class\s*(10|12|9|11|\d+)/i.test(trimmed) || /board|cbse|icse|ncert|school|college|degree|b\.?tech/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Check if field matches any known career goal or role inside CAREER_GOALS_BY_FIELD
+  for (const [parentField, goals] of Object.entries(CAREER_GOALS_BY_FIELD)) {
+    const goalMatch = goals.find(
+      (g) => g.toLowerCase() === trimmed.toLowerCase() ||
+        g.toLowerCase().includes(trimmed.toLowerCase()) ||
+        trimmed.toLowerCase().includes(g.toLowerCase())
+    );
+    if (goalMatch) return parentField;
+  }
+
+  // Common aliases and synonyms
+  const aliases = {
+    "backend development": "Software Development",
+    "backend": "Software Development",
+    "frontend development": "Web Development",
+    "frontend": "Web Development",
+    "full stack": "Software Development",
+    "full stack development": "Software Development",
+    "computer science": "Software Development",
+    "cs": "Software Development",
+    "it": "Software Development",
+    "information technology": "Software Development",
+    "programming": "Software Development",
+    "coding": "Software Development",
+    "software engineering": "Software Development",
+    "data analysis": "Data Science & Analytics",
+    "data analytics": "Data Science & Analytics",
+    "machine learning": "AI & Machine Learning",
+    "ai": "AI & Machine Learning",
+    "artificial intelligence": "AI & Machine Learning",
+    "cloud": "Cloud Computing & DevOps",
+    "devops": "Cloud Computing & DevOps",
+    "design": "Graphic Design & UI/UX",
+    "ui/ux": "Graphic Design & UI/UX",
+    "ui ux": "Graphic Design & UI/UX",
+    "marketing": "Digital Marketing",
+    "business": "Business & Management",
+    "management": "Business & Management",
+    "finance": "Finance & Accounting",
+    "math": "Physics & Mathematics",
+    "maths": "Physics & Mathematics",
+    "mathematics": "Physics & Mathematics",
+    "physics": "Physics & Mathematics",
+    "general": "General Knowledge",
+    "general knowledge": "General Knowledge",
+    "social work": "Political Science & Public Policy",
+    "social worker": "Political Science & Public Policy",
+    "social welfare": "Political Science & Public Policy",
+    "political science": "Political Science & Public Policy",
+    "public policy": "Political Science & Public Policy",
+    "politics": "Political Science & Public Policy",
+    "all": "Political Science & Public Policy",
+  };
+
+  const lower = trimmed.toLowerCase();
+  if (aliases[lower]) return aliases[lower];
+
+  for (const [alias, target] of Object.entries(aliases)) {
+    if (lower.includes(alias) || alias.includes(lower)) return target;
+  }
+
+  // Partial match against recognized fields
+  const partial = validFields.find(
+    (f) => f.toLowerCase().includes(lower) || lower.includes(f.toLowerCase())
+  );
+  if (partial) return partial;
+
+  // Accept any genuine academic, technical or professional topic string
+  if (/^[a-zA-Z0-9\s&+\-/#,.()]{2,}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return false;
 }

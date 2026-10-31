@@ -40,11 +40,10 @@ function McqQuestion({ question, response, onAnswer }) {
           type="button"
           onClick={() => onAnswer(index)}
           aria-pressed={response === index}
-          className={`flex w-full items-center rounded-xl border px-4 py-3 text-left transition-colors ${
-            response === index
-              ? "border-[var(--color-primary-600)] bg-[var(--color-primary-50)] text-[var(--color-primary-700)]"
-              : "border-[var(--color-border)] bg-white hover:border-[var(--color-primary-600)]"
-          }`}
+          className={`flex w-full items-center rounded-xl border px-4 py-3 text-left transition-colors ${response === index
+            ? "border-[var(--color-primary-600)] bg-[var(--color-primary-50)] text-[var(--color-primary-700)]"
+            : "border-[var(--color-border)] bg-white hover:border-[var(--color-primary-600)]"
+            }`}
         >
           {option}
         </button>
@@ -71,11 +70,10 @@ function TrueFalseQuestion({ question, response, onAnswer }) {
             type="button"
             onClick={() => onAnswer(value)}
             aria-pressed={selected}
-            className={`flex min-h-14 w-full items-center justify-center rounded-xl border px-4 py-3 font-semibold transition-colors ${
-              selected
-                ? "border-[var(--color-primary-600)] bg-[var(--color-primary-50)] text-[var(--color-primary-700)]"
-                : "border-[var(--color-border)] bg-white text-[var(--color-text-h)] hover:border-[var(--color-primary-600)]"
-            }`}
+            className={`flex min-h-14 w-full items-center justify-center rounded-xl border px-4 py-3 font-semibold transition-colors ${selected
+              ? "border-[var(--color-primary-600)] bg-[var(--color-primary-50)] text-[var(--color-primary-700)]"
+              : "border-[var(--color-border)] bg-white text-[var(--color-text-h)] hover:border-[var(--color-primary-600)]"
+              }`}
           >
             {choice}
           </button>
@@ -260,8 +258,14 @@ export default function AssessmentAttemptPage() {
 
       try {
         const activeViolations = overrideViolations || violations;
+<<<<<<< Updated upstream
         const result = await submitAttemptSession(
           id,
+=======
+        const targetAssessmentId = assessment?._id || assessment?.id || id;
+        const result = await submitAttemptSession(
+          targetAssessmentId,
+>>>>>>> Stashed changes
           attemptId,
           responses,
           elapsedSeconds,
@@ -269,24 +273,38 @@ export default function AssessmentAttemptPage() {
         );
 
         if (document.fullscreenElement) {
+<<<<<<< Updated upstream
           document.exitFullscreen().catch(() => {});
+=======
+          document.exitFullscreen().catch(() => { });
+>>>>>>> Stashed changes
         }
 
         if (typeof window !== "undefined" && window.sessionStorage) {
           window.sessionStorage.removeItem(`aifinity_active_attempt_${id}`);
+<<<<<<< Updated upstream
+=======
+          if (targetAssessmentId !== id) {
+            window.sessionStorage.removeItem(`aifinity_active_attempt_${targetAssessmentId}`);
+          }
+>>>>>>> Stashed changes
         }
 
         setResultData(result);
         setCompleted(true);
       } catch (err) {
         console.error("[Submit] Assessment submission failed:", err);
+<<<<<<< Updated upstream
         // Always reset submitting state so user can retry
         setIsSubmitting(false);
+=======
+        alert(err.message || "Assessment submission failed. Please try again.");
+>>>>>>> Stashed changes
       } finally {
         setIsSubmitting(false);
       }
     },
-    [isSubmitting, completed, violations, id, attemptId, responses, elapsedSeconds]
+    [isSubmitting, completed, violations, id, attemptId, responses, elapsedSeconds, assessment]
   );
 
   useEffect(() => {
@@ -353,7 +371,7 @@ export default function AssessmentAttemptPage() {
         e.preventDefault();
         try {
           navigator.clipboard?.writeText("");
-        } catch (_) {}
+        } catch (_) { }
         addViolation("Screenshot command (PrintScreen) intercepted");
       }
 
@@ -413,9 +431,9 @@ export default function AssessmentAttemptPage() {
   // Request Fullscreen
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      document.documentElement.requestFullscreen().catch(() => { });
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
     }
   };
 
@@ -501,11 +519,10 @@ export default function AssessmentAttemptPage() {
             {/* Header Section */}
             <div className="flex flex-col items-center gap-3">
               <div
-                className={`flex h-16 w-16 items-center justify-center rounded-full text-2xl shadow-sm ${
-                  autoSubmitted
-                    ? "bg-red-100 text-red-600 border border-red-200"
-                    : "bg-[#D1FAE5] text-[#059669] border border-[#A7F3D0]"
-                }`}
+                className={`flex h-16 w-16 items-center justify-center rounded-full text-2xl shadow-sm ${autoSubmitted
+                  ? "bg-red-100 text-red-600 border border-red-200"
+                  : "bg-[#D1FAE5] text-[#059669] border border-[#A7F3D0]"
+                  }`}
               >
                 {autoSubmitted ? (
                   "⚠️"
@@ -574,13 +591,12 @@ export default function AssessmentAttemptPage() {
                   </div>
                   {overallRating && (
                     <span
-                      className={`rounded-full px-3.5 py-1 text-xs font-bold border ${
-                        overallRating === "Excellent" || overallRating === "Good"
-                          ? "bg-[#D1FAE5] text-[#065F46] border-[#A7F3D0]"
-                          : overallRating === "Average"
+                      className={`rounded-full px-3.5 py-1 text-xs font-bold border ${overallRating === "Excellent" || overallRating === "Good"
+                        ? "bg-[#D1FAE5] text-[#065F46] border-[#A7F3D0]"
+                        : overallRating === "Average"
                           ? "bg-amber-100 text-amber-800 border-amber-200"
                           : "bg-rose-100 text-rose-800 border-rose-200"
-                      }`}
+                        }`}
                     >
                       {overallRating}
                     </span>
@@ -748,13 +764,12 @@ export default function AssessmentAttemptPage() {
           <div className="flex items-center gap-3 font-mono">
             {/* Warning Counter */}
             <span
-              className={`rounded-full px-2.5 py-1 font-bold ${
-                violations.length >= 2
-                  ? "bg-red-500/30 text-red-300 border border-red-400/40"
-                  : violations.length === 1
+              className={`rounded-full px-2.5 py-1 font-bold ${violations.length >= 2
+                ? "bg-red-500/30 text-red-300 border border-red-400/40"
+                : violations.length === 1
                   ? "bg-amber-500/30 text-amber-300 border border-amber-400/40"
                   : "bg-slate-800 text-slate-300 border border-slate-700"
-              }`}
+                }`}
             >
               Warnings: {violations.length}/{MAX_VIOLATIONS}
             </span>
@@ -786,153 +801,151 @@ export default function AssessmentAttemptPage() {
 
       {/* MAIN QUESTION SECTION */}
       <Section background="white" containerSize="wide" className="py-8">
-          <div className="grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(220px,260px)] xl:grid-cols-[minmax(0,1fr)_280px]">
-            <main className="min-w-0">
-              <div className="mb-6 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => goTo(current - 1)}
-                  disabled={current === 0}
-                  className="text-sm font-medium text-[var(--color-primary-600)] disabled:opacity-30"
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm font-medium text-[var(--color-text-muted)]">
-                  Question {current + 1} of {questions.length}
-                </span>
-              </div>
+        <div className="grid grid-cols-1 gap-6 md:gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(220px,260px)] xl:grid-cols-[minmax(0,1fr)_280px]">
+          <main className="min-w-0">
+            <div className="mb-6 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => goTo(current - 1)}
+                disabled={current === 0}
+                className="text-sm font-medium text-[var(--color-primary-600)] disabled:opacity-30"
+              >
+                ← Previous
+              </button>
+              <span className="text-sm font-medium text-[var(--color-text-muted)]">
+                Question {current + 1} of {questions.length}
+              </span>
+            </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary-600)]">
-                  {formatType(question.type)}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary-600)]">
+                {formatType(question.type)}
+              </span>
+              {question.difficulty && (
+                <span className="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                  {question.difficulty}
                 </span>
-                {question.difficulty && (
-                  <span className="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                    {question.difficulty}
-                  </span>
-                )}
-              </div>
+              )}
+            </div>
 
-              {question.context && (
-                <p className="mt-3 rounded-lg bg-[var(--color-surface-secondary)] px-4 py-3 text-sm leading-relaxed text-[var(--color-text-muted)]">
-                  {question.context}
+            {question.context && (
+              <p className="mt-3 rounded-lg bg-[var(--color-surface-secondary)] px-4 py-3 text-sm leading-relaxed text-[var(--color-text-muted)]">
+                {question.context}
+              </p>
+            )}
+
+            <h1 className="mt-2 text-2xl font-bold leading-snug tracking-tight text-[var(--color-text-h)] sm:text-3xl">
+              {question.question}
+            </h1>
+
+            <QuestionBody
+              question={question}
+              response={responses[question.id]}
+              onAnswer={setAnswer}
+            />
+
+            {/* Confidence level */}
+            {responses[question.id] !== undefined && responses[question.id] !== "" && (
+              <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-4">
+                <p className="mb-3 text-sm font-medium text-[var(--color-text-h)]">
+                  How confident are you?
                 </p>
-              )}
-
-              <h1 className="mt-2 text-2xl font-bold leading-snug tracking-tight text-[var(--color-text-h)] sm:text-3xl">
-                {question.question}
-              </h1>
-
-              <QuestionBody
-                question={question}
-                response={responses[question.id]}
-                onAnswer={setAnswer}
-              />
-
-              {/* Confidence level */}
-              {responses[question.id] !== undefined && responses[question.id] !== "" && (
-                <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-secondary)] p-4">
-                  <p className="mb-3 text-sm font-medium text-[var(--color-text-h)]">
-                    How confident are you?
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {CONFIDENCE_OPTIONS.map((level) => (
-                      <button
-                        key={level}
-                        type="button"
-                        onClick={() => setQuestionConfidence(level)}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                          confidence[question.id] === level
-                            ? "border-[var(--color-primary-600)] bg-[var(--color-primary-600)] text-white"
-                            : "border-[var(--color-border)] bg-white text-[var(--color-text-muted)] hover:border-[var(--color-primary-300)]"
+                <div className="flex flex-wrap gap-2">
+                  {CONFIDENCE_OPTIONS.map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setQuestionConfidence(level)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${confidence[question.id] === level
+                        ? "border-[var(--color-primary-600)] bg-[var(--color-primary-600)] text-white"
+                        : "border-[var(--color-border)] bg-white text-[var(--color-text-muted)] hover:border-[var(--color-primary-300)]"
                         }`}
-                      >
-                        {level}
-                      </button>
-                    ))}
-                  </div>
+                    >
+                      {level}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Bottom nav */}
-              <div className="mt-10 flex items-center justify-between border-t border-[var(--color-border)] pt-6">
-                <Button
-                  variant="outline"
-                  onClick={() => goTo(current - 1)}
-                  disabled={current === 0}
-                >
-                  Previous
+            {/* Bottom nav */}
+            <div className="mt-10 flex items-center justify-between border-t border-[var(--color-border)] pt-6">
+              <Button
+                variant="outline"
+                onClick={() => goTo(current - 1)}
+                disabled={current === 0}
+              >
+                Previous
+              </Button>
+
+              {current === questions.length - 1 ? (
+                <Button onClick={() => handleFinalSubmit()} disabled={isSubmitting}>
+                  {isSubmitting ? "Evaluating..." : "Submit Assessment"}
                 </Button>
+              ) : (
+                <Button onClick={() => goTo(current + 1)}>Next</Button>
+              )}
+            </div>
+          </main>
 
-                {current === questions.length - 1 ? (
-                  <Button onClick={() => handleFinalSubmit()} disabled={isSubmitting}>
-                    {isSubmitting ? "Evaluating..." : "Submit Assessment"}
-                  </Button>
-                ) : (
-                  <Button onClick={() => goTo(current + 1)}>Next</Button>
-                )}
+          {/* Side panel */}
+          <aside className="min-w-0 w-full lg:sticky lg:top-8 lg:self-start">
+            <div className="w-full rounded-xl border border-[var(--color-border)] p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-[var(--color-text-h)]">
+                  Time Elapsed
+                </span>
+                <span className="font-mono text-sm font-semibold text-[var(--color-primary-600)]">
+                  {formatTime(elapsedSeconds)}
+                </span>
               </div>
-            </main>
 
-            {/* Side panel */}
-            <aside className="min-w-0 w-full lg:sticky lg:top-8 lg:self-start">
-              <div className="w-full rounded-xl border border-[var(--color-border)] p-4 sm:p-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-[var(--color-text-h)]">
-                    Time Elapsed
-                  </span>
-                  <span className="font-mono text-sm font-semibold text-[var(--color-primary-600)]">
-                    {formatTime(elapsedSeconds)}
+              <div className="mt-4">
+                <div className="mb-1.5 flex items-center justify-between text-xs text-[var(--color-text-muted)]">
+                  <span>Progress</span>
+                  <span>
+                    {answeredCount}/{questions.length}
                   </span>
                 </div>
-
-                <div className="mt-4">
-                  <div className="mb-1.5 flex items-center justify-between text-xs text-[var(--color-text-muted)]">
-                    <span>Progress</span>
-                    <span>
-                      {answeredCount}/{questions.length}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-surface-secondary)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--color-primary-600)] transition-all duration-300"
-                      style={{ width: `${(answeredCount / (questions.length || 1)) * 100}%` }}
-                    />
-                  </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-surface-secondary)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--color-primary-600)] transition-all duration-300"
+                    style={{ width: `${(answeredCount / (questions.length || 1)) * 100}%` }}
+                  />
                 </div>
+              </div>
 
-                <div className="mt-5 grid grid-cols-5 gap-2">
-                  {questions.map((q, index) => {
-                    const answered = responses[q.id] !== undefined && responses[q.id] !== "";
-                    const isCurrent = index === current;
-                    return (
-                      <button
-                        key={q.id}
-                        type="button"
-                        onClick={() => goTo(index)}
-                        className={`flex h-9 w-9 items-center justify-center rounded-md text-xs font-semibold transition-colors ${
-                          isCurrent
-                            ? "bg-[var(--color-primary-600)] text-white"
-                            : answered
-                            ? "bg-[var(--color-primary-50)] text-[var(--color-primary-600)] border border-[var(--color-primary-100)]"
-                            : "bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)] border border-[var(--color-border)]"
+              <div className="mt-5 grid grid-cols-5 gap-2">
+                {questions.map((q, index) => {
+                  const answered = responses[q.id] !== undefined && responses[q.id] !== "";
+                  const isCurrent = index === current;
+                  return (
+                    <button
+                      key={q.id}
+                      type="button"
+                      onClick={() => goTo(index)}
+                      className={`flex h-9 w-9 items-center justify-center rounded-md text-xs font-semibold transition-colors ${isCurrent
+                        ? "bg-[var(--color-primary-600)] text-white"
+                        : answered
+                          ? "bg-[var(--color-primary-50)] text-[var(--color-primary-600)] border border-[var(--color-primary-100)]"
+                          : "bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)] border border-[var(--color-border)]"
                         }`}
-                      >
-                        {index + 1}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-6 rounded-lg bg-slate-50 border border-slate-200 p-3 text-[11px] text-slate-600">
-                  <p className="font-bold text-slate-800 mb-1">🔒 Protection Rules</p>
-                  <p>• Do not switch tabs or minimize window.</p>
-                  <p>• Copying, screenshot shortcuts, & right click are disabled.</p>
-                  <p>• Exceeding 3 warnings causes automatic submission.</p>
-                </div>
+                    >
+                      {index + 1}
+                    </button>
+                  );
+                })}
               </div>
-            </aside>
-          </div>
+
+              <div className="mt-6 rounded-lg bg-slate-50 border border-slate-200 p-3 text-[11px] text-slate-600">
+                <p className="font-bold text-slate-800 mb-1">🔒 Protection Rules</p>
+                <p>• Do not switch tabs or minimize window.</p>
+                <p>• Copying, screenshot shortcuts, & right click are disabled.</p>
+                <p>• Exceeding 3 warnings causes automatic submission.</p>
+              </div>
+            </div>
+          </aside>
+        </div>
       </Section>
     </div>
   );

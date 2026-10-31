@@ -745,7 +745,10 @@ export default function AssessmentPage() {
   const handleCategorySelect = async (categoryName) => {
     setGeneratingCategory(categoryName);
     try {
-      const userField = profile?.field || "General";
+      const userField = (selectedField !== "All" ? selectedField : null) ||
+        (profile?.field && profile.field !== "General" ? profile.field : null) ||
+        (profile?.careerGoal && /social|politi|public/i.test(profile.careerGoal) ? "Political Science & Public Policy" : profile?.careerGoal) ||
+        "Political Science & Public Policy";
       const res = await assessmentApi.generateAI({
         field: userField,
         topic: categoryName,
@@ -768,7 +771,11 @@ export default function AssessmentPage() {
     if (assessment.isReadyToGenerate || assessment.id?.startsWith("ai_rec_")) {
       setGeneratingCardId(assessment.id);
       try {
-        const userField = profile?.field || assessment.field || "General";
+        const userField = (selectedField !== "All" ? selectedField : null) ||
+          assessment.field ||
+          (profile?.field && profile.field !== "General" ? profile.field : null) ||
+          (profile?.careerGoal && /social|politi|public/i.test(profile.careerGoal) ? "Political Science & Public Policy" : profile?.careerGoal) ||
+          "Political Science & Public Policy";
         const res = await assessmentApi.generateAI({
           field: userField,
           topic: assessment.category || assessment.title,

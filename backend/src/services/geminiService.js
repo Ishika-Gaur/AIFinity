@@ -16,7 +16,7 @@ const getGenAI = () => {
 // Candidate models tried in priority order
 const getCandidateModels = () => {
   const custom = process.env.GEMINI_MODEL;
-  const defaults = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest"];
+  const defaults = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest"];
   if (custom && !defaults.includes(custom)) {
     return [custom, ...defaults];
   }
@@ -57,19 +57,19 @@ const callAI = async (prompt, schema, isChat = false, history = []) => {
 
   const ai = getGenAI();
   const candidateModels = getCandidateModels();
-  
+
   let generationConfig = { responseMimeType: "application/json" };
   if (schema) {
     generationConfig.responseSchema = schema;
   } else {
-    generationConfig = {}; 
+    generationConfig = {};
   }
 
   let lastError = null;
   for (const modelName of candidateModels) {
     try {
       const model = ai.getGenerativeModel({ model: modelName, generationConfig });
-      
+
       if (isChat) {
         const chat = model.startChat({ history });
         const result = await chat.sendMessage(prompt);
@@ -102,13 +102,13 @@ const QUESTIONS_SCHEMA = {
       items: {
         type: SchemaType.OBJECT,
         properties: {
-          question:      { type: SchemaType.STRING },
-          options:       { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          question: { type: SchemaType.STRING },
+          options: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
           correctAnswer: { type: SchemaType.STRING },
-          explanation:   { type: SchemaType.STRING },
-          difficulty:    { type: SchemaType.STRING },
-          topic:         { type: SchemaType.STRING },
-          concept:       { type: SchemaType.STRING },
+          explanation: { type: SchemaType.STRING },
+          difficulty: { type: SchemaType.STRING },
+          topic: { type: SchemaType.STRING },
+          concept: { type: SchemaType.STRING },
         },
         required: ["question", "options", "correctAnswer", "explanation", "difficulty", "topic", "concept"],
       },
@@ -138,11 +138,11 @@ const EVALUATION_SCHEMA = {
       items: {
         type: SchemaType.OBJECT,
         properties: {
-          questionId:     { type: SchemaType.STRING },
-          aiScore:        { type: SchemaType.NUMBER },
-          aiFeedback:     { type: SchemaType.STRING },
+          questionId: { type: SchemaType.STRING },
+          aiScore: { type: SchemaType.NUMBER },
+          aiFeedback: { type: SchemaType.STRING },
           keyPointsMissed: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-          status:         { type: SchemaType.STRING, enum: ["correct", "partial", "incorrect"] },
+          status: { type: SchemaType.STRING, enum: ["correct", "partial", "incorrect"] },
         },
         required: ["questionId", "aiScore", "aiFeedback", "keyPointsMissed", "status"],
       },
@@ -346,13 +346,101 @@ const DASHBOARD_CONCEPT_ROOT_SCHEMA = {
  */
 export const generateCurriculumQuestions = (field = "General Knowledge", topic = "Fundamentals", difficulty = "Medium", count = 5) => {
   const isSchool = /class\s*\d+|10th|12th|school|cbse|icse/i.test(field + " " + topic);
-  const isSocialScience = /social\s*science|history|geography|civics|economics|polity/i.test(field + " " + topic);
+  const isSocialWorkOrPolitical = /social\s*work|social\s*worker|social\s*welfare|political|civics|public\s*policy|governance|community\s*advocacy|case\s*management/i.test(field + " " + topic);
+  const isSocialScience = !isSocialWorkOrPolitical && /social\s*science|history|geography|economics|polity/i.test(field + " " + topic);
   const isScience = /science|physics|chemistry|biology/i.test(field + " " + topic);
   const isMath = /math|algebra|geometry|calculus|arithmetic/i.test(field + " " + topic);
 
   let templateBank = [];
 
-  if (isSocialScience) {
+  if (isSocialWorkOrPolitical) {
+    templateBank = [
+      {
+        question: `In professional social work and public policy practice regarding ${topic}, what is the foundational ethical priority when working with vulnerable populations?`,
+        options: [
+          "Respecting client self-determination and upholding human rights and dignity",
+          "Making unilateral life decisions on behalf of clients without consultation",
+          "Prioritizing institutional administrative convenience over client welfare",
+          "Withholding community resource information until formal fees are cleared"
+        ],
+        correctAnswer: "Respecting client self-determination and upholding human rights and dignity",
+        explanation: "Social work ethics strictly mandate upholding individual dignity, human rights, and the client's right to self-determination within a safe and supportive framework.",
+        difficulty,
+        topic,
+        concept: "Social Work Ethics & Client Autonomy"
+      },
+      {
+        question: `When designing or evaluating an intervention framework for ${topic}, which model best ensures holistic understanding of an individual's challenges?`,
+        options: [
+          "Biopsychosocial assessment examining biological, psychological, and social dynamics",
+          "Purely economic assessment focused exclusively on personal income",
+          "Standardized punitive measure without evaluating underlying environmental stressors",
+          "Automated profiling that excludes direct interpersonal interviews"
+        ],
+        correctAnswer: "Biopsychosocial assessment examining biological, psychological, and social dynamics",
+        explanation: "The biopsychosocial model provides a comprehensive, multi-dimensional view of an individual's needs, environment, and support systems.",
+        difficulty,
+        topic,
+        concept: "Biopsychosocial Assessment"
+      },
+      {
+        question: `In community organizing and social policy advocacy surrounding ${topic}, what strategy is recognized as most effective for sustainable social change?`,
+        options: [
+          "Grassroots empowerment and participatory engagement with affected community members",
+          "Top-down directives implemented without local community dialogue or buy-in",
+          "Discontinuing communication channels between community leaders and public agencies",
+          "Restricting public awareness campaigns to prevent civic engagement"
+        ],
+        correctAnswer: "Grassroots empowerment and participatory engagement with affected community members",
+        explanation: "Sustainable community development relies on active civic participation, capacity building, and empowering local stakeholders to drive long-term progress.",
+        difficulty,
+        topic,
+        concept: "Community Organizing & Empowerment"
+      },
+      {
+        question: `Under standard crisis intervention protocols relevant to ${topic}, what is the immediate primary objective during an emergency intake?`,
+        options: [
+          "Ensuring physical and psychological safety through rapid risk assessment and de-escalation",
+          "Conducting an exhaustive historical inquiry into multi-generational ancestry",
+          "Administering a comprehensive 100-page academic aptitude test",
+          "Issuing definitive long-term career placement recommendations immediately"
+        ],
+        correctAnswer: "Ensuring physical and psychological safety through rapid risk assessment and de-escalation",
+        explanation: "Crisis intervention prioritizes immediate physical safety, psychological stabilization, and assessing acute risk before any long-term planning.",
+        difficulty,
+        topic,
+        concept: "Crisis De-escalation & Safety Planning"
+      },
+      {
+        question: `In public administration and social policy analysis for ${topic}, how do policymakers evaluate whether a social welfare program is achieving equitable outcomes?`,
+        options: [
+          "By analyzing measurable community indicators, accessibility barriers, and disproportionate impact on marginalized groups",
+          "By solely reviewing marketing brochures and press releases released by administrators",
+          "By assuming universal satisfaction without collecting beneficiary feedback",
+          "By restricting program services to high-density commercial centers only"
+        ],
+        correctAnswer: "By analyzing measurable community indicators, accessibility barriers, and disproportionate impact on marginalized groups",
+        explanation: "Rigorous policy evaluation demands analyzing empirical equity metrics, access obstacles, and direct outcomes for underserved communities.",
+        difficulty,
+        topic,
+        concept: "Social Welfare Policy Evaluation"
+      },
+      {
+        question: `Regarding confidentiality in social work and legal advocacy around ${topic}, under which condition is a practitioner legally and ethically obligated to breach confidentiality?`,
+        options: [
+          "When there is credible, imminent risk of serious physical harm to the client or identifiable others (duty to warn/protect)",
+          "Whenever a supervisor asks for gossip about personal client stories",
+          "If the client expresses a controversial political opinion during counseling",
+          "Whenever a local business requests client contact information for marketing"
+        ],
+        correctAnswer: "When there is credible, imminent risk of serious physical harm to the client or identifiable others (duty to warn/protect)",
+        explanation: "Confidentiality is protected except where mandatory reporting laws apply, specifically imminent danger to self or others, or suspected child/elder abuse.",
+        difficulty,
+        topic,
+        concept: "Confidentiality & Mandatory Reporting"
+      }
+    ];
+  } else if (isSocialScience) {
     templateBank = [
       {
         question: `In the study of ${topic}, which factor played the most decisive role in shaping key historical and socio-economic outcomes?`,
@@ -581,7 +669,7 @@ Guidelines:
 3. Provide exactly 4 clear options for each question.
 4. Make sure the correctAnswer is an exact string match with one of the options.
 5. Include a concise, illuminating explanation for why that answer is correct.
-6. Set difficulty to "${difficulty}", topic to "${topic}", and identify the specific granular concept or skill being tested (e.g. "Frequency Map", "Binary Search", "Power Sharing", "Two Pointer") in "concept".`;
+6. Set difficulty to "${difficulty}", topic to "${topic}", and identify the specific granular concept or skill being tested (e.g. "Frequency Map", "Binary Search", "Power Sharing", "Two Pointer") in "concept".${exclusionInstruction}`;
 
   try {
     const res = await callAI(prompt, QUESTIONS_SCHEMA);
@@ -700,12 +788,12 @@ const SKILL_GAP_SCHEMA = {
 
 
 export const analyzeSkillGapWithAI = async (careerGoal, attempts, conceptRoots) => {
-  const attemptSummaries = attempts.slice(0, 10).map(a => 
+  const attemptSummaries = attempts.slice(0, 10).map(a =>
     'Assessment: ' + a.assessmentTitle + ', Score: ' + a.scorePercent + '%. ' +
     'Mistakes: ' + (a.questionResults || []).filter(q => q.status === 'incorrect').map(q => q.concept).join(', ')
   ).join('\n');
-  
-  const rootSummaries = conceptRoots.map(c => 
+
+  const rootSummaries = conceptRoots.map(c =>
     'Concept Root Analysis: ' + (c.analysis?.primaryRootCause?.concept || '') + ' - ' + (c.analysis?.primaryRootCause?.explanation || '')
   ).join('\n');
 
