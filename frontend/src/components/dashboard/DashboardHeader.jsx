@@ -1,18 +1,24 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useStudentAuth } from "../../context/StudentAuthContext";
 
 import { LogOut } from 'lucide-react';
+import LogoutConfirmDialog from "../LogoutConfirmDialog";
 import DashboardLogo from "./DashboardLogo";
 
 export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
   const navigate = useNavigate();
   const { user: sessionUser, logout } = useStudentAuth();
   const currentUser = sessionUser;
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const handleLogout = async () => {
-    await logout();
-    navigate("/login");
+    try {
+      await logout();
+      navigate("/login");
+    } finally {
+      setLogoutDialogOpen(false);
+    }
   };
 
   const dynamicName = currentUser?.name?.trim() || (user?.name && user.name.trim() !== "Learner" ? user.name.trim() : "");
@@ -54,7 +60,7 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
 
       {/* Logout Button in Top-Right Corner */}
       <button
-        onClick={handleLogout}
+        onClick={() => setLogoutDialogOpen(true)}
         type="button"
         title="Sign out of your account"
         className="absolute top-4 right-4 sm:top-6 sm:right-8 z-10 inline-flex items-center gap-2 rounded-xl border border-[#2E4F42]/15 bg-white/80 backdrop-blur-xs px-3.5 py-1.5 text-xs font-semibold text-[#1B332C] shadow-xs hover:border-[#C4952A]/60 hover:bg-[#EDE6D3] hover:text-[#1B332C] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#C4952A]/40 transition-all duration-200 cursor-pointer"
@@ -132,6 +138,12 @@ export default function DashboardHeader({ user, quotes = [], onOpenProfile }) {
           </div>
         </div>
       </div>
+      <LogoutConfirmDialog
+        isOpen={logoutDialogOpen}
+        onCancel={() => setLogoutDialogOpen(false)}
+        onConfirm={handleLogout}
+        isLoggingOut={false}
+      />
     </div>
   );
 }

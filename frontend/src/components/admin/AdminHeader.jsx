@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useAdminAuth } from "../../context/AdminAuthContext";
 import { useAdminNotifications } from "../../context/AdminNotificationContext";
+import LogoutConfirmDialog from "../LogoutConfirmDialog";
 
 function formatTimeAgo(dateString) {
   if (!dateString) return "";
@@ -32,6 +33,7 @@ export default function AdminHeader({ onOpenSidebar }) {
   } = useAdminNotifications();
 
   const [showNotifications, setShowNotifications] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   // Close notifications dropdown on click outside
@@ -51,6 +53,7 @@ export default function AdminHeader({ onOpenSidebar }) {
 
   const handleLogout = async () => {
     const res = await logout();
+    setLogoutDialogOpen(false);
     if (res?.success) {
       navigate("/admin/login");
     }
@@ -92,6 +95,7 @@ export default function AdminHeader({ onOpenSidebar }) {
   };
 
   return (
+    <>
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur-md sm:px-6 lg:px-8">
       {/* Left: Mobile Toggle & Page Title */}
       <div className="flex items-center gap-3">
@@ -292,7 +296,7 @@ export default function AdminHeader({ onOpenSidebar }) {
           </div>
 
           <button
-            onClick={handleLogout}
+            onClick={() => setLogoutDialogOpen(true)}
             disabled={isLoggingOut}
             title="Sign Out of Admin Console"
             className="ml-2 flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 transition-all disabled:opacity-60 disabled:pointer-events-none"
@@ -314,5 +318,13 @@ export default function AdminHeader({ onOpenSidebar }) {
         </div>
       </div>
     </header>
+
+      <LogoutConfirmDialog
+        isOpen={logoutDialogOpen}
+        onCancel={() => setLogoutDialogOpen(false)}
+        onConfirm={handleLogout}
+        isLoggingOut={isLoggingOut}
+      />
+    </>
   );
 }

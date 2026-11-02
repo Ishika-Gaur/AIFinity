@@ -1,7 +1,9 @@
+﻿import { useState } from "react";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../../context/AdminAuthContext";
 import { useAdminNotifications } from "../../context/AdminNotificationContext";
 import logoImg from "../../assets/logo.svg";
+import LogoutConfirmDialog from "../LogoutConfirmDialog";
 
 const ADMIN_NAV = [
   {
@@ -83,6 +85,16 @@ export default function AdminSidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
   const { logout, isLoggingOut } = useAdminAuth();
   const { unreadCount } = useAdminNotifications();
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+
+  const handleLogout = async () => {
+    const res = await logout();
+    setLogoutDialogOpen(false);
+    if (res?.success) {
+      onClose();
+      navigate("/admin/login");
+    }
+  };
 
   return (
     <>
@@ -177,13 +189,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
         {/* Footer Links & Logout */}
         <div className="border-t border-slate-800 p-4 space-y-2">
           <button
-            onClick={async () => {
-              const res = await logout();
-              if (res?.success) {
-                onClose();
-                navigate("/admin/login");
-              }
-            }}
+            onClick={() => setLogoutDialogOpen(true)}
             disabled={isLoggingOut}
             className="flex w-full items-center justify-between rounded-xl border border-slate-800 bg-slate-900/80 px-3.5 py-2.5 text-xs font-semibold text-slate-400 transition-all hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-300 disabled:opacity-60 disabled:pointer-events-none"
           >
@@ -213,6 +219,12 @@ export default function AdminSidebar({ isOpen, onClose }) {
           </Link>
         </div>
       </aside>
+      <LogoutConfirmDialog
+        isOpen={logoutDialogOpen}
+        onCancel={() => setLogoutDialogOpen(false)}
+        onConfirm={handleLogout}
+        isLoggingOut={isLoggingOut}
+      />
     </>
   );
 }

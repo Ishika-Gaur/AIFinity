@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import Button from "../components/Button";
 import logo from "../assets/logo.svg";
 import { useStudentAuth } from "../context/StudentAuthContext";
+import LogoutConfirmDialog from "../components/LogoutConfirmDialog";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -34,6 +35,7 @@ function BrandLogo() {
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
@@ -41,9 +43,16 @@ export default function Navbar() {
   const { user, loading: authLoading, logout } = useStudentAuth();
 
   const handleLogout = async () => {
-    await logout();
-    navigate("/login");
+    try {
+      await logout();
+      navigate("/login");
+    } finally {
+      setLogoutDialogOpen(false);
+    }
   };
+
+  const openLogoutDialog = () => setLogoutDialogOpen(true);
+  const closeLogoutDialog = () => setLogoutDialogOpen(false);
 
   const getInitials = (name) => {
     if (!name) return "U";
@@ -138,7 +147,7 @@ export default function Navbar() {
                 <span>⚡ Take Assessment</span>
               </Link>
               <Button
-                onClick={handleLogout}
+                onClick={openLogoutDialog}
                 size="sm"
                 className="shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 shrink-0"
               >
@@ -251,7 +260,7 @@ export default function Navbar() {
                   <Button 
                     onClick={() => {
                       setOpen(false);
-                      handleLogout();
+                      openLogoutDialog();
                     }} 
                     size="md" 
                     className="w-full"
@@ -277,6 +286,12 @@ export default function Navbar() {
           </ul>
         </div>
       )}
+      <LogoutConfirmDialog
+        isOpen={logoutDialogOpen}
+        onCancel={closeLogoutDialog}
+        onConfirm={handleLogout}
+        isLoggingOut={false}
+      />
     </header>
   );
 }
