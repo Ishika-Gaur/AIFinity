@@ -99,7 +99,7 @@ export default function CourseSelection() {
         backgroundSize: "24px 24px, 24px 24px, 120px 120px, 120px 120px",
       }}
     >
-      <Section className="pt-10 pb-16">
+      <Section className="pt-10 pb-16" reveal={false}>
         <Container>
           {/* Header & Hero */}
           <div className="mx-auto max-w-3xl text-center mb-10">
