@@ -60,7 +60,7 @@ const CHALLENGE_SOLUTIONS = [
 
 export default function Home() {
   const [activeObsTab, setActiveObsTab] = useState(OBSERVATORY_TABS[0]);
-  const { user: sessionUser } = useStudentAuth();
+  const { user: sessionUser, loading: authLoading } = useStudentAuth();
   const [userData, setUserData] = useState(sessionUser);
   const [dashboardData, setDashboardData] = useState(null);
 
@@ -98,14 +98,22 @@ export default function Home() {
         title="Know exactly what to"
         highlightWord="learn next"
         description="Find your weak concepts, see your skill gap, and follow an end-to-end roadmap built around your own mistakes — not a generic syllabus."
-        primaryCta={{
-          label: userData ? "⚡ Take Assessment" : "Start Free Assessment",
-          href: "/assessment",
-        }}
-        secondaryCta={{
-          label: userData ? "View Dashboard" : "Explore Roadmap",
-          href: userData ? "/dashboard" : "/roadmap",
-        }}
+        primaryCta={
+          authLoading
+            ? null
+            : {
+                label: sessionUser ? "⚡ Take Assessment" : "Start Free Assessment",
+                href: "/assessment",
+              }
+        }
+        secondaryCta={
+          authLoading
+            ? null
+            : {
+                label: sessionUser ? "View Dashboard" : "Explore Roadmap",
+                href: sessionUser ? "/dashboard" : "/roadmap",
+              }
+        }
       />
 
       {/* =========================================================

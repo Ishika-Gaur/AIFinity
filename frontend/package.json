@@ -32,5 +32,8 @@
     "oxlint": "^1.75.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.2.0"
+  },
+  "allowScripts": {
+    "puppeteer@25.12.0": true
   }
 }
